@@ -35,6 +35,7 @@ if [ -x "$(command -v eza)" ]; then
     alias ls="eza --icons --classify"
     alias ll="eza -1l --icons --classify --git"
     alias la="eza -1la --icons --classify --git"
+    alias lt="eza -1la --icons --classify --git --tree --level=3"
 fi
 
 alias vi="NVIM_APPNAME=lazyvim nvim"
@@ -51,7 +52,7 @@ alias prune="docker system prune --volumes -f"
 alias dc="docker compose"
 alias build='./build.sh'
 alias start='./start.sh'
-alias stop='./start.sh'
+alias stop='./stop.sh'
 alias test-api='./run_api_tests.sh'
 alias test-admin='./run_admin_tests.sh'
 alias test-control-panel='./run_admin_tests.sh'

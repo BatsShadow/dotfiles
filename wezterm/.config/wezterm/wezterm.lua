@@ -95,7 +95,6 @@ config.keys = {
   {
     key = 'k',
     mods = 'CMD',
-    -- action = wezterm.action.ClearScrollback 'ScrollbackAndViewport',
     action = wezterm.action_callback(function(win, pane)
       local proc = basename(pane:get_foreground_process_name())
       if proc ~= 'tmux' then
@@ -107,6 +106,25 @@ config.keys = {
         wezterm.action.Multiple({
           wezterm.action.SendKey({ key = ' ', mods = 'CTRL' }),
           wezterm.action.SendKey({ key = 'k', mods = 'CTRL' }),
+        }),
+        pane
+      )
+    end),
+  },
+  -- Bind cmd-T to tumx Create Window (no more Wezterm tabs)
+  {
+    key = 't',
+    mods = 'CMD',
+    action = wezterm.action_callback(function(win, pane)
+      local proc = basename(pane:get_foreground_process_name())
+      if proc ~= 'tmux' then
+        return
+      end
+
+      win:perform_action(
+        wezterm.action.Multiple({
+          wezterm.action.SendKey({ key = ' ', mods = 'CTRL' }),
+          wezterm.action.SendKey({ key = 'c' }),
         }),
         pane
       )
