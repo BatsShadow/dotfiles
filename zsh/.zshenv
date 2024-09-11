@@ -17,6 +17,7 @@ export PATH=$HOME/bin:$ANDROID_HOME/platform-tools:$HOME/.node/bin:$PATH
 
 export PYTHONDONTWRITEBYTECODE=1
 
+export PATH="/usr/local/bin:$PATH"
 export PATH="/usr/local/sbin:$PATH"
 export PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH"
 export PATH="/Applications/WebStorm.app/Contents/MacOS:$PATH"
