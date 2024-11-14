@@ -116,7 +116,7 @@
     theirs = "!f() { git co --theirs $@ && git add $@; }; f"
 
     # Force-push the current branch to a same-named branch on origin
-    push-feature = "!git push -u origin +HEAD"
+    push-feature = "!git push -u origin +HEAD; git l1c"
 
     # Create a new feature branch based on the latest
     # Must provide the branch name as the first command line parameter
