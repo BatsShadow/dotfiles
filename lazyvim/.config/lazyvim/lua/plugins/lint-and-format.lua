@@ -32,12 +32,6 @@ return {
         }
       end,
 
-      yamlls = function(_, opts)
-        opts.settings = {
-          yaml = { format = { enable = false } },
-        }
-      end,
-
       eslint = function(_, opts)
         opts.filetypes = {
           "html",
