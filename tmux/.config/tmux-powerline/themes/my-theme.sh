@@ -10,12 +10,14 @@
 # thm_bg="#303446"
 
 # background for macchiato catppuccin terminal theme
-thm_bg="#24273A"
+# thm_bg="#24273A"
 #thm_bg="#303446"
+thm_bg="#111111"
 
 thm_fg="#c6d0f5"
 thm_cyan="#99d1db"
 thm_black="#292c3c"
+thm_black="#111111"
 thm_gray="#414559"
 thm_magenta="#ca9ee6"
 thm_pink="#f4b8e4"
@@ -45,6 +47,7 @@ surface2="#626880"
 surface1="#51576d"
 surface0="#414559"
 base="#303446"
+base="#111111"
 mantle="#292c3c"
 crust="#232634"
 eggplant="#e889d2"
@@ -59,7 +62,8 @@ TMUX_POWERLINE_SEPARATOR_RIGHT_THIN=""
 TMUX_POWERLINE_SEPARATOR_THIN="|"
 
 # See Color formatting section below for details on what colors can be used here.
-TMUX_POWERLINE_DEFAULT_BACKGROUND_COLOR=${TMUX_POWERLINE_DEFAULT_BACKGROUND_COLOR:-$thm_bg}
+#TMUX_POWERLINE_DEFAULT_BACKGROUND_COLOR=${TMUX_POWERLINE_DEFAULT_BACKGROUND_COLOR:-$thm_bg}
+TMUX_POWERLINE_DEFAULT_BACKGROUND_COLOR=${thm_bg}
 TMUX_POWERLINE_DEFAULT_FOREGROUND_COLOR=${TMUX_POWERLINE_DEFAULT_FOREGROUND_COLOR:-$thm_fg}
 TMUX_POWERLINE_SEG_AIR_COLOR=$(air_color)
 

@@ -145,7 +145,8 @@ config.keys = {
 
 -- For example, changing the color scheme:
 -- config.color_scheme = "3024 (dark) (terminal.sexy)"
-config.color_scheme = 'catppuccin-mocha'
+-- config.color_scheme = 'catppuccin-mocha'
+config.color_scheme = 'Tokyo Night'
 
 config.initial_rows = 60
 config.initial_cols = 176
@@ -154,12 +155,20 @@ config.font = wezterm.font({ family = 'SauceCodePro Nerd Font Mono' })
 config.font_size = 14
 config.line_height = 1.15
 
-config.window_background_opacity = 0.92
-config.macos_window_background_blur = 40
+config.window_background_opacity = 0.97
+config.macos_window_background_blur = 30
 config.window_decorations = 'INTEGRATED_BUTTONS|RESIZE'
 config.use_fancy_tab_bar = false
 config.integrated_title_button_style = 'Windows'
 config.hide_tab_bar_if_only_one_tab = true
+
+config.window_padding = {
+  left = 16,
+  right = 16,
+  top = 0,
+  bottom = 0,
+}
+
 config.colors = {
   tab_bar = {
     -- The color of the strip that goes along the top of the window

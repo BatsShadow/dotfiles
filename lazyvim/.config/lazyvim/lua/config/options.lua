@@ -13,3 +13,6 @@ vim.g.minipairs_disable = true
 -- Without this, opening different files in mono-repo locks the Find Files dir to
 -- Something like the nearest package.json or tsconfig or something
 vim.g.root_spec = { "cwd" }
+
+-- Restore use of Telescope for find files
+vim.g.lazyvim_picker = "telescope"

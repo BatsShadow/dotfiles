@@ -18,15 +18,27 @@ return {
     enabled = false,
   },
   {
-    "catppuccin/nvim",
+    "tiagovla/tokyodark.nvim",
     lazy = false,
-    name = "catppuccin",
     priority = 1000,
     opts = {
-      flavour = "mocha",
       transparent_background = true,
     },
+    config = function(_, opts)
+      require("tokyodark").setup(opts) -- calling setup is optional
+      vim.cmd([[colorscheme tokyodark]])
+    end,
   },
+  -- {
+  --   "catppuccin/nvim",
+  --   lazy = false,
+  --   name = "catppuccin",
+  --   priority = 1000,
+  --   opts = {
+  --     flavour = "mocha",
+  --     transparent_background = true,
+  --   },
+  -- },
   {
     "LazyVim/LazyVim",
     opts = {
