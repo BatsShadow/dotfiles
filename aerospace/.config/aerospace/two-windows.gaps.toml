@@ -1,4 +1,5 @@
 
+# WINDOW-MODE-2
 # Gaps between windows (inner-*) and between monitor edges (outer-*).
 # Possible values:
 # - Constant:     gaps.outer.top = 8

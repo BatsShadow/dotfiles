@@ -50,47 +50,118 @@ alt-shift-minus = 'resize smart -50'
 alt-shift-equal = 'resize smart +50'
 
 alt-u = 'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh'
-alt-1 = [
-  'layout accordion horizontal horizontal',
-  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh 1',
-]
-alt-2 = [
-  'layout tiles horizontal horizontal',
-  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh 2',
-]
-alt-3 = [
-  'layout tiles horizontal horizontal',
-  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh 3',
-]
+alt-1 = 'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh 1'
+alt-2 = 'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh 2'
+alt-3 = 'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh 3'
 
-# See: https://nikitabobko.github.io/AeroSpace/commands#workspace
-alt-4 = 'workspace 4'
-alt-5 = 'workspace 5'
-alt-6 = 'workspace 6'
-alt-7 = 'workspace 7'
-alt-8 = 'workspace 8'
-alt-9 = 'workspace 9'
-alt-a = 'workspace A' # In your config, you can drop workspace bindings that you don't need
-alt-b = 'workspace B'
-alt-c = 'workspace C'
-alt-d = 'workspace D'
-alt-e = 'workspace E'
-alt-f = 'workspace F'
-alt-g = 'workspace G'
-alt-i = 'workspace I'
-alt-m = 'workspace M'
-alt-n = 'workspace N'
-alt-o = 'workspace O'
-alt-p = 'workspace P'
-alt-q = 'workspace Q'
-alt-r = 'workspace R'
-alt-s = 'workspace S'
-alt-t = 'workspace T'
-alt-v = 'workspace V'
-alt-w = 'workspace W'
-alt-x = 'workspace X'
-alt-y = 'workspace Y'
-alt-z = 'workspace Z'
+alt-4 = [
+  'workspace 4',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-5 = [
+  'workspace 5',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-6 = [
+  'workspace 6',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-7 = [
+  'workspace 7',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-8 = [
+  'workspace 8',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-9 = [
+  'workspace 9',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-a = [
+  'workspace A',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-b = [
+  'workspace B',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-c = [
+  'workspace C',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-d = [
+  'workspace D',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-e = [
+  'workspace E',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-f = [
+  'workspace F',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-g = [
+  'workspace G',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-i = [
+  'workspace I',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-m = [
+  'workspace M',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-n = [
+  'workspace N',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-o = [
+  'workspace O',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-p = [
+  'workspace P',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-q = [
+  'workspace Q',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-r = [
+  'workspace R',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-s = [
+  'workspace S',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-t = [
+  'workspace T',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-v = [
+  'workspace V',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-w = [
+  'workspace W',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-x = [
+  'workspace X',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-y = [
+  'workspace Y',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
+alt-z = [
+  'workspace Z',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#move-node-to-workspace
 alt-shift-4 = 'move-node-to-workspace 4'
