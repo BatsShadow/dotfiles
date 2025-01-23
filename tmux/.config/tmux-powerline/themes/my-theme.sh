@@ -12,7 +12,7 @@
 # background for macchiato catppuccin terminal theme
 # thm_bg="#24273A"
 #thm_bg="#303446"
-thm_bg="#111111"
+thm_bg="#181818"
 
 thm_fg="#c6d0f5"
 thm_cyan="#99d1db"
@@ -79,9 +79,9 @@ if [ -z "$TMUX_POWERLINE_WINDOW_STATUS_CURRENT" ]; then
     "#[$(format regular)]"
     "$TMUX_POWERLINE_DEFAULT_RIGHTSIDE_SEPARATOR"
     "#[$(format inverse)]"
-    " #I#F"
-    "$TMUX_POWERLINE_SEPARATOR_THIN"
-    " #W "
+    "#I#F"
+    # "$TMUX_POWERLINE_SEPARATOR_RIGHT_THIN"
+    " #W"
     "#[$(format regular)]"
     "$TMUX_POWERLINE_DEFAULT_LEFTSIDE_SEPARATOR"
   )
@@ -98,8 +98,8 @@ fi
 if [ -z "$TMUX_POWERLINE_WINDOW_STATUS_FORMAT" ]; then
   TMUX_POWERLINE_WINDOW_STATUS_FORMAT=(
     "#[$(format regular)]"
-    "  #I#{?window_flags,#F, }"
-    "$TMUX_POWERLINE_SEPARATOR_THIN"
+    " #I#{?window_flags,#F, }"
+    #"$TMUX_POWERLINE_SEPARATOR_THIN"
     " #W "
   )
 fi
@@ -141,7 +141,7 @@ if [ -z "$TMUX_POWERLINE_LEFT_STATUS_SEGMENTS" ]; then
     #"ifstat 30 255"
     #"ifstat_sys 30 255"
     #"lan_ip $sky_blue $thm_bg ${TMUX_POWERLINE_SEPARATOR_RIGHT_THIN}"
-    "wan_ip $blue $thm_bg"
+    #"wan_ip $blue $thm_bg"
     #"vcs_branch $thm_gray"
     #"air ${TMUX_POWERLINE_SEG_AIR_COLOR} $thm_bg"
     #"vcs_compare 60 255"
@@ -170,6 +170,7 @@ if [ -z "$TMUX_POWERLINE_RIGHT_STATUS_SEGMENTS" ]; then
     #"date $teal $thm_bg ${TMUX_POWERLINE_SEPARATOR_LEFT_THIN}"
     #"time $teal $thm_bg ${TMUX_POWERLINE_SEPARATOR_LEFT_THIN}"
     #"utc_time 235 136 ${TMUX_POWERLINE_SEPARATOR_LEFT_THIN}"
-    "utc_time $sky_blue $thm_bg"
+    "utc_time $blue $thm_bg"
+    "wan_ip $sky_blue $thm_bg"
   )
 fi
