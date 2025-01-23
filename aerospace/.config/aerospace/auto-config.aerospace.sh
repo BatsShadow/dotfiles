@@ -12,7 +12,7 @@ if [[ "$CURRENT_MONITOR" -ne "$XDR_ID" ]]; then
   exit 0
 fi
 
-CURRENT_WORKSPACE=$(aerospace list-workspaces --focused)
+CURRENT_WORKSPACE=$(aerospace list-workspaces --visible --monitor $XDR_ID)
 SAVED_MODE=$(cat "$TOML_FILE" | grep "^$CURRENT_WORKSPACE = " | sed -e"s/^$CURRENT_WORKSPACE = //")
 MONITOR_COUNT=$(aerospace list-monitors --count)
 
@@ -60,7 +60,6 @@ cat globals.toml >aerospace.toml
 # // offset gaps for tiled windows
 cat "$GAPS" | perl -pe"s/850/$((850 - $GAP_ADJUSTMENT))/" >>aerospace.toml
 cat modes.toml >>aerospace.toml
-aerospace layout $LAYOUT horizontal
 aerospace reload-config
 
 # save mode for later
