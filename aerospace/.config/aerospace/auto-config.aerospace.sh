@@ -55,11 +55,18 @@ else
 fi
 
 cd "$SCRIPT_DIR" || false
+
 # write config file, then reload it
-cat globals.toml >aerospace.toml
+
+# write to a temp file, then move it to avoid issues
+# with aerospace reading a partial file
+TEMP_CONFIG=$(mktemp -t aerospace-config)
+cat globals.toml >"${TEMP_CONFIG}"
 # // offset gaps for tiled windows
-cat "$GAPS" | perl -pe"s/850/$((850 - $GAP_ADJUSTMENT))/" >>aerospace.toml
-cat modes.toml >>aerospace.toml
+cat "$GAPS" | perl -pe"s/850/$((850 - $GAP_ADJUSTMENT))/" >>"${TEMP_CONFIG}"
+cat modes.toml >>"${TEMP_CONFIG}"
+cp $TEMP_CONFIG aerospace.toml
+
 aerospace reload-config
 
 # save mode for later
