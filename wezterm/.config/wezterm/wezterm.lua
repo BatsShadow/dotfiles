@@ -165,7 +165,7 @@ config.hide_tab_bar_if_only_one_tab = true
 config.window_padding = {
   left = 16,
   right = 16,
-  top = 0,
+  top = 8,
   bottom = 0,
 }
 
