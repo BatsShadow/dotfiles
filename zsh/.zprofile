@@ -90,3 +90,6 @@ unset LESS;
 
 # Added by OrbStack: command-line tools and integration
 source ~/.orbstack/shell/init.zsh 2>/dev/null || :
+
+# bun completions
+[ -s "/Users/scott/.bun/_bun" ] && source "/Users/scott/.bun/_bun"

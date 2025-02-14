@@ -25,6 +25,10 @@ export PATH="/Applications/WebStorm.app/Contents/MacOS:$PATH"
 #export PATH="/Applications/VMware Fusion.app/Contents/Library/VMware OVF Tool:$PATH"
 #export PATH="/Users/scott/src/oss/flutter/bin:$PATH"
 
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
 export LIBRARY_PATH="$LIBRARY_PATH:$(brew --prefix)/lib"
 
 export CURL_PROXY=
