@@ -1,0 +1,13 @@
+prSections:
+  - title: Pull Requests
+    filters: is:open org:upngopay
+
+  - title: QA
+    filters: is:open org:upngopay label:QA-READY
+
+  - title: My Pull Requests
+    filters: is:open author:@me
+
+repoPaths:
+  upngopay/upngo-web: ~/src/upngo/upngo-web
+  upngopay/upngo-android: ~/src/upngo/upngo-android
