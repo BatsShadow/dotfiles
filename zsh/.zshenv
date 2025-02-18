@@ -71,5 +71,7 @@ export LSCOLORS=ExGxFxdaCxDaDahbadacec
 ZSH_TMUX_AUTOSTART=true
 ZSH_TMUX_DEFAULT_SESSION_NAME=default
 
+. "$HOME/dotfiles/zsh/private.env"
+
 # Do not share history between tmux panes / sessions
 setopt nosharehistory
