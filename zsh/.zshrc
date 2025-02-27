@@ -61,9 +61,9 @@ alias test-menu='./run_menu_tests.sh'
 alias test-ng-shared='./run_ng-shared_tests.sh'
 alias test-frontend='./run_ng-shared_tests.sh && ./run_admin_tests.sh && ./run_web_tests.sh && ./run_menu_tests.sh'
 alias tests='./stop.sh && ./run_api_tests.sh && ./run_ng-shared_tests.sh && ./run_admin_tests.sh && ./run_web_tests.sh && ./run_menu_tests.sh'
-alias ktm-report='cdupngo && cd tools/ktm-error-auto && DB_USER=${SWEBBER_DBUSER} DB_PASS=${SWEBBER_DBPASS} ALOHA_AUTH=${REAL_ALOHA_AUTH} npx ts-node index.ts'
-alias order-snapshot='cdupngo && cd tools/pull-json-api-order && DB_USER=${SWEBBER_DBUSER} DB_PASS=${SWEBBER_DBPASS} npx ts-node index.ts'
-alias dev-order-snapshot='cdupngo && cd tools/pull-json-api-order && DB_ENV=dev DB_USER=${DEV_DBUSER} DB_PASS=${DEV_DBPASS} npx ts-node index.ts'
+alias ktm-report="cdupngo && cd tools/ktm-error-auto && DB_USER=${SWEBBER_DBUSER} DB_PASS=${SWEBBER_DBPASS} ALOHA_AUTH=${REAL_ALOHA_AUTH} npx ts-node index.ts"
+alias order-snapshot="cdupngo && cd tools/pull-json-api-order && DB_USER=${SWEBBER_DBUSER} DB_PASS=${SWEBBER_DBPASS} npx ts-node index.ts"
+alias dev-order-snapshot="cdupngo && cd tools/pull-json-api-order && DB_ENV=dev DB_USER=${DEV_DBUSER} DB_PASS=${DEV_DBPASS} npx ts-node index.ts"
 alias export-creds='~/src/upngo/upngo-web/tools/export-creds.sh'
 alias clean-release-branches="git br | rg '(beta|prod)-release' | xargs git br -d"
 
