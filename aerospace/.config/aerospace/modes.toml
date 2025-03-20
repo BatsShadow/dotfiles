@@ -1,3 +1,50 @@
+# Auto-workspaces for windows
+[[on-window-detected]]
+if.app-id = "com.github.wez.wezterm"
+run = "move-node-to-workspace W"
+
+[[on-window-detected]]
+if.app-id = "com.apple.iCal"
+run = "move-node-to-workspace C"
+
+[[on-window-detected]]
+if.app-id = "com.hnc.Discord"
+run = "move-node-to-workspace D"
+
+[[on-window-detected]]
+if.app-id = "company.thebrowser.Browser"  # Arc
+if.window-title-regex-substring = "Gmail"
+run = "move-node-to-workspace E"
+
+[[on-window-detected]]
+if.app-id = "company.thebrowser.Browser"             # Arc
+if.window-title-regex-substring = "Messages for web"
+run = "move-node-to-workspace E"
+
+[[on-window-detected]]
+if.app-id = "company.thebrowser.Browser"      # Arc
+if.window-title-regex-substring = ".*YouTube"
+run = "move-node-to-workspace Y"
+
+[[on-window-detected]]
+if.app-id = "company.thebrowser.Browser"
+run = "move-node-to-workspace N"
+
+[[on-window-detected]]
+if.app-id = "com.apple.Safari"
+run = "move-node-to-workspace N"
+
+[[on-window-detected]]
+if.app-id = "com.tinyspeck.slackmacgap" # Slack
+run = "move-node-to-workspace M"
+
+[[on-window-detected]]
+if.app-id = "md.obsidian"        # Slack
+run = "move-node-to-workspace O"
+
+[[on-window-detected]]
+if.app-id = "us.zoom.xos"        # Zoom
+run = "move-node-to-workspace M"
 
 # 'main' binding mode declaration
 # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
@@ -94,10 +141,17 @@ alt-b = [
 ]
 alt-c = [
   'workspace C',
-  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
-]
-alt-o = [
-  'workspace C',
+  '''exec-and-forget osascript -e '
+  activate application "Calendar"
+  tell application "System Events"
+    tell process "Calendar"
+      click menu item "Calendar" of menu 1 of menu bar item "Window" of menu bar 1
+      click menu item "By Week" of menu 1 of menu bar item "View" of menu bar 1
+      click menu item "Go to Today" of menu 1 of menu bar item "View" of menu bar 1
+    end tell
+  end tell
+  '
+  ''',
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
 ]
 alt-d = [
@@ -140,6 +194,10 @@ alt-a = [
   'workspace N',
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
 ]
+alt-o = [
+  'workspace O',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+]
 alt-q = [
   'workspace Q',
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
@@ -178,33 +236,155 @@ alt-z = [
 ]
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#move-node-to-workspace
-alt-shift-4 = 'move-node-to-workspace 4'
-alt-shift-5 = 'move-node-to-workspace 5'
-alt-shift-6 = 'move-node-to-workspace 6'
-alt-shift-7 = 'move-node-to-workspace 7'
-alt-shift-8 = 'move-node-to-workspace 8'
-alt-shift-9 = 'move-node-to-workspace 9'
-alt-shift-a = 'move-node-to-workspace A'
-alt-shift-b = 'move-node-to-workspace B'
-alt-shift-c = 'move-node-to-workspace C'
-alt-shift-d = 'move-node-to-workspace D'
-alt-shift-e = 'move-node-to-workspace E'
-alt-shift-f = 'move-node-to-workspace F'
-alt-shift-g = 'move-node-to-workspace G'
-alt-shift-i = 'move-node-to-workspace I'
-alt-shift-m = 'move-node-to-workspace M'
-alt-shift-n = 'move-node-to-workspace N'
-alt-shift-o = 'move-node-to-workspace O'
-alt-shift-p = 'move-node-to-workspace P'
-alt-shift-q = 'move-node-to-workspace Q'
-alt-shift-r = 'move-node-to-workspace R'
-alt-shift-s = 'move-node-to-workspace S'
-alt-shift-t = 'move-node-to-workspace T'
-alt-shift-v = 'move-node-to-workspace V'
-alt-shift-w = 'move-node-to-workspace W'
-alt-shift-x = 'move-node-to-workspace X'
-alt-shift-y = 'move-node-to-workspace Y'
-alt-shift-z = 'move-node-to-workspace Z'
+alt-shift-4 = [
+  'move-node-to-workspace 4',
+  'workspace 4',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-5 = [
+  'move-node-to-workspace 5',
+  'workspace 5',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-6 = [
+  'move-node-to-workspace 6',
+  'workspace 6',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-7 = [
+  'move-node-to-workspace 7',
+  'workspace 7',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-8 = [
+  'move-node-to-workspace 8',
+  'workspace 8',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-9 = [
+  'move-node-to-workspace 9',
+  'workspace 9',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+
+alt-shift-a = [
+  'move-node-to-workspace N',
+  'workspace N',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+
+alt-shift-b = [
+  'move-node-to-workspace B',
+  'workspace B',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-c = [
+  'move-node-to-workspace C',
+  'workspace C',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-d = [
+  'move-node-to-workspace D',
+  'workspace D',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-e = [
+  'move-node-to-workspace E',
+  'workspace E',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-f = [
+  'move-node-to-workspace F',
+  'workspace F',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-g = [
+  'move-node-to-workspace G',
+  'workspace G',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+
+alt-shift-i = [
+  'move-node-to-workspace E',
+  'workspace E',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+
+alt-shift-m = [
+  'move-node-to-workspace M',
+  'workspace M',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-n = [
+  'move-node-to-workspace N',
+  'workspace N',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-o = [
+  'move-node-to-workspace O',
+  'workspace O',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+
+alt-shift-p = [
+  'move-node-to-workspace D',
+  'workspace D',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+
+alt-shift-q = [
+  'move-node-to-workspace Q',
+  'workspace Q',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-r = [
+  'move-node-to-workspace R',
+  'workspace R',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-s = [
+  'move-node-to-workspace M',
+  'workspace M',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+
+alt-shift-t = [
+  'move-node-to-workspace T',
+  'workspace T',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+
+alt-shift-u = [
+  'move-node-to-workspace W',
+  'workspace W',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+
+alt-shift-v = [
+  'move-node-to-workspace V',
+  'workspace V',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-w = [
+  'move-node-to-workspace W',
+  'workspace W',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-x = [
+  'move-node-to-workspace X',
+  'workspace X',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-y = [
+  'move-node-to-workspace Y',
+  'workspace Y',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
+alt-shift-z = [
+  'move-node-to-workspace Z',
+  'workspace Z',
+  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+]
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#workspace-back-and-forth
 alt-tab = 'workspace-back-and-forth'
