@@ -5,11 +5,3 @@
 -- Replace l-dash split with oil, and use l-shift-dash for split
 vim.keymap.set("n", "<leader>-", vim.cmd.Oil)
 vim.keymap.set("n", "<leader>_", ":sb<CR>")
-
-vim.keymap.set({ "n", "x", "o" }, "f", function()
-  require("flash").jump()
-end, { desc = "Flash" })
-
-vim.keymap.set({ "n", "x", "o" }, "F", function()
-  require("flash").treesitter()
-end, { desc = "Flash Treesitter" })
