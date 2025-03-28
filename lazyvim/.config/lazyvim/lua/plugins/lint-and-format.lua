@@ -2,6 +2,7 @@ return {
   "neovim/nvim-lspconfig",
   opts = {
     servers = {
+      jsonls = {},
       eslint = {},
       stylelint_lsp = {},
       vtsls = {
@@ -52,6 +53,8 @@ return {
           elseif client.name == "tsserver" then
             client.server_capabilities.documentFormattingProvider = false
           elseif client.name == "vtsls" then
+            client.server_capabilities.documentFormattingProvider = false
+          elseif client.name == "jsonls" then
             client.server_capabilities.documentFormattingProvider = false
           end
         end)
