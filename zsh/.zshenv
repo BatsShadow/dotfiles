@@ -1,5 +1,7 @@
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
+export BREW_PREFIX="$(brew --prefix)"
+
 export GREP_OPTIONS=--color=auto
 export UPNGO_ROOT=/Users/scott/src/upngo
 export WEBBERROBOTS_ROOT=/Users/scott/src/webberrobots
@@ -13,23 +15,12 @@ export COMPOSE_DOCKER_CLI_BUILD=1
 # export JAVA8_HOME=$(/usr/libexec/java_home -v 1.8)
 # export JAVA_HOME=$JAVA8_HOME
 export ANDROID_HOME=/Users/scott/src/android-sdk-macosx
-export PATH=$HOME/bin:$ANDROID_HOME/platform-tools:$HOME/.node/bin:$PATH
 
 export PYTHONDONTWRITEBYTECODE=1
-
-export PATH="/usr/local/bin:$PATH"
-export PATH="/usr/local/sbin:$PATH"
-export PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH"
-export PATH="/Applications/WebStorm.app/Contents/MacOS:$PATH"
-#export PATH="/usr/local/opt/openjdk@8/bin:$PATH"
-#export PATH="/Applications/VMware Fusion.app/Contents/Library/VMware OVF Tool:$PATH"
-#export PATH="/Users/scott/src/oss/flutter/bin:$PATH"
-
 # bun
 export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
 
-export LIBRARY_PATH="$LIBRARY_PATH:$(brew --prefix)/lib"
+export LIBRARY_PATH="$LIBRARY_PATH:$BREW_PREFIX/lib"
 
 export CURL_PROXY=
 export DEFAULT_PYTEST_OPTS=-n3
@@ -53,13 +44,11 @@ fi
 
 # source <(kubectl completion bash)
 
-FPATH="$(brew --prefix)/share/zsh/site-functions:${FPATH}"
+FPATH="$BREW_PREFIX/share/zsh/site-functions:${FPATH}"
 
 # complete -C '/usr/local/bin/aws_completer' aws
 
 . "$HOME/.cargo/env"
-
-#export PATH="/opt/homebrew/opt/openjdk@11/bin:$PATH"
 
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"

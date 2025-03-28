@@ -1,3 +1,18 @@
+# It seems like PATH should be set in .zshenv, but /etc/zprofile
+# calls path_helper which puts system paths at the start, so you
+# need to set PATH _after_ /etc/zprofile is sourced. Do it here in
+# .zprofile.
+export PATH="$BREW_PREFIX/bin:$BREW_PREFIX/sbin:$HOME/bin:$ANDROID_HOME/platform-tools:$HOME/.node/bin:$PATH"
+export PATH="/usr/local/bin:$PATH"
+export PATH="/usr/local/sbin:$PATH"
+export PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH"
+export PATH="/Applications/WebStorm.app/Contents/MacOS:$PATH"
+#export PATH="/usr/local/opt/openjdk@8/bin:$PATH"
+#export PATH="/Applications/VMware Fusion.app/Contents/Library/VMware OVF Tool:$PATH"
+#export PATH="/Users/scott/src/oss/flutter/bin:$PATH"
+export PATH="$BUN_INSTALL/bin:$PATH"
+#export PATH="/opt/homebrew/opt/openjdk@11/bin:$PATH"
+
 # Enable owerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
