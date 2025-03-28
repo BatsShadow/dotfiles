@@ -166,7 +166,7 @@ alt-e = [
   'workspace E',
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
 ]
-alt-i = [
+alt-u = [
   'workspace E',
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
 ]
@@ -218,7 +218,7 @@ alt-w = [
   'workspace W',
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
 ]
-alt-u = [
+alt-i = [
   'workspace W',
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
 ]
@@ -305,8 +305,8 @@ alt-shift-g = [
 ]
 
 alt-shift-i = [
-  'move-node-to-workspace E',
-  'workspace E',
+  'move-node-to-workspace W',
+  'workspace W',
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
 ]
 
@@ -355,8 +355,8 @@ alt-shift-t = [
 ]
 
 alt-shift-u = [
-  'move-node-to-workspace W',
-  'workspace W',
+  'move-node-to-workspace E',
+  'workspace E',
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
 ]
 
