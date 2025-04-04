@@ -68,3 +68,10 @@ alias export-creds='~/src/upngo/upngo-web/tools/export-creds.sh'
 alias clean-release-branches="git br | rg '(beta|prod)-release' | xargs git br -d"
 
 eval "$(zoxide init zsh)"
+
+# fnm
+FNM_PATH="/home/scott/.local/share/fnm"
+if [ -d "$FNM_PATH" ]; then
+  export PATH="/home/scott/.local/share/fnm:$PATH"
+  eval "`fnm env`"
+fi

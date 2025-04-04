@@ -2,15 +2,16 @@
 # calls path_helper which puts system paths at the start, so you
 # need to set PATH _after_ /etc/zprofile is sourced. Do it here in
 # .zprofile.
-export PATH="$BREW_PREFIX/bin:$BREW_PREFIX/sbin:$HOME/bin:$ANDROID_HOME/platform-tools:$HOME/.node/bin:$PATH"
-export PATH="/usr/local/bin:$PATH"
-export PATH="/usr/local/sbin:$PATH"
-export PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH"
-export PATH="/Applications/WebStorm.app/Contents/MacOS:$PATH"
+
+# export PATH="/usr/local/bin:$PATH"
+# export PATH="$HOME/bin:$HOME/.node/bin:$PATH"
+# export PATH="/usr/local/sbin:$PATH"
+# export PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH"
+# export PATH="/Applications/WebStorm.app/Contents/MacOS:$PATH"
 #export PATH="/usr/local/opt/openjdk@8/bin:$PATH"
 #export PATH="/Applications/VMware Fusion.app/Contents/Library/VMware OVF Tool:$PATH"
 #export PATH="/Users/scott/src/oss/flutter/bin:$PATH"
-export PATH="$BUN_INSTALL/bin:$PATH"
+# export PATH="$BUN_INSTALL/bin:$PATH"
 #export PATH="/opt/homebrew/opt/openjdk@11/bin:$PATH"
 
 # Enable owerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
@@ -21,7 +22,7 @@ if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]
 fi
 
 # Added by OrbStack: command-line tools and integration
-source ~/.orbstack/shell/init.bash 2>/dev/null || :
+# source ~/.orbstack/shell/init.bash 2>/dev/null || :
 
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
@@ -104,11 +105,11 @@ unset LESS;
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 # Added by OrbStack: command-line tools and integration
-source ~/.orbstack/shell/init.zsh 2>/dev/null || :
+# source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 
 # bun completions
-[ -s "/Users/scott/.bun/_bun" ] && source "/Users/scott/.bun/_bun"
+# [ -s "/Users/scott/.bun/_bun" ] && source "/Users/scott/.bun/_bun"
 
 # Added by OrbStack: command-line tools and integration
 # This won't be added again if you remove it.
-source ~/.orbstack/shell/init.zsh 2>/dev/null || :
+# source ~/.orbstack/shell/init.zsh 2>/dev/null || :
