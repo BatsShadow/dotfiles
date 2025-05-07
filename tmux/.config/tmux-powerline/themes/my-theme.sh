@@ -74,16 +74,19 @@ TMUX_POWERLINE_DEFAULT_RIGHTSIDE_SEPARATOR=${TMUX_POWERLINE_DEFAULT_RIGHTSIDE_SE
 # The `format regular` and `format inverse` functions are provided as conveinences
 
 # shellcheck disable=SC2128
+current_window=$sky
 if [ -z "$TMUX_POWERLINE_WINDOW_STATUS_CURRENT" ]; then
   TMUX_POWERLINE_WINDOW_STATUS_CURRENT=(
-    "#[$(format regular)]"
+    "#[fg=$current_window,bg=$thm_bg]"
     "$TMUX_POWERLINE_DEFAULT_RIGHTSIDE_SEPARATOR"
-    "#[$(format inverse)]"
+    # "#[$(format inverse)]"
+    "#[fg=$thm_bg,bg=$current_window]"
     "#I#F"
     # "$TMUX_POWERLINE_SEPARATOR_RIGHT_THIN"
     " #W"
-    "#[$(format regular)]"
+    "#[fg=$current_window,bg=$thm_bg]"
     "$TMUX_POWERLINE_DEFAULT_LEFTSIDE_SEPARATOR"
+    "#[$(format regular)]"
   )
 fi
 
