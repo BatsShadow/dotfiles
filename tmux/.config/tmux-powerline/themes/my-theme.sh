@@ -13,6 +13,7 @@
 # thm_bg="#24273A"
 #thm_bg="#303446"
 thm_bg="#181818"
+thm_bg="#151720"
 
 thm_fg="#c6d0f5"
 thm_cyan="#99d1db"

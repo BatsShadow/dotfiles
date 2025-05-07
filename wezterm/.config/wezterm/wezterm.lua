@@ -155,7 +155,7 @@ config.font = wezterm.font({ family = 'SauceCodePro Nerd Font Mono' })
 config.font_size = 14
 config.line_height = 1.15
 
-config.window_background_opacity = 0.97
+config.window_background_opacity = 0.95
 config.macos_window_background_blur = 30
 config.window_decorations = 'INTEGRATED_BUTTONS|RESIZE'
 config.use_fancy_tab_bar = false
@@ -170,6 +170,7 @@ config.window_padding = {
 }
 
 config.colors = {
+  background = '#151720',
   tab_bar = {
     -- The color of the strip that goes along the top of the window
     -- (does not apply when fancy tab bar is in use)
