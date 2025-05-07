@@ -13,29 +13,29 @@ end
 ---@diagnostic disable-next-line: undefined-global
 NVIM_SPECIAL_LEADER = utf8.char(0xff)
 
-local function create_nvim_key_bind(key, mods, code)
-  return {
-    key = key,
-    mods = mods,
-    action = wezterm.action_callback(function(win, pane)
-      -- local proc = basename(pane:get_foreground_process_name())
-      -- if proc ~= "nvim" then
-      --   win:perform_action(
-      --     wezterm.action.SendKey({
-      --       key = key,
-      --       mods = mods,
-      --     }),
-      --     pane
-      --   )
-      --   return
-      -- end
-
-      local key_code = NVIM_SPECIAL_LEADER .. code
-
-      win:perform_action(wezterm.action.SendString(key_code), pane)
-    end),
-  }
-end
+-- local function create_nvim_key_bind(key, mods, code)
+--   return {
+--     key = key,
+--     mods = mods,
+--     action = wezterm.action_callback(function(win, pane)
+--       -- local proc = basename(pane:get_foreground_process_name())
+--       -- if proc ~= "nvim" then
+--       --   win:perform_action(
+--       --     wezterm.action.SendKey({
+--       --       key = key,
+--       --       mods = mods,
+--       --     }),
+--       --     pane
+--       --   )
+--       --   return
+--       -- end
+--
+--       local key_code = NVIM_SPECIAL_LEADER .. code
+--
+--       win:perform_action(wezterm.action.SendString(key_code), pane)
+--     end),
+--   }
+-- end
 
 -- This will hold the configuration.
 local config = wezterm.config_builder()
