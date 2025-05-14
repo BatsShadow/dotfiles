@@ -51,6 +51,7 @@ alias kcu='export KUBECONFIG="$(for c in ~/.kube/config ~/.kube/*.kubeconfig; do
 alias prune="docker system prune --volumes -f"
 alias dc="docker compose"
 alias build='./build.sh'
+alias build-fresh='tools/build-local-base-images.sh && build'
 alias start='./start.sh'
 alias stop='./stop.sh'
 alias test-api='./run_api_tests.sh'
