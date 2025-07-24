@@ -2,9 +2,7 @@ return {
   {
     "saghen/blink.cmp",
     opts = {
-      fuzzy = { implementation = "lua" },
-      keymap = { preset = "super-tab" },
+      keymap = { preset = "enter" },
     },
   },
-  { "giuxtaposition/blink-cmp-copilot" },
 }

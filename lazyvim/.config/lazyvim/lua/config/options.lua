@@ -16,3 +16,6 @@ vim.g.root_spec = { "cwd" }
 
 -- Restore use of Telescope for find files
 vim.g.lazyvim_picker = "telescope"
+
+-- Use ESLint for formatting instead of Prettier
+vim.g.lazyvim_eslint_auto_format = true
