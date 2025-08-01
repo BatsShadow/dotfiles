@@ -203,8 +203,9 @@ alt-q = [
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
 ]
 alt-r = [
-  'workspace R',
+  'workspace N',
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+  'exec-and-forget osascript /Users/scott/.config/aerospace/arc_prs.scpt',
 ]
 alt-t = [
   'workspace T',
@@ -337,11 +338,11 @@ alt-shift-q = [
   'workspace Q',
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
 ]
-alt-shift-r = [
-  'move-node-to-workspace R',
-  'workspace R',
-  'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
-]
+# alt-shift-r = [
+#   'move-node-to-workspace R',
+#   'workspace R',
+#   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh',
+# ]
 alt-shift-s = [
   'move-node-to-workspace M',
   'workspace M',
