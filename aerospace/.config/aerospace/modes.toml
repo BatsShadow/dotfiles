@@ -77,8 +77,8 @@ run = "move-node-to-workspace M"
 # '''
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#layout
-alt-slash = 'layout tiles horizontal vertical'
-alt-comma = 'layout accordion horizontal vertical'
+alt-slash = 'layout tiles accordion'
+alt-comma = 'layout horizontal vertical'
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#focus
 alt-h = 'focus left'
@@ -205,11 +205,32 @@ alt-q = [
 alt-r = [
   'workspace N',
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
-  'exec-and-forget osascript /Users/scott/.config/aerospace/arc_prs.scpt',
+  '''exec-and-forget osascript -e '
+  tell application "Arc"
+  tell front window
+    tell space "Work"
+      tell first tab whose name is "PRs" to select
+    end tell
+  end tell
+  activate
+  end tell
+  '
+  ''',
 ]
 alt-t = [
-  'workspace T',
+  'workspace N',
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
+  '''exec-and-forget osascript -e '
+  tell application "Arc"
+  tell front window
+    tell space "Work"
+      tell first tab whose name is "Colemak DH Typing Practice" to select
+    end tell
+  end tell
+  activate
+  end tell
+  '
+  ''',
 ]
 alt-v = [
   'workspace V',

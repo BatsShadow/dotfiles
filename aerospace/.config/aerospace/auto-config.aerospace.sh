@@ -9,7 +9,10 @@ XDR_ID=$(aerospace list-monitors | grep XDR | awk '{print $1}')
 
 if [[ "$CURRENT_MONITOR" -ne "$XDR_ID" ]]; then
   echo Current monitor is not XDR. Exiting
-  exit 0
+  # Allow the script to run on laptop monitor when 0 is pressed
+  if [[ "$1" == "" ]]; then
+    exit 0
+  fi
 fi
 
 CURRENT_WORKSPACE=$(aerospace list-workspaces --visible --monitor $XDR_ID)
