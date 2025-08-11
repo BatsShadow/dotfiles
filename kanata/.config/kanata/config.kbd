@@ -42,7 +42,7 @@
 (deflayer mac_base
   brdn brup _    _    _    _    prev pp   next mute vold  volu
   lctl @ca  @as  @md  @sf  _    _    @sj  @mk  @al  @c;
-  @bs
+  _
   @fn
 )
 
