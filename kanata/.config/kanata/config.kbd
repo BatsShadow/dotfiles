@@ -26,30 +26,53 @@
   al (t! modtap l lalt)
   c; (t! modtap ; rctl)
 
+  ar (t! modtap r lalt)
+  ms (t! modtap s lmet)
+  st (t! modtap t lsft)
+
+  sn (t! modtap n rsft)
+  me (t! modtap e rmet)
+  ai (t! modtap i lalt)
+  co (t! modtap o rctl)
+
   ;; simulate iso keyboard - left of z key for colemak-dh
   bs (tap-hold-release 200 500 b lsft)
 
   fn (layer-while-held function)
+
+  colemak-dh (tap-dance 200 (lalt (layer-switch colemak_dh)))
+  mac-base (tap-dance 200 (lalt (layer-switch mac_base)))
 )
 
 (defsrc
   f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11   f12
+  tab  q    w    e    r    t    y    u    i    o    p
   caps a    s    d    f    g    h    j    k    l    ;
-  lsft
-  fn
+  lsft z    x    c    v    b    n    m
+  fn        lalt
 )
 
 (deflayer mac_base
   brdn brup _    _    _    _    prev pp   next mute vold  volu
+  _    _    _    _    _    _    _    _    _    _    _
   lctl @ca  @as  @md  @sf  _    _    @sj  @mk  @al  @c;
-  _
-  @fn
+  _    _    _    _    _    _    _    _
+  @fn       @colemak-dh
+)
+
+(deflayer colemak_dh
+  brdn brup _    _    _    _    prev pp   next mute vold  volu
+  _    q    w    f    p    b    j    l    u    y    ;
+  lctl @ca  @ar  @ms  @st  g    m    @sn  @me  @ai  @co
+  lsft x    c    d    v    z    k    h
+  @fn       @mac-base
 )
 
 (deflayer function
   f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11   f12
   _    _    _    _    _    _    _    _    _    _    _
-  _
-  fn
+  _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _    _    _    _    _
+  fn        _
 )
 
