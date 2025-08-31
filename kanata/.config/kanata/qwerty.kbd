@@ -1,0 +1,43 @@
+(defcfg process-unmapped-keys yes)
+(include base.kbd)
+
+(defalias
+  ca (t! modtap a lctl left)
+  as (t! modtap s lalt left)
+  md (t! modtap d lmet left)
+  sf (t! modtap f lsft left)
+
+  sj (t! modtap j rsft right)
+  mk (t! modtap k rmet right)
+  al (t! modtap l lalt right)
+  c; (t! modtap ; rctl right)
+
+  fn (layer-while-held function)
+
+  colemak-dh (tap-dance 300 (lalt lrld-next))
+)
+
+(deflayer mac_base
+  brdn brup _    _    _    _    prev pp   next mute vold  volu
+  _    _    _    _    _    _    _    _    _    _    _
+  lctl @ca  @as  @md  @sf  _    _    @sj  @mk  @al  @c;
+  _    _    _    _    _    _    _    _
+  @fn       @colemak-dh
+)
+
+(deflayer nomods
+  brdn brup _    _    _    _    prev pp   next mute vold  volu
+  _    _    _    _    _    _    _    _    _    _    _
+  lctl a    s    d    f    _    _    j    k    l    ;
+  _    _    _    _    _    _    _    _
+  @fn       @colemak-dh
+)
+
+(deflayer function
+  f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11   f12
+  _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _    _    _    _    _
+  fn        _
+)
+

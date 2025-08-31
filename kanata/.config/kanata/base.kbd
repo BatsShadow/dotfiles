@@ -1,0 +1,74 @@
+(defsrc
+  f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11   f12
+  tab  q    w    e    r    t    y    u    i    o    p
+  caps a    s    d    f    g    h    j    k    l    ;
+  lsft z    x    c    v    b    n    m
+  fn        lalt
+)
+
+(defvar
+  tap-time 200
+  hold-time 150
+
+  left-hand-keys (
+    q w e r t
+    a s d f g
+    z x c v b
+  )
+  right-hand-keys (
+    y u i o p
+    h j k l ;
+    n m , . /
+  )
+  colemak-left-hand-keys (
+    q w f p b
+    a r s t g
+    x c d v z
+  )
+  colemak-right-hand-keys (
+    j l u y ;
+    m n e i o
+    k h , . /
+  )
+)
+
+(deffakekeys
+  to-base (layer-switch mac_base)
+)
+
+;; This technique is from
+;; https://github.com/jtroo/kanata/discussions/1455#discussion-7766783
+;;
+;; What it effectively does is only enable modtap feature if a number of keys
+;; have not been typed in rapid succession. This prevents modtap from
+;; interfering with typing speed, but still allows for the modtap feature to be
+;; used when the user is not typing quickly.
+(deftemplate ogmodtap (char mod)
+  (switch 
+    ((key-timing 3 less-than 250)) $char break
+    () (tap-hold-release-timeout 200 500 $char $mod $char) break
+  )
+)
+
+;; Home row mods with more complexity:
+;; - when a home row mod activates tap, the home row mods are disabled
+;;   while continuing to type rapidly
+;; - tap-hold-release helps make the hold action more responsive
+;; - pressing another key on the same half of the keyboard
+;;   as the home row mod will activate an early tap action
+(deftemplate modtap (char mod hand)
+  (tap-hold-release-keys
+    (concat "$" "tap-time")
+    150
+    (multi $char @tap)
+    $mod
+    (concat "$" $hand "-hand-keys")
+   )
+)
+
+(defalias
+  tap (multi
+    (layer-switch nomods)
+    (on-idle-fakekey to-base tap $tap-time)
+  )
+)
