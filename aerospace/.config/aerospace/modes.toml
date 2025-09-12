@@ -207,12 +207,12 @@ alt-r = [
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
   '''exec-and-forget osascript -e '
   tell application "Arc"
-  tell front window
-    tell space "Work"
-      tell first tab whose name is "PRs" to select
+    tell front window
+      tell space "Work"
+        tell first tab whose name is "PRs" to select
+      end tell
     end tell
-  end tell
-  activate
+    activate
   end tell
   '
   ''',
@@ -222,12 +222,12 @@ alt-t = [
   'exec-and-forget /Users/scott/.config/aerospace/auto-config.aerospace.sh W',
   '''exec-and-forget osascript -e '
   tell application "Arc"
-  tell front window
-    tell space "Work"
-      tell first tab whose name is "Colemak DH Typing Practice" to select
+    tell front window
+      tell space "Work"
+        tell first tab whose name is "monkeytype" to select
+      end tell
     end tell
-  end tell
-  activate
+    activate
   end tell
   '
   ''',
