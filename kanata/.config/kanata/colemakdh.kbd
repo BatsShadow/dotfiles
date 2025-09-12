@@ -28,7 +28,7 @@
 (deflayer nomods
   brdn brup _    _    _    _    prev pp   next mute vold  volu
   _    q    w    f    p    b    j    l    u    y    ;
-  lctl a    r    s    t    _    _    n    e    i    o
+  lctl a    r    s    t    g    m    n    e    i    o
   lsft x    c    d    v    z    k    h
   @fn       @qwerty
 )
