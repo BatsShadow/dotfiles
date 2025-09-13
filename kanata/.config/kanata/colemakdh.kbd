@@ -14,6 +14,8 @@
 
   fn (layer-while-held function)
 
+  nspc (t! modtap spc (layer-while-held nav) right)
+
   qwerty (tap-dance 300 (lalt lrld-next))
 )
 
@@ -22,7 +24,7 @@
   _    q    w    f    p    b    j    l    u    y    ;
   lctl @ca  @ar  @ms  @st  g    m    @sn  @me  @ai  @co
   lsft x    c    d    v    z    k    h
-  @fn       @qwerty
+  @fn       @qwerty   @nspc
 )
 
 (deflayer nomods
@@ -30,7 +32,7 @@
   _    q    w    f    p    b    j    l    u    y    ;
   lctl a    r    s    t    g    m    n    e    i    o
   lsft x    c    d    v    z    k    h
-  @fn       @qwerty
+  @fn       @qwerty   _
 )
 
 (deflayer function
@@ -38,6 +40,14 @@
   _    _    _    _    _    _    _    _    _    _    _
   _    _    _    _    _    _    _    _    _    _    _
   _    _    _    _    _    _    _    _
-  fn        _
+  fn        _         _
+)
+
+(deflayer nav
+  _    _    _    _    _    _    _    _    _    _    _     _
+  _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _    _    _    left down up   right _
+  _    _    _    _    _    _    _    _
+  fn        _         _
 )
 

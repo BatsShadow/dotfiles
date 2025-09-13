@@ -3,7 +3,7 @@
   tab  q    w    e    r    t    y    u    i    o    p
   caps a    s    d    f    g    h    j    k    l    ;
   lsft z    x    c    v    b    n    m
-  fn        lalt
+  fn        lalt      spc
 )
 
 (defvar
@@ -18,7 +18,7 @@
   right-hand-keys (
     y u i o p
     h j k l ;
-    n m , . /
+    n m , . / spc
   )
   colemak-left-hand-keys (
     q w f p b
@@ -28,7 +28,7 @@
   colemak-right-hand-keys (
     j l u y ;
     m n e i o
-    k h , . /
+    k h , . / spc
   )
 )
 

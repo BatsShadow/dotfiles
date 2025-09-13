@@ -14,6 +14,8 @@
 
   fn (layer-while-held function)
 
+  nspc (t! modtap spc (layer-while-held nav) right)
+
   colemak-dh (tap-dance 300 (lalt lrld-next))
 )
 
@@ -22,7 +24,7 @@
   _    _    _    _    _    _    _    _    _    _    _
   lctl @ca  @as  @md  @sf  _    _    @sj  @mk  @al  @c;
   _    _    _    _    _    _    _    _
-  @fn       @colemak-dh
+  @fn       @colemak-dh    @nspc
 )
 
 (deflayer nomods
@@ -30,7 +32,7 @@
   _    _    _    _    _    _    _    _    _    _    _
   lctl a    s    d    f    _    _    j    k    l    ;
   _    _    _    _    _    _    _    _
-  @fn       @colemak-dh
+  @fn       @colemak-dh    _
 )
 
 (deflayer function
@@ -38,6 +40,14 @@
   _    _    _    _    _    _    _    _    _    _    _
   _    _    _    _    _    _    _    _    _    _    _
   _    _    _    _    _    _    _    _
-  fn        _
+  fn        _         _
+)
+
+(deflayer nav
+  _    _    _    _    _    _    _    _    _    _    _     _
+  _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _    _    _    left down up   right _
+  _    _    _    _    _    _    _    _
+  fn        _         _
 )
 
