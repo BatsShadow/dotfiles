@@ -1,4 +1,10 @@
-(defcfg process-unmapped-keys yes)
+(defcfg
+  process-unmapped-keys yes
+  delegate-to-first-layer yes
+  ;;macos-dev-names-include (
+  ;;  "Apple Internal Keyboard / Trackpad"
+  ;;)
+)
 (include base.kbd)
 
 (defalias
