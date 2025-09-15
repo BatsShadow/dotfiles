@@ -1,9 +1,10 @@
 (defcfg
   process-unmapped-keys yes
   delegate-to-first-layer yes
-  ;;macos-dev-names-include (
-  ;;  "Apple Internal Keyboard / Trackpad"
-  ;;)
+  macos-dev-names-include (
+    "Apple Internal Keyboard / Trackpad"
+    "NuPhy Air75 V3"
+  )
 )
 (include base.kbd)
 
