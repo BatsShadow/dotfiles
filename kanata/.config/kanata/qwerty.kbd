@@ -21,7 +21,7 @@
 
   fn (layer-while-held function)
 
-  nspc (t! modtap spc (layer-while-held nav) right)
+  nspc (tap-hold-release $tap-time $hold-time spc (layer-while-held nav))
 
   colemak-dh (tap-dance 300 (lalt lrld-next))
 )
