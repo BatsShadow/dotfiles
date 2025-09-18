@@ -14,7 +14,8 @@
         <string>/Users/scott/.config/kanata/colemakdh.kbd</string>
         <string>--port</string>
         <string>10000</string>
-        <string>--debug</string>
+        <string>--nodelay</string>
+        <string>--log-layer-changes</string>
     </array>
 
     <key>RunAtLoad</key>
