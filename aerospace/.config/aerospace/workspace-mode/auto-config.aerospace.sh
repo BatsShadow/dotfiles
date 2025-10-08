@@ -68,7 +68,7 @@ cat globals.toml >"${TEMP_CONFIG}"
 # // offset gaps for tiled windows
 cat "$GAPS" | perl -pe"s/850/$((850 - $GAP_ADJUSTMENT))/" >>"${TEMP_CONFIG}"
 cat modes.toml >>"${TEMP_CONFIG}"
-cp $TEMP_CONFIG aerospace.toml
+cp $TEMP_CONFIG ../aerospace.toml
 
 aerospace reload-config
 
