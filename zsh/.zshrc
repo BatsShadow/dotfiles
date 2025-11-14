@@ -69,3 +69,6 @@ alias export-creds='~/src/upngo/upngo-web/tools/export-creds.sh'
 alias clean-release-branches="git br | rg '(beta|prod)-release' | xargs git br -d"
 
 eval "$(zoxide init zsh)"
+
+# opencode
+export PATH=/Users/scott/.opencode/bin:$PATH

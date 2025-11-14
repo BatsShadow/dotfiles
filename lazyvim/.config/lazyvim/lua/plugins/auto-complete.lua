@@ -2,7 +2,7 @@ return {
   {
     "saghen/blink.cmp",
     opts = {
-      keymap = { preset = "enter" },
+      keymap = { preset = "super-tab" },
     },
   },
 }

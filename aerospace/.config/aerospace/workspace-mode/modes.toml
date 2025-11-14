@@ -28,11 +28,11 @@ run = "move-node-to-workspace YouTube"
 
 [[on-window-detected]]
 if.app-id = "company.thebrowser.Browser"
-run = "move-node-to-workspace Arc"
+run = "move-node-to-workspace Browser"
 
 [[on-window-detected]]
 if.app-id = "com.apple.Safari"
-run = "move-node-to-workspace Arc"
+run = "move-node-to-workspace Browser"
 
 [[on-window-detected]]
 if.app-id = "com.tinyspeck.slackmacgap" # Slack
@@ -235,26 +235,26 @@ alt-shift-s = [
 ]
 
 alt-o = [
-  'workspace Arc',
+  'workspace Browser',
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh W',
 ]
 alt-a = [
-  'workspace Arc',
+  'workspace Browser',
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh W',
 ]
 alt-shift-o = [
-  'move-node-to-workspace Arc',
-  'workspace Arc',
+  'move-node-to-workspace Browser',
+  'workspace Browser',
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]
 alt-shift-a = [
-  'move-node-to-workspace Arc',
-  'workspace Arc',
+  'move-node-to-workspace Browser',
+  'workspace Browser',
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]
 
 alt-r = [
-  'workspace Arc',
+  'workspace Browser',
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh W',
   '''exec-and-forget osascript -e '
   tell application "Arc"
@@ -269,7 +269,7 @@ alt-r = [
   ''',
 ]
 alt-t = [
-  'workspace Arc',
+  'workspace Browser',
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh W',
   '''exec-and-forget osascript -e '
   tell application "Arc"
@@ -289,7 +289,7 @@ alt-y = [
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh W',
 ]
 alt-shift-y = [
-  'move-node-to-workspace Arc',
+  'move-node-to-workspace YouTube',
   'workspace YouTube',
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]

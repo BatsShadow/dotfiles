@@ -9,9 +9,9 @@
     <array>
         <string>/opt/homebrew/bin/kanata</string>
         <string>-c</string>
-        <string>/Users/scott/.config/kanata/qwerty.kbd</string>
-        <string>-c</string>
         <string>/Users/scott/.config/kanata/colemakdh.kbd</string>
+        <string>-c</string>
+        <string>/Users/scott/.config/kanata/qwerty.kbd</string>
         <string>--port</string>
         <string>10000</string>
         <string>--nodelay</string>
