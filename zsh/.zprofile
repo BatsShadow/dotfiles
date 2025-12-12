@@ -114,4 +114,4 @@ source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 
 # Added by swiftly
-. "/Users/scott/.swiftly/env.sh"
+[[ ! -f /Users/scott/.swiftly/env.sh ]] || source "/Users/scott/.swiftly/env.sh"
