@@ -4,6 +4,7 @@ return {
   {
     "neovim/nvim-lspconfig",
     opts = {
+      inlay_hints = { enabled = false },
       servers = {
         jsonls = {},
         eslint = {
@@ -64,16 +65,17 @@ return {
             filter = "eslint",
           })
 
-          require("lazyvim.util").lsp.on_attach(function(client)
-            if client.name == "eslint" then
-              client.server_capabilities.documentFormattingProvider = true
-            elseif client.name == "tsserver" then
-              client.server_capabilities.documentFormattingProvider = false
-            elseif client.name == "vtsls" then
-              client.server_capabilities.documentFormattingProvider = false
-            elseif client.name == "jsonls" then
-              client.server_capabilities.documentFormattingProvider = false
-            end
+          Snacks.util.lsp.on({ name = "eslint" }, function(_, client)
+            client.server_capabilities.documentFormattingProvider = true
+          end)
+          Snacks.util.lsp.on({ name = "tsserver" }, function(_, client)
+            client.server_capabilities.documentFormattingProvider = false
+          end)
+          Snacks.util.lsp.on({ name = "vtsls" }, function(_, client)
+            client.server_capabilities.documentFormattingProvider = false
+          end)
+          Snacks.util.lsp.on({ name = "jsonls" }, function(_, client)
+            client.server_capabilities.documentFormattingProvider = false
           end)
 
           LazyVim.format.register(formatter)
