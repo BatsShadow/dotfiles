@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json
+
+version: 4
+
+enable_cursor_positioning: true
+
+transient_prompt:
+  background: transparent
+  foreground: "#555555"
+  template: "> "
+
+blocks:
+    - type: prompt
+      alignment: left
+      newline: true
+      segments:
+        - options:
+            always_enabled: true
+          template: '┌─'
+          # foreground: lightGreen
+          foreground: '#555555'
+          type: status
+          foreground_templates:
+            - '{{ if gt .Code 0 }}red{{ end }}'
+          style: plain
+        - template: ' {{ if .WSL }}WSL at {{ end }}{{.Icon}}'
+          foreground: '#FFFFFF'
+          type: os
+          style: powerline
+          # background: '#302D0E'
+          # background: '#14121F'
+          background: '0'
+          powerline_symbol: 
+          leading_powerline_symbol: 
+          invert_powerline: true
+        - template: ''
+          foreground: '#555555'
+          background: '0'
+          type: text
+          style: powerline
+          powerline_symbol: 
+          leading_powerline_symbol: 
+        - options:
+            style: powerlevel
+            cycle: [blue, white]
+          template: '<b>{{ .Path }}</b>'
+          foreground: '#89b4fa'
+          background: '0'
+          type: path
+          style: powerline
+          powerline_symbol: 
+          leading_powerline_symbol: 
+          invert_powerline: true
+        - template: ' '
+          foreground: '#555555'
+          background: '0'
+          type: text
+          style: powerline
+          powerline_symbol: 
+          leading_powerline_symbol: 
+        - options:
+            fetch_status: true
+            branch_icon: ' '
+            # branch_icon: ''
+          template: '{{ .HEAD }}{{if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Staging.Changed }}  {{ .Staging.String }}{{ end }}{{ if and (.Working.Changed) (.Staging.Changed) }} |{{ end }}{{ if .Working.Changed }}  {{ .Working.String }}{{ end }} '
+          # foreground: '#F1502F'
+          foreground: '#fab387'
+          background: '0'
+          type: git
+          style: powerline
+          powerline_symbol: 
+
+    - type: prompt
+      alignment: right
+      segments:
+        - template: '| root '
+          foreground: red
+          type: root
+          style: plain
+        - template: '|  {{ if .Error }}{{ .Error }}{{ else }}{{ .Full }}{{ end }} '
+          foreground: '#06A4CE'
+          type: dart
+          style: powerline
+        - template: '|  {{ if .PackageManagerIcon }}{{ .PackageManagerIcon }} {{ end }}{{ .Full }} '
+          foreground: '#6CA35E'
+          type: node
+          style: powerline
+        - options:
+            display_mode: context
+            fetch_virtual_env: true
+          template: '|  {{ .Venv }} '
+          foreground: '#4584b6'
+          type: python
+          style: plain
+        - options:
+            charged_icon: ' '
+            charging_icon: ' '
+          template: '| {{ if not .Error }}{{ .Icon }}{{ .Percentage }}{{ end }}{{ .Error }}  '
+          type: battery
+          style: powerline
+          foreground_templates:
+            - '{{if eq "Charging" .State.String}}#4caf50{{end}}'
+            - '{{if eq "Discharging" .State.String}}#40c4ff{{end}}'
+            - '{{if eq "Full" .State.String}}#ff0000{{end}}'
+          invert_powerline: true
+        - template: '| {{ .CurrentDate | date .Format }} '
+          foreground: lightGreen
+          type: time
+          style: plain
+
+    - type: prompt
+      alignment: left
+      segments:
+        - options:
+            always_enabled: true
+          # template: '➜ '
+          template: '└─ '
+          foreground: '#555555'
+          type: status
+          style: powerline
+          foreground_templates:
+            - '{{ if gt .Code 0 }}red{{ end }}'
+      newline: true

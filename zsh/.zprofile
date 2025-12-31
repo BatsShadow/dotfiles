@@ -23,13 +23,6 @@ if [[ -o interactive ]] && [[ -n "$TMUX" ]]; then
   fi
 fi
 
-# Enable powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
-# Initialization code that may require console input (password prompts, [y/n]
-# confirmations, etc.) must go above this block; everything else may go below.
-# if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-#   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
-# fi
-
 # Added by OrbStack: command-line tools and integration
 source ~/.orbstack/shell/init.bash 2>/dev/null || :
 
@@ -110,10 +103,7 @@ source $ZSH/oh-my-zsh.sh
 #export PAGER="less -F -X"
 unset LESS;
 
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-# [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-# eval "$(oh-my-posh init zsh --config catppuccin_mocha)"
-eval "$(oh-my-posh init zsh --config negligible)"
+eval "$(oh-my-posh init zsh --config ~/dotfiles/zsh/custom.omp.yaml)"
 
 # Added by OrbStack: command-line tools and integration
 source ~/.orbstack/shell/init.zsh 2>/dev/null || :
