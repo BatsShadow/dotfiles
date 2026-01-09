@@ -52,7 +52,7 @@ blocks:
 
         -
           type: text
-          template: '  '
+          template: ' '
           style: powerline
           foreground: '#555555'
           background: '0'
@@ -60,12 +60,17 @@ blocks:
         -
           type: git
           template: "\
-            {{ .HEAD }}{{if .BranchStatus }} {{ .BranchStatus }}{{ end }}\
+            {{ if .Ref }} \
+            {{ .HEAD }}\
+            {{if .BranchStatus }} {{ .BranchStatus }}{{ end }}\
             {{ if .Staging.Changed }}  {{ .Staging.String }}{{ end }}\
             {{ if and (.Working.Changed) (.Staging.Changed) }} |{{ end }}\
-            {{ if .Working.Changed }}  {{ .Working.String }}{{ end }} "
+            {{ if .Working.Changed }}  {{ .Working.String }}{{ end }} \
+            {{ else }}<d></d>{{ end }}"
           style: powerline
-          foreground: '#fab387'
+          foreground: '#a6e3a1'
+          foreground_templates:
+            - '{{ if .Working.Changed }}#fab387{{end}}'
           background: '0'
           powerline_symbol: 
           options:
@@ -91,7 +96,7 @@ blocks:
 
         -
           type: text
-          template: ''
+          template: '{{ if .Segments.Node.Full }}{{ end }}'
           style: powerline
           foreground: '#555555'
           background: '0'
@@ -102,6 +107,12 @@ blocks:
           foreground: '#74c7ec'
           background: '0'
 
+        -
+          type: text
+          template: '{{ if .Segments.Rust.Full }}{{ end }}'
+          style: powerline
+          foreground: '#555555'
+          background: '0'
         -
           type: rust
           template: '  {{ .Full }} '
@@ -116,6 +127,12 @@ blocks:
         #   foreground: '#89b4fa'
         #   background: '0'
 
+        -
+          type: text
+          template: '{{ if .Segments.Python.Venv }}{{ end }}'
+          style: powerline
+          foreground: '#555555'
+          background: '0'
         -
           type: python
           template: '  {{ .Venv }} '
