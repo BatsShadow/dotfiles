@@ -84,6 +84,10 @@
     #ss = stash save
 
     tagnow = "!git tag -a release_`date -u \"+%F-%H%M\"` -m \"Release tag `date -u \"+%D %R\"` UTC\""
+    
+    # worktree
+    w = worktree
+    wl = worktree list
 
     cp = cherry-pick
     grep = grep -Ii

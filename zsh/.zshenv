@@ -52,6 +52,7 @@ FPATH="$BREW_PREFIX/share/zsh/site-functions:${FPATH}"
 
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
+export BROWSER="$HOME/bin/safari-open"
 
 export EDITOR=/opt/homebrew/bin/nvim
 export SVN_EDITOR=/opt/homebrew/bin/nvim
@@ -64,3 +65,5 @@ ZSH_TMUX_DEFAULT_SESSION_NAME=default
 
 # Do not share history between tmux panes / sessions
 setopt nosharehistory
+
+alias assume=". assume"

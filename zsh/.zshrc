@@ -41,7 +41,12 @@ fi
 alias vi="NVIM_APPNAME=lazyvim nvim"
 
 alias envwebberrobots="source ~/src/env/webberrobots_start;cd ~/src/webberrobots"
-alias cdupngo="cd ~/src/upngo/upngo-web"
+alias cdu="cd ~/src/upngo/worktrees/current-upngo"
+alias cdf="cd ~/src/upngo/worktrees/current-upngo"
+alias cdc="cd ~/src/upngo/worktrees/current-upngo"
+alias cdd="cd ~/src/upngo/worktrees/deploy-upngo"
+alias cdt="cd ~/src/upngo/worktrees/deploy-upngo"
+alias cdr="cd ~/src/upngo/worktrees/review-upngo"
 
 alias kc='kubectl'
 alias kl='kubectl config get-contexts'
@@ -69,6 +74,7 @@ alias export-creds='~/src/upngo/upngo-web/tools/export-creds.sh'
 alias clean-release-branches="git br | rg '(beta|prod)-release' | xargs git br -d"
 
 eval "$(zoxide init zsh)"
+eval "$(but completions zsh)"
 
 # opencode
 export PATH=/Users/scott/.opencode/bin:$PATH
