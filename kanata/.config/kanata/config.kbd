@@ -19,6 +19,8 @@
   ai (t! modtap i lalt colemak-right)
   co (t! modtap o rctl colemak-right)
 
+  sz (t! modtap z lsft colemak-left)
+
   fn (layer-while-held function)
 
   nspc (tap-hold-release $tap-time $hold-time spc (layer-while-held nav))
@@ -27,16 +29,16 @@
 (deflayer mac_base
   brdn brup _    _    _    _    prev pp   next mute vold  volu
   _    q    w    f    p    b    j    l    u    y    ;
-  lctl @ca  @ar  @ms  @st  g    m    @sn  @me  @ai  @co
-  lsft x    c    d    v    z    k    h
+  esc @ca  @ar  @ms  @st  g    m    @sn  @me  @ai  @co
+  @sz  x    c    d    v    z    k    h
   @fn       _         _
 )
 
 (deflayer nomods
   brdn brup _    _    _    _    prev pp   next mute vold  volu
   _    q    w    f    p    b    j    l    u    y    ;
-  lctl a    r    s    t    g    m    n    e    i    o
-  lsft x    c    d    v    z    k    h
+  esc a    r    s    t    g    m    n    e    i    o
+  z    x    c    d    v    z    k    h
   @fn       _         _
 )
 
