@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # tmux-sessionizer: fuzzy-find a dir and open/switch to a tmux session for it
 
+# Ensure homebrew binaries (fzf, etc.) are in PATH for tmux popup shells
+export PATH="/opt/homebrew/bin:$PATH"
+
 if [[ -n "$1" ]]; then
     selected="$1"
 else
