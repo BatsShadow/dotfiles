@@ -143,6 +143,12 @@ config.keys = {
   cmd_window('8'),
   cmd_window('9'),
   cmd_window('0'),
+  -- Shift+Enter sends newline for Claude Code
+  {
+    key = 'Enter',
+    mods = 'SHIFT',
+    action = wezterm.action.SendString('\x1b[13;2u'),
+  },
 }
 
 -- For example, changing the color scheme:
