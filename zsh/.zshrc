@@ -48,6 +48,8 @@ alias cdd="cd ~/src/upngo/worktrees/deploy-upngo"
 alias cdt="cd ~/src/upngo/worktrees/deploy-upngo"
 alias cdr="cd ~/src/upngo/worktrees/review-upngo"
 
+alias cl=claude
+
 alias kc='kubectl'
 alias kl='kubectl config get-contexts'
 alias ku='kubectl config use-context'
