@@ -29,7 +29,11 @@ if [[ "$selected" == "[new]" ]]; then
     fi
 
     git -C "$REPO_DIR" fetch upstream main
-    git -C "$REPO_DIR" worktree add -b "$branch" "$worktree_path" upstream/main || {
+    if git -C "$REPO_DIR" show-ref --verify --quiet "refs/heads/$branch"; then
+        git -C "$REPO_DIR" worktree add "$worktree_path" "$branch"
+    else
+        git -C "$REPO_DIR" worktree add -b "$branch" "$worktree_path" upstream/main
+    fi || {
         echo "Failed to create worktree"
         sleep 2
         exit 1
