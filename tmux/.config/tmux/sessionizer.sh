@@ -18,6 +18,9 @@ fi
 
 [[ -z "$selected" ]] && exit 0
 
+# Remember last session directory for startup restoration
+echo "$selected" > ~/.config/tmux/last-session
+
 session_name=$(basename "$selected" | tr './:' '-')
 
 if tmux has-session -t="$session_name" 2>/dev/null; then
