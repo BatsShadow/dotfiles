@@ -40,6 +40,8 @@ NVIM_SPECIAL_LEADER = utf8.char(0xff)
 -- This will hold the configuration.
 local config = wezterm.config_builder()
 
+config.window_close_confirmation = 'NeverPrompt'
+
 -- Send leader-<num> to switch tmux windows
 local create_tab_action = function(key)
   return wezterm.action_callback(function(win, pane)
