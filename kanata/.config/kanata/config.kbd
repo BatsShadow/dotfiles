@@ -31,7 +31,7 @@
   _    q    w    f    p    b    j    l    u    y    ;
   esc @ca  @ar  @ms  @st  g    m    @sn  @me  @ai  @co
   @sz  x    c    d    v    z    k    h
-  @fn       _         _
+  @fn       _         @nspc
 )
 
 (deflayer nomods
