@@ -75,7 +75,7 @@ alias clean-release-branches="git br | rg '(beta|prod)-release' | xargs git br -
 
 # Auto-start tmux with last session
 if [[ -z "$TMUX" ]] && command -v tmux &>/dev/null; then
-    last=$(cat ~/.config/tmux/last-session 2>/dev/null)
+    last=$(cat ~/.config/tmux/.last-session 2>/dev/null)
     if [[ -n "$last" ]]; then
         exec ~/.config/tmux/sessionizer.sh "$last"
     else
