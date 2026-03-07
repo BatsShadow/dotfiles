@@ -27,7 +27,7 @@ if tmux has-session -t="$session_name" 2>/dev/null; then
     if [[ -n "$TMUX" ]]; then
         tmux switch-client -t "$session_name"
     else
-        tmux attach-session -t "$session_name"
+        exec tmux attach-session -t "$session_name"
     fi
 else
     tmux new-session -d -s "$session_name" -c "$selected" -n "vi"
@@ -43,6 +43,6 @@ else
     if [[ -n "$TMUX" ]]; then
         tmux switch-client -t "$session_name"
     else
-        tmux attach-session -t "$session_name"
+        exec tmux attach-session -t "$session_name"
     fi
 fi

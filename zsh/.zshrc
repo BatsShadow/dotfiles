@@ -73,6 +73,16 @@ alias dev-order-snapshot="cdupngo && cd tools/pull-json-api-order && DB_ENV=dev 
 alias export-creds='~/src/upngo/upngo-web/tools/export-creds.sh'
 alias clean-release-branches="git br | rg '(beta|prod)-release' | xargs git br -d"
 
+# Auto-start tmux with last session
+if [[ -z "$TMUX" ]] && command -v tmux &>/dev/null; then
+    last=$(cat ~/.config/tmux/last-session 2>/dev/null)
+    if [[ -n "$last" ]]; then
+        exec ~/.config/tmux/sessionizer.sh "$last"
+    else
+        exec tmux new-session
+    fi
+fi
+
 eval "$(zoxide init zsh)"
 eval "$(but completions zsh)"
 
