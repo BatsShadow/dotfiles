@@ -5,13 +5,27 @@ export PATH="/opt/homebrew/bin:$PATH"
 
 REPO_DIR="$HOME/src/upngo/upngo-web"
 WORKTREE_DIR="$HOME/src/upngo/worktrees"
+HISTORY_FILE="$HOME/.config/tmux/.session-history"
+touch "$HISTORY_FILE"
 
-# List existing worktrees + [new] option
+current_session=""
+if [[ -n "$TMUX" ]]; then
+    current_session=$(tmux display-message -p '#S')
+fi
+
+# List existing worktrees sorted by recency, then [new] option
 selected=$(
     {
+        # Worktrees with active sessions, sorted by recency (excluding current)
+        tail -r "$HISTORY_FILE" | awk '!seen[$0]++' | while IFS= read -r hist_name; do
+            [[ "$hist_name" == "$current_session" ]] && continue
+            dir="$WORKTREE_DIR/$hist_name"
+            [[ -d "$dir" ]] && tmux has-session -t="$hist_name" 2>/dev/null && echo "$dir"
+        done
+        # Then remaining worktree dirs
         find "$WORKTREE_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null
         echo "[new]"
-    } | fzf --prompt="worktree> "
+    } | awk '!seen[$0]++' | fzf --prompt="worktree> "
 )
 
 [[ -z "$selected" ]] && exit 0

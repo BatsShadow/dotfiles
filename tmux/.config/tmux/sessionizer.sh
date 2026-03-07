@@ -4,15 +4,39 @@
 # Ensure homebrew binaries (fzf, etc.) are in PATH for tmux popup shells
 export PATH="/opt/homebrew/bin:$PATH"
 
+HISTORY_FILE="$HOME/.config/tmux/.session-history"
+touch "$HISTORY_FILE"
+
+current_session=""
+if [[ -n "$TMUX" ]]; then
+    current_session=$(tmux display-message -p '#S')
+fi
+
 if [[ -n "$1" ]]; then
     selected="$1"
 else
+    # Build list: recent sessions first (excluding current), then directories for new sessions
     selected=$(
         {
+            # Existing tmux sessions sorted by recency, excluding current
+            while IFS= read -r name; do
+                [[ "$name" != "$current_session" ]] && echo "$name"
+            done < <(
+                # Read history in reverse (most recent last → most recent first after tac)
+                tail -r "$HISTORY_FILE" | awk '!seen[$0]++' | while IFS= read -r hist_name; do
+                    tmux has-session -t="$hist_name" 2>/dev/null && echo "$hist_name"
+                done
+                # Then any sessions not in history
+                tmux list-sessions -F '#S' 2>/dev/null | while IFS= read -r s; do
+                    [[ "$s" != "$current_session" ]] && ! grep -qxF "$s" "$HISTORY_FILE" && echo "$s"
+                done
+            )
+
+            # Directories for creating new sessions
             find ~/src -mindepth 1 -maxdepth 1 -type d 2>/dev/null
             find ~/src/upngo/worktrees -mindepth 1 -maxdepth 1 -type d 2>/dev/null
             echo "$HOME/dotfiles"
-        } | fzf --prompt="session> "
+        } | awk '!seen[$0]++' | fzf --prompt="session> "
     )
 fi
 
@@ -22,6 +46,11 @@ fi
 echo "$selected" > ~/.config/tmux/.last-session
 
 session_name=$(basename "$selected" | tr './:' '-')
+
+# Record session switch in history
+echo "$session_name" >> "$HISTORY_FILE"
+# Keep history file from growing unbounded (last 100 entries)
+tail -100 "$HISTORY_FILE" > "$HISTORY_FILE.tmp" && mv "$HISTORY_FILE.tmp" "$HISTORY_FILE"
 
 if tmux has-session -t="$session_name" 2>/dev/null; then
     if [[ -n "$TMUX" ]]; then
