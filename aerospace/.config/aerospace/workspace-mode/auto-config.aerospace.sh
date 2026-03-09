@@ -21,7 +21,9 @@ MONITOR_COUNT=$(aerospace list-monitors --count)
 
 WINDOW_COUNT=3
 if [ "$MONITOR_COUNT" -eq 2 ]; then
-  WINDOW_COUNT=$(aerospace list-windows --monitor $XDR_ID --workspace visible --count)
+  # Exclude floating windows from the count
+  WINDOW_COUNT=$(aerospace list-windows --monitor $XDR_ID --workspace visible \
+    --format '%{window-parent-container-layout}' | grep -cv '^floating$')
 fi
 
 if [ "$WINDOW_COUNT" -eq 0 ]; then
@@ -74,5 +76,8 @@ aerospace reload-config
 
 # save mode for later
 . "$SCRIPT_DIR/save-window-mode.sh"
+
+# Persist current mode
+echo "workspace" > "$SCRIPT_DIR/../.current-mode"
 
 cd "$CWD" || false

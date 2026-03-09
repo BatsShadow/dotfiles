@@ -9,7 +9,7 @@
 #                 See: https://nikitabobko.github.io/AeroSpace/guide#assign-workspaces-to-monitors
 [gaps]
 outer.left = [{ monitor.built-in = 0 }, { monitor.XDR = 710 }, 0]
-outer.right = 40
+outer.right = [{ monitor.built-in = 40 }, { monitor.XDR = 40 }, 40]
 outer.bottom = [{ monitor.built-in = 0 }, { monitor.XDR = 60 }, 0]
 outer.top = [{ monitor.built-in = 0 }, { monitor.XDR = 40 }, 0]
 inner.horizontal = 20

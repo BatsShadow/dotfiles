@@ -34,4 +34,7 @@ cp $TEMP_CONFIG ../aerospace.toml
 aerospace reload-config
 $SCRIPT_DIR/split-focus.aerospace.sh
 
+# Persist current mode
+echo "tile" > "$SCRIPT_DIR/../.current-mode"
+
 cd "$CWD" || false
