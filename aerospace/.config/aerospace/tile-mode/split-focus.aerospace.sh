@@ -50,3 +50,7 @@ done
 aerospace focus --window-id $FOCUSED
 aerospace move left
 aerospace resize smart 1408
+
+# Ensure Tiles2 workspace is visible on the secondary monitor
+aerospace workspace Tiles2
+aerospace workspace Tiles

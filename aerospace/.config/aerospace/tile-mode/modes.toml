@@ -20,18 +20,27 @@ alt-n = 'focus down'
 alt-e = 'focus up'
 alt-i = 'focus right'
 
+# Move/swap windows (Colemak-DH)
+alt-shift-m = 'swap left'
+alt-shift-n = 'swap down'
+alt-shift-e = 'swap up'
+alt-shift-i = 'swap right'
+
 # Swap focused window left
 alt-f = 'swap left'
 
 # App switching — right hand only (Colemak-DH)
 alt-u = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.github.wez.wezterm --app-name WezTerm --find-args "--all app-name"'
-alt-o = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --find-args "--all app-name"'
-alt-l = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --find-title Gmail'
+alt-o = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --find-args "--all app-name" --exclude "Gmail|YouTube|Messages"'
+alt-l = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --find-title Gmail --on-focus /Users/scott/.config/aerospace/toggle-email-pin.sh'
 alt-h = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.tinyspeck.slackmacgap --app-name Slack --find-args "--all app-name"'
 alt-semicolon = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.hnc.Discord --app-name Discord --find-args "--all app-name"'
-alt-y = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --find-title YouTube'
+alt-y = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --find-title YouTube --on-focus "osascript /Users/scott/.config/aerospace/arc-select-tab.scpt 3 1"'
 alt-c = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.apple.iCal --app-name Calendar --find-args "--all app-name" --on-focus /Users/scott/.config/aerospace/open-calendar.sh'
 alt-z = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id us.zoom.xos --app-name zoom.us --find-args "--all app-name"'
+
+# Repair tiles layout (re-run split-focus setup)
+alt-0 = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/split-focus.aerospace.sh'
 
 # alt-a, alt-s, alt-d, alt-g are free in tile mode (used for gap modes in workspace mode)
 
@@ -55,7 +64,7 @@ alt-shift-q = 'exec-and-forget /Users/scott/.config/aerospace/toggle-mode.sh'
 # ]
 
 alt-tab = 'workspace-back-and-forth'
-alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
+alt-shift-tab = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/move-to-other-tiles.sh'
 
 # Service mode
 alt-shift-quote = 'mode service'

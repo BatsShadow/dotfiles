@@ -32,6 +32,7 @@ FIND_TITLE=""
 FIND_ARGS=""
 ON_FOCUS=""
 URL=""
+EXCLUDE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -42,6 +43,7 @@ while [[ $# -gt 0 ]]; do
     --find-args) FIND_ARGS="$2"; shift 2 ;;
     --on-focus) ON_FOCUS="$2"; shift 2 ;;
     --url) URL="$2"; shift 2 ;;
+    --exclude) EXCLUDE="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -62,22 +64,64 @@ if [ "$MODE" = "tile" ]; then
     exit 0
   fi
 
-  # Check if already focused on this app
+  # Check if already focused on the target window
   FOCUSED_APP=$(aerospace list-windows --focused --format '%{app-bundle-id}' 2>/dev/null)
+  FOCUSED_TITLE=$(aerospace list-windows --focused --format '%{window-title}' 2>/dev/null)
 
-  if [ "$FOCUSED_APP" = "$APP_ID" ] && [ -n "$ON_FOCUS" ]; then
+  ALREADY_FOCUSED=false
+  if [ "$FOCUSED_APP" = "$APP_ID" ]; then
+    if [ -n "$FIND_TITLE" ]; then
+      # Only count as focused if the title matches (e.g. focused on YouTube Arc, not Browser Arc)
+      echo "$FOCUSED_TITLE" | grep -qi "$FIND_TITLE" && ALREADY_FOCUSED=true
+    elif [ -n "$EXCLUDE" ]; then
+      # For browser: focused on Arc but NOT a Gmail/YouTube window
+      echo "$FOCUSED_TITLE" | grep -qiE "$EXCLUDE" || ALREADY_FOCUSED=true
+    else
+      ALREADY_FOCUSED=true
+    fi
+  fi
+
+  if [ "$ALREADY_FOCUSED" = true ] && [ -n "$ON_FOCUS" ]; then
     echo "Already focused, running on-focus action..."
     eval "$ON_FOCUS"
     exit 0
   fi
 
-  # Switch to the window
+  # Check if the target window is on the OTHER tiles workspace
+  CURRENT_WS=$(aerospace list-workspaces --focused 2>/dev/null)
+  if [ "$CURRENT_WS" = "Tiles" ]; then
+    OTHER_WS="Tiles2"
+  else
+    OTHER_WS="Tiles"
+  fi
+  if [ -n "$FIND_TITLE" ]; then
+    OTHER_WINDOW=$("$SCRIPT_DIR/find-window.sh" "$FIND_TITLE" "--workspace $OTHER_WS")
+  else
+    OTHER_WINDOW=$("$SCRIPT_DIR/find-window.sh" "$APP_NAME" "--workspace $OTHER_WS" "app-name" ${EXCLUDE:+--exclude "$EXCLUDE"})
+  fi
+  if [ -n "$OTHER_WINDOW" ]; then
+    aerospace workspace "$OTHER_WS"
+    aerospace focus --window-id "$(echo "$OTHER_WINDOW" | head -n 1)"
+    exit 0
+  fi
+
+  # Switch to the window on current workspace
   if [ -n "$FIND_TITLE" ]; then
     "$SCRIPT_DIR/tile-mode/split-focus.aerospace.sh" "$FIND_TITLE"
-  elif [ -n "$FIND_ARGS" ]; then
-    eval "$SCRIPT_DIR/tile-mode/split-focus.aerospace.sh" "$APP_NAME" $FIND_ARGS
   else
-    "$SCRIPT_DIR/tile-mode/split-focus.aerospace.sh" "$APP_NAME" --all app-name
+    # Build args array to avoid eval
+    ARGS=("$APP_NAME")
+    if [ -n "$FIND_ARGS" ]; then
+      # Split FIND_ARGS into separate words
+      read -ra EXTRA <<< "$FIND_ARGS"
+      ARGS+=("${EXTRA[@]}")
+    else
+      ARGS+=(--all app-name)
+    fi
+    if [ -n "$EXCLUDE" ]; then
+      ARGS+=(--exclude "$EXCLUDE")
+    fi
+    "$SCRIPT_DIR/tile-mode/split-focus.aerospace.sh" "${ARGS[@]}"
   fi
 
 else

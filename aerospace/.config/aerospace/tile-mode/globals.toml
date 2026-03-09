@@ -54,3 +54,7 @@ automatically-unhide-macos-hidden-apps = false
 # See https://nikitabobko.github.io/AeroSpace/guide#key-mapping
 [key-mapping]
 preset = 'qwerty'
+
+# Pin Tiles2 to the built-in (secondary) monitor in tile mode
+[workspace-to-monitor-force-assignment]
+Tiles2 = 'built-in'
