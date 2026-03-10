@@ -159,7 +159,12 @@ else
     sleep 0.5
   fi
 
-  # Switch to workspace and auto-config gaps
+  # Switch to workspace and explicitly focus a window on it
+  # (prevents Arc from focusing a window on another monitor/workspace)
   aerospace workspace "$TARGET_WS"
+  TARGET_WINDOW=$(aerospace list-windows --workspace "$TARGET_WS" --format '%{window-id}' 2>/dev/null | head -n 1)
+  if [ -n "$TARGET_WINDOW" ]; then
+    aerospace focus --window-id "$TARGET_WINDOW"
+  fi
   "$SCRIPT_DIR/workspace-mode/auto-config.aerospace.sh" W
 fi

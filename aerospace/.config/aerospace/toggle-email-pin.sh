@@ -13,7 +13,7 @@ fi
 osascript -e "
 tell application \"Arc\"
   tell front window
-    tell first tab whose name contains \"$TAB_NAME\" to select
+    tell first tab whose name contains \"$TAB_NAME\" and location is \"topApp\" to select
   end tell
   activate
 end tell
