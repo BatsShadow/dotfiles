@@ -54,8 +54,8 @@ FPATH="$BREW_PREFIX/share/zsh/site-functions:${FPATH}"
 export ZSH="$HOME/.oh-my-zsh"
 export BROWSER="$HOME/bin/safari-open"
 
-export EDITOR=/opt/homebrew/bin/nvim
-export SVN_EDITOR=/opt/homebrew/bin/nvim
+export EDITOR="NVIM_APPNAME=lazyvim /opt/homebrew/bin/nvim"
+export SVN_EDITOR="NVIM_APPNAME=lazyvim /opt/homebrew/bin/nvim"
 export LSCOLORS=ExGxFxdaCxDaDahbadacec
 
 ZSH_TMUX_AUTOSTART=true
