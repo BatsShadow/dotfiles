@@ -46,6 +46,10 @@ run = "move-node-to-workspace Email"
 if.app-id = "us.zoom.xos"        # Zoom
 run = "move-node-to-workspace Slack"
 
+[[on-window-detected]]
+if.app-id = "com.brnbw.Tuna"
+run = "layout floating"
+
 # 'main' binding mode declaration
 [mode.main.binding]
 

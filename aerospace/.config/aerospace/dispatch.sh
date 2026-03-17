@@ -134,9 +134,8 @@ else
 
   CURRENT_WS=$(aerospace list-workspaces --focused 2>/dev/null)
 
-  # Check if the target app is running at all
-  APP_EXISTS=$(aerospace list-windows --all --format '%{app-bundle-id}' 2>/dev/null \
-    | grep -c "^${APP_ID}$")
+  # Check if the target workspace has any windows
+  WS_WINDOW_COUNT=$(aerospace list-windows --workspace "$TARGET_WS" --format '%{window-id}' 2>/dev/null | grep -c .)
 
   # Already on this workspace → run secondary action
   if [ "$CURRENT_WS" = "$TARGET_WS" ]; then
@@ -147,8 +146,8 @@ else
     exit 0
   fi
 
-  # Target app/window doesn't exist → launch it
-  if [ "${APP_EXISTS:-0}" -eq 0 ]; then
+  # Target workspace is empty → launch the app
+  if [ "${WS_WINDOW_COUNT:-0}" -eq 0 ]; then
     echo "Target app/window not found, launching..."
     if [ -n "$URL" ]; then
       "$SCRIPT_DIR/open-arc-url.sh" "$URL"
@@ -159,12 +158,53 @@ else
     sleep 0.5
   fi
 
-  # Switch to workspace and explicitly focus a window on it
-  # (prevents Arc from focusing a window on another monitor/workspace)
-  aerospace workspace "$TARGET_WS"
-  TARGET_WINDOW=$(aerospace list-windows --workspace "$TARGET_WS" --format '%{window-id}' 2>/dev/null | head -n 1)
-  if [ -n "$TARGET_WINDOW" ]; then
-    aerospace focus --window-id "$TARGET_WINDOW"
+  # Cross-monitor displacement protection: when switching to a workspace
+  # on another monitor, Arc activation can raise its last-focused window
+  # (e.g. Gmail) on the original monitor. Save/restore only when the
+  # target workspace is on a different monitor than we're currently on.
+  FOCUSED_MONITOR=$(aerospace list-monitors --focused --format '%{monitor-id}' 2>/dev/null)
+  XDR_ID=$(aerospace list-monitors | grep XDR | awk '{print $1}')
+  SAVED_XDR_WS=""
+  CROSS_MONITOR=false
+
+  # Determine if this is a cross-monitor switch
+  if [ -n "$XDR_ID" ]; then
+    TARGET_MONITOR=$(aerospace list-windows --workspace "$TARGET_WS" --format '%{monitor-id}' 2>/dev/null | head -n 1)
+    if [ -n "$TARGET_MONITOR" ] && [ "$TARGET_MONITOR" != "$FOCUSED_MONITOR" ]; then
+      CROSS_MONITOR=true
+      SAVED_XDR_WS=$(aerospace list-workspaces --visible --monitor "$XDR_ID" 2>/dev/null)
+    fi
   fi
+
+  # Check if target workspace is already visible on a monitor
+  TARGET_WAS_VISIBLE=$(aerospace list-workspaces --visible --all 2>/dev/null | grep -c "^${TARGET_WS}$")
+
+  aerospace workspace "$TARGET_WS"
+
+  # Only explicitly focus a window when the workspace wasn't already visible.
+  # Needed to prevent Arc from focusing the wrong window when bringing a
+  # workspace from invisible to visible.
+  if [ "${TARGET_WAS_VISIBLE:-0}" -eq 0 ]; then
+    TARGET_WINDOW=$(aerospace list-windows --workspace "$TARGET_WS" --format '%{window-id}' 2>/dev/null | head -n 1)
+    if [ -n "$TARGET_WINDOW" ]; then
+      aerospace focus --window-id "$TARGET_WINDOW"
+    fi
+  fi
+
+  # Restore XDR workspace if displaced by Arc activation during cross-monitor switch.
+  # After the switch, Arc's last-focused is now the target (not Gmail),
+  # so the re-focus back to target won't displace XDR again.
+  if [ "$CROSS_MONITOR" = true ] && [ -n "$SAVED_XDR_WS" ] && [ "$SAVED_XDR_WS" != "$TARGET_WS" ]; then
+    sleep 0.1
+    CURRENT_XDR_WS=$(aerospace list-workspaces --visible --monitor "$XDR_ID" 2>/dev/null)
+    if [ "$CURRENT_XDR_WS" != "$SAVED_XDR_WS" ]; then
+      XDR_WINDOW=$(aerospace list-windows --workspace "$SAVED_XDR_WS" --format '%{window-id}' 2>/dev/null | head -n 1)
+      if [ -n "$XDR_WINDOW" ]; then
+        aerospace focus --window-id "$XDR_WINDOW"
+        aerospace workspace "$TARGET_WS"
+      fi
+    fi
+  fi
+
   "$SCRIPT_DIR/workspace-mode/auto-config.aerospace.sh" W
 fi

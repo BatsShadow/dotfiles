@@ -1,4 +1,8 @@
 [[on-window-detected]]
+if.app-id = "com.brnbw.Tuna"
+run = "layout floating"
+
+[[on-window-detected]]
 run = "move-node-to-workspace Tiles"
 
 # 'main' binding mode declaration
