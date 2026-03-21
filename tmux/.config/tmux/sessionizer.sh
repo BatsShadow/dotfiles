@@ -36,11 +36,38 @@ else
             find ~/src -mindepth 1 -maxdepth 1 -type d 2>/dev/null
             find ~/src/upngo/worktrees -mindepth 1 -maxdepth 1 -type d 2>/dev/null
             echo "$HOME/dotfiles"
+            echo "[new]"
         } | awk '!seen[$0]++' | fzf --prompt="session> "
     )
 fi
 
 [[ -z "$selected" ]] && exit 0
+
+if [[ "$selected" == "[new]" ]]; then
+    current_dir=$(tmux display-message -p '#{pane_current_path}')
+    session_name=$(basename "$current_dir" | tr './:' '-')
+
+    if tmux has-session -t="$session_name" 2>/dev/null; then
+        echo "Session '$session_name' already exists"
+        sleep 1
+        exit 1
+    fi
+
+    selected="$current_dir"
+
+    echo "$selected" > ~/.config/tmux/.last-session
+    echo "$session_name" >> "$HISTORY_FILE"
+    tail -100 "$HISTORY_FILE" > "$HISTORY_FILE.tmp" && mv "$HISTORY_FILE.tmp" "$HISTORY_FILE"
+
+    tmux new-session -d -s "$session_name" -c "$selected" -n "vi"
+    tmux send-keys -t "$session_name:vi" "vi" Enter
+    tmux new-window -t "$session_name" -n "cli" -c "$selected"
+    tmux new-window -t "$session_name" -n "claude" -c "$selected"
+    tmux send-keys -t "$session_name:claude" "claude" Enter
+    tmux select-window -t "$session_name:cli"
+    tmux switch-client -t "$session_name"
+    exit 0
+fi
 
 # Remember last session directory for startup restoration
 echo "$selected" > ~/.config/tmux/.last-session
