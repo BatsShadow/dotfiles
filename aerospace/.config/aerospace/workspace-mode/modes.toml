@@ -50,6 +50,10 @@ run = "move-node-to-workspace Slack"
 if.app-id = "com.brnbw.Tuna"
 run = "layout floating"
 
+[[on-window-detected]]
+if.app-id = "roomeqwizard.launcher"
+run = "layout floating"
+
 # 'main' binding mode declaration
 [mode.main.binding]
 
