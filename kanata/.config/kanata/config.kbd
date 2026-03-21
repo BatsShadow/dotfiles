@@ -9,17 +9,17 @@
 (include base.kbd)
 
 (defalias
-  ca (t! modtap a lctl colemak-left)
-  ar (t! modtap r lalt colemak-left)
-  ms (t! modtap s lmet colemak-left)
-  st (t! modtap t lsft colemak-left)
+  ca (t! modtap a lctl left)
+  ar (t! modtap r lalt left)
+  ms (t! modtap s lmet left)
+  st (t! modtap t lsft left)
 
-  sn (t! modtap n rsft colemak-right)
-  me (t! modtap e rmet colemak-right)
-  ai (t! modtap i lalt colemak-right)
-  co (t! modtap o rctl colemak-right)
+  sn (t! modtap n rsft right)
+  me (t! modtap e rmet right)
+  ai (t! modtap i lalt right)
+  co (t! modtap o rctl right)
 
-  sz (t! modtap z lsft colemak-left)
+  sz (t! modtap z lsft left)
 
   fn (layer-while-held function)
 
