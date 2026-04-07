@@ -1,9 +1,26 @@
 #!/usr/bin/env bash
 # Manage upngo worktrees: switch to existing or create new from upstream/main
+# Usage: worktree-new.sh [web|android]
 
 export PATH="/opt/homebrew/bin:$PATH"
 
-REPO_DIR="$HOME/src/upngo/upngo-web"
+PROJECT="${1:-web}"
+
+case "$PROJECT" in
+    web)
+        REPO_DIR="$HOME/src/upngo/upngo-web"
+        PROMPT_PREFIX="web"
+        ;;
+    android)
+        REPO_DIR="$HOME/src/upngo/upngo-android"
+        PROMPT_PREFIX="android"
+        ;;
+    *)
+        echo "Unknown project: $PROJECT (expected web or android)"
+        exit 1
+        ;;
+esac
+
 WORKTREE_DIR="$HOME/src/upngo/worktrees"
 HISTORY_FILE="$HOME/.config/tmux/.session-history"
 touch "$HISTORY_FILE"
@@ -25,7 +42,7 @@ selected=$(
         # Then remaining worktree dirs
         find "$WORKTREE_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null
         echo "[new]"
-    } | awk '!seen[$0]++' | fzf --prompt="worktree> "
+    } | awk '!seen[$0]++' | fzf --prompt="$PROMPT_PREFIX worktree> "
 )
 
 [[ -z "$selected" ]] && exit 0
