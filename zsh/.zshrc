@@ -41,14 +41,10 @@ fi
 alias vi="NVIM_APPNAME=lazyvim nvim"
 
 alias envwebberrobots="source ~/src/env/webberrobots_start;cd ~/src/webberrobots"
-alias cdu="cd ~/src/upngo/worktrees/current-upngo"
-alias cdf="cd ~/src/upngo/worktrees/current-upngo"
-alias cdc="cd ~/src/upngo/worktrees/current-upngo"
-alias cdd="cd ~/src/upngo/worktrees/deploy-upngo"
-alias cdt="cd ~/src/upngo/worktrees/deploy-upngo"
-alias cdr="cd ~/src/upngo/worktrees/review-upngo"
+alias cdu="cd ~/src/upngo/upngo-web/"
+alias cdw="cd ~/src/upngo/worktrees"
 
-alias cl=claude
+alias cl=claude --enable-auto-mode
 
 alias kc='kubectl'
 alias kl='kubectl config get-contexts'
@@ -69,6 +65,12 @@ alias test-menu='./run_menu_tests.sh'
 alias test-ng-shared='./run_ng-shared_tests.sh'
 alias test-frontend='./run_ng-shared_tests.sh && ./run_admin_tests.sh && ./run_web_tests.sh && ./run_menu_tests.sh'
 alias tests='./stop.sh && ./run_api_tests.sh && ./run_ng-shared_tests.sh && ./run_admin_tests.sh && ./run_web_tests.sh && ./run_menu_tests.sh'
+
+alias b=build
+alias ta=test-api
+alias tf=test-frontend
+alias t=tests
+
 alias ktm-report="cdupngo && cd tools/ktm-error-auto && DB_USER=${SWEBBER_DBUSER} DB_PASS=${SWEBBER_DBPASS} ALOHA_AUTH=${REAL_ALOHA_AUTH} npx ts-node index.ts"
 alias order-snapshot="cdupngo && cd tools/pull-json-api-order && DB_USER=${SWEBBER_DBUSER} DB_PASS=${SWEBBER_DBPASS} npx ts-node index.ts"
 alias dev-order-snapshot="cdupngo && cd tools/pull-json-api-order && DB_ENV=dev DB_USER=${DEV_DBUSER} DB_PASS=${DEV_DBPASS} npx ts-node index.ts"
