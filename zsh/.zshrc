@@ -64,7 +64,7 @@ alias test-web='./run_web_tests.sh'
 alias test-menu='./run_menu_tests.sh'
 alias test-ng-shared='./run_ng-shared_tests.sh'
 alias test-frontend='./run_ng-shared_tests.sh && ./run_admin_tests.sh && ./run_web_tests.sh && ./run_menu_tests.sh'
-alias tests='./stop.sh && ./run_api_tests.sh && ./run_ng-shared_tests.sh && ./run_admin_tests.sh && ./run_web_tests.sh && ./run_menu_tests.sh'
+alias tests='./stop.sh && ./run_ng-shared_tests.sh && ./run_admin_tests.sh && ./run_web_tests.sh && ./run_menu_tests.sh && ./run_api_tests.sh'
 
 alias b=build
 alias ta=test-api
