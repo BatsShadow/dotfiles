@@ -89,6 +89,3 @@ fi
 
 eval "$(zoxide init zsh)"
 eval "$(but completions zsh)"
-
-# opencode
-export PATH=/Users/scott/.opencode/bin:$PATH

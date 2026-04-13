@@ -14,6 +14,15 @@ export PATH="$HOME/.local/bin:$PATH"
 export PATH="$BUN_INSTALL/bin:$PATH"
 #export PATH="/opt/homebrew/opt/openjdk@11/bin:$PATH"
 
+# opencode
+#export PATH=/Users/scott/.opencode/bin:$PATH
+
+export PNPM_HOME="/Users/scott/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+
 if [[ -o interactive ]] && [[ -n "$TMUX" ]]; then
   echo
   fastfetch
