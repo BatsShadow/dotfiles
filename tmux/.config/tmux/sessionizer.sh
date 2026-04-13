@@ -59,11 +59,9 @@ if [[ "$selected" == "[new]" ]]; then
     echo "$session_name" >> "$HISTORY_FILE"
     tail -100 "$HISTORY_FILE" > "$HISTORY_FILE.tmp" && mv "$HISTORY_FILE.tmp" "$HISTORY_FILE"
 
-    tmux new-session -d -s "$session_name" -c "$selected" -n "vi"
-    tmux send-keys -t "$session_name:vi" "vi" Enter
+    tmux new-session -d -s "$session_name" -c "$selected" -n "vi" "NVIM_APPNAME=lazyvim nvim; exec zsh -l"
     tmux new-window -t "$session_name" -n "cli" -c "$selected"
-    tmux new-window -t "$session_name" -n "claude" -c "$selected"
-    tmux send-keys -t "$session_name:claude" "claude" Enter
+    tmux new-window -t "$session_name" -n "claude" -c "$selected" "claude; exec zsh -l"
     tmux select-window -t "$session_name:cli"
     tmux switch-client -t "$session_name"
     exit 0
@@ -86,13 +84,9 @@ if tmux has-session -t="$session_name" 2>/dev/null; then
         exec tmux attach-session -t "$session_name"
     fi
 else
-    tmux new-session -d -s "$session_name" -c "$selected" -n "vi"
-    tmux send-keys -t "$session_name:vi" "vi" Enter
-
+    tmux new-session -d -s "$session_name" -c "$selected" -n "vi" "NVIM_APPNAME=lazyvim nvim; exec zsh -l"
     tmux new-window -t "$session_name" -n "cli" -c "$selected"
-
-    tmux new-window -t "$session_name" -n "claude" -c "$selected"
-    tmux send-keys -t "$session_name:claude" "claude" Enter
+    tmux new-window -t "$session_name" -n "claude" -c "$selected" "claude; exec zsh -l"
 
     tmux select-window -t "$session_name:cli"
 
