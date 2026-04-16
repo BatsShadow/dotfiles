@@ -1,4 +1,5 @@
 tmux/.config/tmux/plugins
 tmux/.config/tmux/.last-session
 tmux/.config/tmux/.session-history
+tmux/.config/tmux/.session-dirs
 .claude/settings.local.json

@@ -5,7 +5,23 @@
 export PATH="/opt/homebrew/bin:$PATH"
 
 HISTORY_FILE="$HOME/.config/tmux/.session-history"
-touch "$HISTORY_FILE"
+SESSION_DIRS_FILE="$HOME/.config/tmux/.session-dirs"
+touch "$HISTORY_FILE" "$SESSION_DIRS_FILE"
+
+TAB=$(printf '\t')
+
+# Look up the saved directory for a session name
+lookup_session_dir() {
+    grep "^$1${TAB}" "$SESSION_DIRS_FILE" | tail -1 | cut -f2
+}
+
+# Save a session-name → directory mapping
+save_session_dir() {
+    # Remove old entry, append new one
+    grep -v "^$1${TAB}" "$SESSION_DIRS_FILE" > "$SESSION_DIRS_FILE.tmp" 2>/dev/null || true
+    printf '%s\t%s\n' "$1" "$2" >> "$SESSION_DIRS_FILE.tmp"
+    mv "$SESSION_DIRS_FILE.tmp" "$SESSION_DIRS_FILE"
+}
 
 current_session=""
 if [[ -n "$TMUX" ]]; then
@@ -56,6 +72,7 @@ if [[ "$selected" == "[new]" ]]; then
     selected="$current_dir"
 
     echo "$selected" > ~/.config/tmux/.last-session
+    save_session_dir "$session_name" "$selected"
     echo "$session_name" >> "$HISTORY_FILE"
     tail -100 "$HISTORY_FILE" > "$HISTORY_FILE.tmp" && mv "$HISTORY_FILE.tmp" "$HISTORY_FILE"
 
@@ -67,32 +84,54 @@ if [[ "$selected" == "[new]" ]]; then
     exit 0
 fi
 
-# Remember last session directory for startup restoration
-echo "$selected" > ~/.config/tmux/.last-session
-
 session_name=$(basename "$selected" | tr './:' '-')
+
+# Resolve the working directory:
+# If selected is a directory path, use it directly and save the mapping.
+# If selected is a session name (from the existing sessions list), look up the saved dir.
+if [[ -d "$selected" ]]; then
+    session_dir="$selected"
+    save_session_dir "$session_name" "$session_dir"
+else
+    session_dir=$(lookup_session_dir "$session_name")
+    if [[ -z "$session_dir" || ! -d "$session_dir" ]]; then
+        # Fallback: try to get the dir from the running session
+        session_dir=$(tmux display-message -t "$session_name" -p '#{pane_current_path}' 2>/dev/null)
+    fi
+    if [[ -z "$session_dir" || ! -d "$session_dir" ]]; then
+        session_dir="$HOME"
+    fi
+fi
+
+# Remember last session directory for startup restoration
+echo "$session_dir" > ~/.config/tmux/.last-session
 
 # Record session switch in history
 echo "$session_name" >> "$HISTORY_FILE"
 # Keep history file from growing unbounded (last 100 entries)
 tail -100 "$HISTORY_FILE" > "$HISTORY_FILE.tmp" && mv "$HISTORY_FILE.tmp" "$HISTORY_FILE"
 
+# Check if session exists and has windows
+needs_windows=false
 if tmux has-session -t="$session_name" 2>/dev/null; then
-    if [[ -n "$TMUX" ]]; then
-        tmux switch-client -t "$session_name"
-    else
-        exec tmux attach-session -t "$session_name"
+    window_count=$(tmux list-windows -t "$session_name" 2>/dev/null | wc -l | tr -d ' ')
+    if [[ "$window_count" -eq 0 ]]; then
+        tmux kill-session -t "$session_name" 2>/dev/null
+        needs_windows=true
     fi
 else
-    tmux new-session -d -s "$session_name" -c "$selected" -n "vi" "NVIM_APPNAME=lazyvim nvim; exec zsh -l"
-    tmux new-window -t "$session_name" -n "cli" -c "$selected"
-    tmux new-window -t "$session_name" -n "claude" -c "$selected" "claude; exec zsh -l"
+    needs_windows=true
+fi
 
+if [[ "$needs_windows" == "true" ]]; then
+    tmux new-session -d -s "$session_name" -c "$session_dir" -n "vi" "NVIM_APPNAME=lazyvim nvim; exec zsh -l"
+    tmux new-window -t "$session_name" -n "cli" -c "$session_dir"
+    tmux new-window -t "$session_name" -n "claude" -c "$session_dir" "claude; exec zsh -l"
     tmux select-window -t "$session_name:cli"
+fi
 
-    if [[ -n "$TMUX" ]]; then
-        tmux switch-client -t "$session_name"
-    else
-        exec tmux attach-session -t "$session_name"
-    fi
+if [[ -n "$TMUX" ]]; then
+    tmux switch-client -t "$session_name"
+else
+    exec tmux attach-session -t "$session_name"
 fi
