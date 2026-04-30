@@ -59,17 +59,42 @@ if [[ "$selected" == "[new]" ]]; then
         exit 1
     fi
 
+    GREEN='\033[0;32m'
+    YELLOW='\033[0;33m'
+    RED='\033[0;31m'
+    CYAN='\033[0;36m'
+    RESET='\033[0m'
+
+    echo -e "${CYAN}Fetching upstream/main...${RESET}"
     git -C "$REPO_DIR" fetch upstream main
+
     if git -C "$REPO_DIR" show-ref --verify --quiet "refs/heads/$branch"; then
+        echo -e "${CYAN}Checking out existing branch ${YELLOW}$branch${RESET}"
         git -C "$REPO_DIR" worktree add "$worktree_path" "$branch"
     else
+        echo -e "${CYAN}Creating new branch ${YELLOW}$branch${CYAN} from upstream/main${RESET}"
         git -C "$REPO_DIR" worktree add -b "$branch" "$worktree_path" upstream/main
     fi || {
-        echo "Failed to create worktree"
+        echo -e "${RED}Failed to create worktree${RESET}"
         sleep 2
         exit 1
     }
 
+    echo -e "${GREEN}Worktree created:${RESET} $worktree_path"
+
+    # Hard link local_config.env from upngo-web into the new worktree
+    if [[ "$PROJECT" == "web" ]]; then
+        local_config="$REPO_DIR/local_config.env"
+        if [[ -f "$local_config" ]]; then
+            ln "$local_config" "$worktree_path/local_config.env"
+            echo -e "${GREEN}Hard Linked:${RESET} local_config.env"
+        else
+            echo -e "${YELLOW}Warning:${RESET} $local_config not found, skipping"
+        fi
+    fi
+
+    echo
+    read -rp "Press enter to continue..."
     selected="$worktree_path"
 fi
 
