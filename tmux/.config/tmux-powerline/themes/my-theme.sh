@@ -56,6 +56,91 @@ sky_blue="#a7c7e7"
 spotify_green="#1db954"
 spotify_black="#191414"
 
+# ayu updated colors
+ayu_mirage() {
+  # UI (canonical ayu Mirage)
+  ayu_bg="#242936"
+  ayu_bg_dim="#1f2430"
+  ayu_fg="#cccac2"
+  ayu_ui="#707a8c"
+  ayu_accent="#ffcc66"
+  ayu_selection="#34455a"
+  ayu_line_hl="#1a1f29"
+  ayu_guide="#2d3640"
+  ayu_comment="#5c6773"
+
+  # Syntax (ayutheme.com — Mirage column)
+  ayu_tag="#5ccfe6"
+  ayu_entity="#73d0ff"
+  ayu_regexp="#95e6cb"
+  ayu_string="#d5ff80"
+  ayu_constant="#dfbfff"
+  ayu_special="#d9be98"
+  ayu_func="#ffcd66"
+  ayu_keyword="#ffa659"
+  ayu_operator="#f29e74"
+  ayu_markup="#f28779"
+  ayu_error="#ff3333"
+
+  # ANSI aliases
+  ayu_black="#1a1f29"
+  ayu_red="$ayu_markup"
+  ayu_green="$ayu_string"
+  ayu_yellow="$ayu_func"
+  ayu_blue="$ayu_entity"
+  ayu_magenta="$ayu_constant"
+  ayu_cyan="$ayu_regexp"
+  ayu_white="#cccac2"
+  ayu_orange="$ayu_keyword"
+}
+
+ayu_dark() {
+  # UI (canonical ayu Dark)
+  ayu_bg="#0b0e14"
+  ayu_bg_dim="#0d1017"
+  ayu_fg="#bfbdb6"
+  ayu_ui="#565b66"
+  ayu_accent="#e6b450"
+  ayu_selection="#273747"
+  ayu_line_hl="#131721"
+  ayu_guide="#131721"
+  ayu_comment="#acb6bf"
+
+  # Syntax (ayutheme.com — Dark column)
+  ayu_tag="#39bae6"
+  ayu_entity="#59c2ff"
+  ayu_regexp="#95e6cb"
+  ayu_string="#aad94c"
+  ayu_constant="#d2a6ff"
+  ayu_special="#e6c08a"
+  ayu_func="#ffb454"
+  ayu_keyword="#ff8f40"
+  ayu_operator="#f29668"
+  ayu_markup="#f07178"
+  ayu_error="#d95757"
+
+  # ANSI aliases
+  ayu_black="#000000"
+  ayu_red="$ayu_markup"
+  ayu_green="$ayu_string"
+  ayu_yellow="$ayu_func"
+  ayu_blue="$ayu_entity"
+  ayu_magenta="$ayu_constant"
+  ayu_cyan="$ayu_regexp"
+  ayu_white="#bfbdb6"
+  ayu_orange="$ayu_keyword"
+}
+
+# ayu_mirage
+ayu_dark
+
+# thm_bg="$ayu_bg"
+thm_fg="$ayu_white"
+sky="$ayu_entity"
+flamingo="$ayu_markup"
+blue="$ayu_entity"
+sky_blue="$ayu_regexp"
+
 TMUX_POWERLINE_SEPARATOR_LEFT_BOLD=""
 TMUX_POWERLINE_SEPARATOR_LEFT_THIN=""
 TMUX_POWERLINE_SEPARATOR_RIGHT_BOLD=""
@@ -64,7 +149,7 @@ TMUX_POWERLINE_SEPARATOR_THIN="|"
 
 # See Color formatting section below for details on what colors can be used here.
 #TMUX_POWERLINE_DEFAULT_BACKGROUND_COLOR=${TMUX_POWERLINE_DEFAULT_BACKGROUND_COLOR:-$thm_bg}
-TMUX_POWERLINE_DEFAULT_BACKGROUND_COLOR=${thm_bg}
+TMUX_POWERLINE_DEFAULT_BACKGROUND_COLOR=default
 TMUX_POWERLINE_DEFAULT_FOREGROUND_COLOR=${TMUX_POWERLINE_DEFAULT_FOREGROUND_COLOR:-$thm_fg}
 TMUX_POWERLINE_SEG_AIR_COLOR=$(air_color)
 

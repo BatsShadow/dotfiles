@@ -32,6 +32,9 @@ alias ls="ls -G"
 #     alias ls="colorls -G"
 # fi
 if [ -x "$(command -v eza)" ]; then
+    # Disable eza's built-in bold styling so output uses normal terminal weight
+    # Filenames in ayu-dark func orange (#FFB454) to mirror vim oil styling; icons keep their per-type colors
+    export EZA_COLORS="reset:di=38;2;255;180;84:ex=38;2;255;180;84:fi=38;2;255;180;84:ln=38;2;255;180;84:pi=33:so=35:bd=33:cd=33:or=31:mi=31:ur=33:uw=31:ux=32:ue=32:gr=33:gw=31:gx=32:tr=33:tw=31:tx=32:su=32:sf=32:df=33:ds=33:uu=33:un=37:gu=33:gn=37:ga=32:gm=33:gd=31:gv=35:gt=33:da=34:lc=37:lm=37:xx=37:in=37"
     alias ls="eza --icons --classify"
     alias ll="eza -1l --icons --classify --git"
     alias la="eza -1la --icons --classify --git"

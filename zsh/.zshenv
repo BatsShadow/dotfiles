@@ -58,6 +58,10 @@ export EDITOR="NVIM_APPNAME=lazyvim /opt/homebrew/bin/nvim"
 export SVN_EDITOR="NVIM_APPNAME=lazyvim /opt/homebrew/bin/nvim"
 export LSCOLORS=ExGxFxdaCxDaDahbadacec
 
+# fzf: ayu palette — entity-blue pointer, blue-tinted full-width highlight, no
+# bold on the current row, and the terminal background for the gutter strip.
+export FZF_DEFAULT_OPTS="--highlight-line --color=fg+:regular,hl:#ffb454,hl+:regular:#ffb454,current-fg:regular,gutter:-1,pointer:#59C2FF,prompt:#59C2FF,bg+:#112034"
+
 ZSH_TMUX_AUTOSTART=true
 ZSH_TMUX_DEFAULT_SESSION_NAME=default
 

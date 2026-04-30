@@ -17,7 +17,7 @@ blocks:
       segments:
         -
           type: status
-          template: '┌─'
+          template: '<b><i>┌─</i></b>'
           style: plain
           foreground: '#555555'
           foreground_templates:
@@ -30,48 +30,50 @@ blocks:
           template: ' {{ if .WSL }}WSL at {{ end }}{{.Icon}}'
           style: powerline
           foreground: '#FFFFFF'
-          background: '0'
+          background: '#0F1419'
           powerline_symbol: 
           invert_powerline: true
+          properties:
+            macos: ''
 
         -
           type: text
-          template: '  '
+          template: '<b><i>  </i></b>'
           style: powerline
           foreground: '#555555'
-          background: '0'
+          background: '#0F1419'
 
         -
           type: path
-          template: '<b>{{ .Path }}</b>'
+          template: '<b><i>{{ .Path }}</i></b>'
           style: powerline
-          background: '0'
+          background: '#0F1419'
           options:
             style: powerlevel
             cycle: [blue, white]
 
         -
           type: text
-          template: ' '
+          template: '<b><i> </i></b>'
           style: powerline
           foreground: '#555555'
-          background: '0'
+          background: '#0F1419'
 
         -
           type: git
-          template: "\
+          template: "<b><i>\
             {{ if .Ref }} \
             {{ .HEAD }}\
             {{if .BranchStatus }} {{ .BranchStatus }}{{ end }}\
             {{ if .Staging.Changed }}  {{ .Staging.String }}{{ end }}\
             {{ if and (.Working.Changed) (.Staging.Changed) }} |{{ end }}\
             {{ if .Working.Changed }}  {{ .Working.String }}{{ end }} \
-            {{ else }}<d></d>{{ end }}"
+            {{ else }}<d></d>{{ end }}</i></b>"
           style: powerline
-          foreground: '#a6e3a1'
+          foreground: '#AAD94C'
           foreground_templates:
-            - '{{ if .Working.Changed }}#fab387{{end}}'
-          background: '0'
+            - '{{ if .Working.Changed }}#FFB454{{end}}'
+          background: '#0F1419'
           powerline_symbol: 
           options:
             fetch_status: true
@@ -83,9 +85,10 @@ blocks:
       segments:
         -
           type: executiontime
+          template: '<b><i>{{ .FormattedMs }}</i></b>'
           style: powerline
-          foreground: '#a6e3a1'
-          background: '0'
+          foreground: '#AAD94C'
+          background: '#0F1419'
           powerline_symbol: 
           leading_powerline_symbol: 
           invert_powerline: true
@@ -96,29 +99,29 @@ blocks:
 
         -
           type: text
-          template: '{{ if .Segments.Node.Full }}{{ end }}'
+          template: '<b><i>{{ if .Segments.Node.Full }}{{ end }}</i></b>'
           style: powerline
           foreground: '#555555'
-          background: '0'
+          background: '#0F1419'
         -
           type: node
-          template: '  {{ if .PackageManagerIcon }}{{ .PackageManagerIcon }} {{ end }}{{ .Full }} '
+          template: '<b><i>  {{ if .PackageManagerIcon }}{{ .PackageManagerIcon }} {{ end }}{{ .Full }} </i></b>'
           style: powerline
-          foreground: '#74c7ec'
-          background: '0'
+          foreground: '#59C2FF'
+          background: '#0F1419'
 
         -
           type: text
-          template: '{{ if .Segments.Rust.Full }}{{ end }}'
+          template: '<b><i>{{ if .Segments.Rust.Full }}{{ end }}</i></b>'
           style: powerline
           foreground: '#555555'
-          background: '0'
+          background: '#0F1419'
         -
           type: rust
-          template: '  {{ .Full }} '
+          template: '<b><i>  {{ .Full }} </i></b>'
           style: powerline
-          foreground: '#f38ba8'
-          background: '0'
+          foreground: '#F28779'
+          background: '#0F1419'
 
         # -
         #   type: kotlin
@@ -129,16 +132,16 @@ blocks:
 
         -
           type: text
-          template: '{{ if .Segments.Python.Venv }}{{ end }}'
+          template: '<b><i>{{ if .Segments.Python.Venv }}{{ end }}</i></b>'
           style: powerline
           foreground: '#555555'
-          background: '0'
+          background: '#0F1419'
         -
           type: python
-          template: '  {{ .Venv }} '
+          template: '<b><i>  {{ .Venv }} </i></b>'
           style: plain
-          foreground: '#cba6f7'
-          background: '0'
+          foreground: '#DFBFFF'
+          background: '#0F1419'
           powerline_symbol: 
           leading_powerline_symbol: 
           invert_powerline: true
@@ -148,17 +151,17 @@ blocks:
 
         -
           type: text
-          template: ''
+          template: '<b><i></i></b>'
           style: powerline
           foreground: '#555555'
-          background: '0'
+          background: '#0F1419'
 
         -
-          template: '{{ .CurrentDate | date .Format }} '
+          template: '<b><i>{{ .CurrentDate | date .Format }} </i></b>'
           type: time
           style: powerline
-          foreground: '#a6e3a1'
-          background: '0'
+          foreground: '#AAD94C'
+          background: '#0F1419'
           powerline_symbol: 
 
     -
@@ -170,7 +173,7 @@ blocks:
           options:
             always_enabled: true
           # template: '➜ '
-          template: '└─ '
+          template: '<b><i>└─ </i></b>'
           foreground: '#555555'
           type: status
           style: powerline

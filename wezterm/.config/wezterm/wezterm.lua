@@ -154,16 +154,66 @@ config.keys = {
 -- For example, changing the color scheme:
 -- config.color_scheme = "3024 (dark) (terminal.sexy)"
 -- config.color_scheme = 'catppuccin-mocha'
-config.color_scheme = 'Tokyo Night'
+config.color_scheme = 'ayu'
 
 config.initial_rows = 60
 config.initial_cols = 176
 
-config.font = wezterm.font({ family = 'SauceCodePro Nerd Font Mono' })
-config.font_size = 14
-config.line_height = 1.15
+-- Monaspace superfamily: a different style for each intensity/italic combination
+-- Neon (neo-grotesque) / Xenon (slab serif) / Argon (humanist sans) / Krypton (mechanical)
+local roman_features = { 'calt', 'liga' }
+local italic_features = { 'calt', 'liga', 'ss01' }
 
-config.window_background_opacity = 0.95
+config.font = wezterm.font_with_fallback({
+  { family = 'Monaspace Neon', harfbuzz_features = roman_features },
+  { family = 'SF Pro', scale = 1.0 },
+  { family = 'Symbols Nerd Font Mono' },
+})
+
+config.font_rules = {
+  {
+    intensity = 'Normal',
+    italic = false,
+    font = wezterm.font({
+      family = 'Monaspace Neon',
+      weight = 'Medium',
+      harfbuzz_features = roman_features,
+    }),
+  },
+  {
+    intensity = 'Bold',
+    italic = false,
+    font = wezterm.font({
+      family = 'Monaspace Xenon',
+      weight = 'Black',
+      harfbuzz_features = roman_features,
+    }),
+  },
+  {
+    intensity = 'Normal',
+    italic = true,
+    font = wezterm.font({
+      family = 'Monaspace Argon',
+      weight = 'Light',
+      style = 'Italic',
+      harfbuzz_features = italic_features,
+    }),
+  },
+  {
+    intensity = 'Bold',
+    italic = true,
+    font = wezterm.font({
+      family = 'Monaspace Krypton',
+      weight = 'Medium',
+      harfbuzz_features = italic_features,
+    }),
+  },
+}
+
+config.font_size = 15
+config.line_height = 1.2
+
+config.window_background_opacity = 0.9
 config.macos_window_background_blur = 30
 config.window_decorations = 'INTEGRATED_BUTTONS|RESIZE'
 config.use_fancy_tab_bar = false
