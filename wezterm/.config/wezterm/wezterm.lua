@@ -167,7 +167,7 @@ local italic_features = { 'calt', 'liga', 'ss01' }
 config.font = wezterm.font_with_fallback({
   { family = 'Monaspace Neon', harfbuzz_features = roman_features },
   { family = 'SF Pro', scale = 1.0 },
-  { family = 'Symbols Nerd Font Mono' },
+  { family = 'SauceCodePro Nerd Font Mono' },
 })
 
 config.font_rules = {
@@ -210,8 +210,8 @@ config.font_rules = {
   },
 }
 
-config.font_size = 15
-config.line_height = 1.2
+config.font_size = 14
+config.line_height = 1.3
 
 config.window_background_opacity = 0.9
 config.macos_window_background_blur = 30
