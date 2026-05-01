@@ -154,7 +154,7 @@ config.keys = {
 -- For example, changing the color scheme:
 -- config.color_scheme = "3024 (dark) (terminal.sexy)"
 -- config.color_scheme = 'catppuccin-mocha'
-config.color_scheme = 'ayu'
+config.color_scheme = 'ayu-custom'
 
 config.initial_rows = 60
 config.initial_cols = 176
