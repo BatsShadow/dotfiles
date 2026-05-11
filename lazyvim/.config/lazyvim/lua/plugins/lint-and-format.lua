@@ -1,5 +1,3 @@
-local auto_format = vim.g.lazyvim_eslint_auto_format == nil or vim.g.lazyvim_eslint_auto_format
-
 return {
   {
     "neovim/nvim-lspconfig",
@@ -7,14 +5,24 @@ return {
       inlay_hints = { enabled = false },
       servers = {
         jsonls = {},
+
+        -- Linter (live diagnostics, fix-all on save)
+        oxlint = {},
+
+        -- Formatter (LSP-based; replaces what eslint+prettier used to do)
+        oxfmt = {},
+
+        -- Kept only for Angular HTML templates; angular-eslint covers what
+        -- oxlint cannot. Not a formatter anymore — oxfmt handles that.
         eslint = {
           settings = {
-            -- helps eslint find the eslintrc when it's placed in a subfolder instead of the cwd root
             workingDirectories = { mode = "auto" },
-            format = auto_format,
+            format = false,
           },
         },
+
         stylelint_lsp = {},
+
         vtsls = {
           settings = {
             typescript = {
@@ -44,6 +52,9 @@ return {
         end,
 
         eslint = function(_, opts)
+          -- Keep the broad filetype set so non-oxlint projects still get
+          -- eslint diagnostics. In upngo, eslint-plugin-oxlint silences
+          -- rules oxlint already covers, so there's no duplication.
           opts.filetypes = {
             "html",
             "htmlangular",
@@ -58,27 +69,53 @@ return {
             "astro",
           }
 
+          Snacks.util.lsp.on({ name = "eslint" }, function(_, client)
+            client.server_capabilities.documentFormattingProvider = false
+          end)
+        end,
+
+        oxfmt = function(_, opts)
           local formatter = LazyVim.lsp.formatter({
-            name = "eslint: lsp",
-            primary = false,
+            name = "oxfmt: lsp",
+            primary = true,
             priority = 200,
-            filter = "eslint",
+            filter = "oxfmt",
           })
 
-          Snacks.util.lsp.on({ name = "eslint" }, function(_, client)
+          -- Make oxfmt the canonical formatter; suppress everyone else who
+          -- might claim formatting for JS/TS/JSON.
+          Snacks.util.lsp.on({ name = "oxfmt" }, function(_, client)
             client.server_capabilities.documentFormattingProvider = true
           end)
-          Snacks.util.lsp.on({ name = "tsserver" }, function(_, client)
-            client.server_capabilities.documentFormattingProvider = false
-          end)
-          Snacks.util.lsp.on({ name = "vtsls" }, function(_, client)
-            client.server_capabilities.documentFormattingProvider = false
-          end)
-          Snacks.util.lsp.on({ name = "jsonls" }, function(_, client)
-            client.server_capabilities.documentFormattingProvider = false
-          end)
+          for _, name in ipairs({ "tsserver", "vtsls", "jsonls", "eslint" }) do
+            Snacks.util.lsp.on({ name = name }, function(_, client)
+              client.server_capabilities.documentFormattingProvider = false
+            end)
+          end
 
           LazyVim.format.register(formatter)
+        end,
+
+        oxlint = function(_, _)
+          -- Apply oxlint autofixes on save. LazyVim's format-on-save runs
+          -- first (registered earlier in startup), then this handler runs
+          -- :LspOxlintFixAll — matches the VS Code source.format.oxc ->
+          -- source.fixAll.oxc ordering.
+          local group = vim.api.nvim_create_augroup("user_oxlint_fix_on_save", { clear = true })
+          vim.api.nvim_create_autocmd("LspAttach", {
+            group = group,
+            callback = function(args)
+              local client = vim.lsp.get_client_by_id(args.data.client_id)
+              if not client or client.name ~= "oxlint" then
+                return
+              end
+              vim.api.nvim_create_autocmd("BufWritePre", {
+                group = group,
+                buffer = args.buf,
+                command = "LspOxlintFixAll",
+              })
+            end,
+          })
         end,
       },
     },
