@@ -84,6 +84,34 @@ alias clean-release-branches="git br | rg '(beta|prod)-release' | xargs git br -
 
 alias voyager-flash='zapp flash https://configure.zsa.io/voyager/layouts/lJqJz/latest/0'
 
+# Recover when Finder shows "application is not open anymore" and apps won't launch.
+# Escalates: restart Finder/Dock → rebuild LaunchServices DB → nuke launchservicesd.
+fix-launchservices() {
+    local lsregister=/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
+    case "$1" in
+        ""|finder)
+            echo "Restarting Finder and Dock..."
+            killall Finder Dock
+            ;;
+        rebuild)
+            echo "Rebuilding LaunchServices database (30-60s)..."
+            "$lsregister" -kill -r -domain local -domain system -domain user
+            killall Finder Dock
+            ;;
+        nuke)
+            echo "Killing launchservicesd (requires sudo)..."
+            sudo killall -9 launchservicesd && killall Finder Dock
+            ;;
+        *)
+            echo "Usage: fix-launchservices [finder|rebuild|nuke]"
+            echo "  finder  (default) restart Finder + Dock"
+            echo "  rebuild rebuild LaunchServices DB, then restart Finder + Dock"
+            echo "  nuke    kill launchservicesd, then restart Finder + Dock"
+            return 1
+            ;;
+    esac
+}
+
 # Auto-start tmux with last session
 if [[ -z "$TMUX" ]] && command -v tmux &>/dev/null; then
     last=$(cat ~/.config/tmux/.last-session 2>/dev/null)
