@@ -78,7 +78,7 @@ if [[ "$selected" == "[new]" ]]; then
 
     tmux new-session -d -s "$session_name" -c "$selected" -n "vi" "NVIM_APPNAME=lazyvim nvim; exec zsh -l"
     tmux new-window -t "$session_name" -n "cli" -c "$selected"
-    tmux new-window -t "$session_name" -n "claude" -c "$selected" "claude; exec zsh -l"
+    tmux new-window -t "$session_name" -n "claude" -c "$selected" "claude -n '$session_name'; exec zsh -l"
     tmux select-window -t "$session_name:cli"
     tmux switch-client -t "$session_name"
     exit 0
@@ -126,7 +126,7 @@ fi
 if [[ "$needs_windows" == "true" ]]; then
     tmux new-session -d -s "$session_name" -c "$session_dir" -n "vi" "NVIM_APPNAME=lazyvim nvim; exec zsh -l"
     tmux new-window -t "$session_name" -n "cli" -c "$session_dir"
-    tmux new-window -t "$session_name" -n "claude" -c "$session_dir" "claude; exec zsh -l"
+    tmux new-window -t "$session_name" -n "claude" -c "$session_dir" "claude -n '$session_name'; exec zsh -l"
     tmux select-window -t "$session_name:cli"
 fi
 

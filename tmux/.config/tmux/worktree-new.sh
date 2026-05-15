@@ -49,6 +49,7 @@ selected=$(
 
 if [[ "$selected" == "[new]" ]]; then
     read -rp "new branch name> " branch
+    branch=$(printf '%s' "$branch" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9\n' '-' | tr -s '-' | sed 's/^-//;s/-$//')
     [[ -z "$branch" ]] && exit 0
 
     worktree_path="$WORKTREE_DIR/$branch"
