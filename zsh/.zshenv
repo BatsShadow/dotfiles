@@ -23,6 +23,7 @@ export BUN_INSTALL="$HOME/.bun"
 export LIBRARY_PATH="$LIBRARY_PATH:$BREW_PREFIX/lib"
 
 export CURL_PROXY=
+export CLAUDE_CODE_TMPDIR=/tmp/claude-swebber
 export DEFAULT_PYTEST_OPTS=-n3
 export MAX_OLD_SPACE_SIZE=6144
 
