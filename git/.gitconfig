@@ -57,8 +57,8 @@
     #d = diff --word-diff
     # d = "!f() { git diff $@ | subl -w; }; f"
     # dc = "!f() { git diff --cached $@ | subl -w; }; f"
-    d = "!f() { [ -z \"$GIT_PREFIX\" ] || cd \"$GIT_PREFIX\" && git diff --color \"$@\" | diff-so-fancy  | less --tabs=4 -RFX; }; f"
-    ds = "!git d --staged"
+    d = -c core.pager='diff-so-fancy | less --tabs=4 -RFX' diff --color
+    ds = -c core.pager='diff-so-fancy | less --tabs=4 -RFX' diff --staged --color
     #list modified files in last commit
     dl = "!git ll -1"
     #diff last commit
