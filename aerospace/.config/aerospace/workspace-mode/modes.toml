@@ -96,20 +96,20 @@ alt-3 = [
   'layout tiles horizontal',
 ]
 
-# Gap/layout modes — left-hand homerow (Colemak-DH: a r s t)
-alt-a = [
+# Gap/layout modes — left-hand homerow (Colemak-DH: t s r a)
+alt-t = [
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh 1',
   'layout accordion horizontal',
 ]
-alt-r = [
+alt-s = [
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh 2',
   'layout tiles horizontal',
 ]
-alt-s = [
+alt-r = [
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh 3',
   'layout tiles horizontal',
 ]
-alt-t = 'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh'
+alt-a = 'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh'
 
 # Utility workspaces
 alt-7 = [
