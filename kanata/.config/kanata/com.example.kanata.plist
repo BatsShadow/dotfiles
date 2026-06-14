@@ -9,11 +9,10 @@
     <array>
         <string>/usr/local/bin/kanata</string>
         <string>-c</string>
-        <string>/Users/scott/.config/kanata/config.kbd</string>
+        <string>/Users/scott/.config/kanata/config_v2.kbd</string>
         <string>--port</string>
         <string>10000</string>
         <string>--nodelay</string>
-        <string>--log-layer-changes</string>
     </array>
 
     <key>RunAtLoad</key>
