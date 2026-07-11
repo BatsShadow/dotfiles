@@ -90,8 +90,26 @@ for w in "${WINS[@]}"; do
   fi
 done
 
-# 5. set the master ↔ column split width, then make the secondary the large
-#    (focused) window inside the accordion, and finally land focus on the master.
+# 5. drive the secondary to the TOP of the accordion. AeroSpace draws the
+#    accordion's FIRST child as the large/visible window whenever the accordion is
+#    not the focused container — focusing the secondary and refocusing the master
+#    does NOT stick, because the view reverts to the first child. So the secondary
+#    (the just-demoted master) must actually BE first. Guarded focus-up: swap it up
+#    one slot while a window still sits above it; stop the moment nothing does, so
+#    it reaches the top without ever ejecting/collapsing the tree.
+if [ -n "$SECONDARY" ]; then
+  guard=0
+  while [ "$guard" -lt "$COUNT" ]; do
+    guard=$((guard + 1))
+    aerospace focus --window-id "$SECONDARY"
+    aerospace focus --boundaries workspace --boundaries-action stop up 2>/dev/null
+    [ "$(focused_window)" = "$SECONDARY" ] && break   # nothing above -> at top
+    aerospace focus --window-id "$SECONDARY"
+    aerospace move up 2>/dev/null
+  done
+fi
+
+# 6. set the master ↔ column split width and land focus on the master. The
+#    secondary stays the visible accordion window because it is now the first child.
 aerospace resize --window-id "$MASTER" width "$(get_width)" 2>/dev/null
-[ -n "$SECONDARY" ] && aerospace focus --window-id "$SECONDARY"
 aerospace focus --window-id "$MASTER"

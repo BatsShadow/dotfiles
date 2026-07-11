@@ -2,7 +2,7 @@
 
 App-driven, single-workspace tiling that coexists with workspace mode. Goal: lay
 every app out on one tiled workspace and switch which app is *primary* with a
-single keystroke, keep secondary apps visible, and stash/reclaim one window on
+single keystroke, keep the other apps visible, and stash/reclaim one window on
 the secondary monitor — the most productive way possible.
 
 Toggle between tile mode and workspace mode with **alt-shift-q** (unchanged key).
@@ -12,78 +12,112 @@ Toggle between tile mode and workspace mode with **alt-shift-q** (unchanged key)
 ```
    built-in (LEFT / secondary)        XDR (primary)
  ┌────────────────────────┐   ┌──────────────┬──────────────┐
- │                        │   │              │  stack  ▏     │  small, top
- │   single reference     │   │    MASTER    ├──────────────┤
- │       window           │   │              │  SECONDARY   │  big, bottom
- │   (0 or 1 window)      │   │              │              │
+ │                        │   │              │  SECONDARY    │  large (accordion
+ │   single reference     │   │    MASTER    │  (on top)     │  front window)
+ │       window           │   │              ├──────────────┤
+ │   (0 or 1 window)      │   │              │  …peek…       │  extras peek behind
  └────────────────────────┘   └──────────────┴──────────────┘
 ```
 
-- The XDR (primary) workspace `Tiles` holds three roles: **master** (big, left),
-  **secondary** (big, bottom-right), and the **remaining stack** (small, top-right).
+- The XDR (primary) workspace `Tiles` holds two roles: **master** (big, left)
+  and, on the right, an **accordion column** whose front window is the
+  **secondary**. The remaining "extra" windows peek behind it.
 - The built-in monitor (physically on the **left**) hosts workspace `Tiles2`,
   a **capacity-1** reference slot (0 or 1 window).
 
-**Single-monitor (undocked / built-in only):** the right side becomes a single
-**accordion** column (`v_accordion`) instead of the weighted secondary-plus-stack
-split — on the small laptop screen the weighted split shrinks the secondary too
-much, so we keep one large secondary with the rest collapsed to accordion strips.
-Dual-monitor (XDR) uses the weighted `v_tiles` split described below.
+### Why an accordion (not a weighted split)
+
+An earlier version tiled the right column as a weighted `v_tiles` split
+(secondary tall at the bottom, small stack above). That fails when the column
+holds several windows: macOS enforces a minimum window height, so the squeezed
+"stack" windows overflow and **occlude** the secondary. An accordion solves this
+structurally — all extra windows are layered *behind* the front window and peek
+by `accordion-padding`, so the secondary is always fully visible no matter how
+many windows pile up. AeroSpace only ever shows **one peek per side**, so the
+secondary's size is constant regardless of count (no need to scale the padding).
 
 ### How the layout is realized (robust, no fragile tree surgery)
 
-The primary risk in the old tile mode was incremental `swap`/`join-with` under
-AeroSpace normalization, which reshuffles unpredictably. The rewrite instead
-**rebuilds the arrangement from scratch** on every change, which always converges:
+`relayout.sh` rebuilds the arrangement from scratch on every change, which always
+converges regardless of the starting tree:
 
-1. `flatten-workspace-tree` — drop all nesting, everything becomes root siblings.
-2. `aerospace layout v_tiles` — stack every window into one vertical column.
-3. Order the column: small stack on top, **secondary last (bottom)**.
-4. Focus the master → `aerospace move left` — pops master out into its own left
-   tile. Result tree: `h_tiles[ master | v_tiles[ …stack…, secondary ] ]`.
-5. `resize` the secondary taller and set the master width to the seeded default.
+1. `flatten-workspace-tree` — everything becomes root siblings.
+2. `layout h_tiles` on the master — force the **root horizontal**. This is
+   essential: from a vertical root, popping the master out only wraps it in an
+   `h_tiles` *child* and the root stays vertical, so the master renders as a
+   full-width bar ("wide main").
+3. `move left` × N on the master — over-shoot past the edge. AeroSpace ejects it
+   to the root's left and its orientation-alternation nests the remaining windows
+   into a column on the right → `h_tiles[ master | v_tiles[…] ]`.
+4. `layout v_accordion` on a column window — convert the right column to a
+   vertical accordion (the master is under the root `h_tiles`, so it is
+   unaffected).
+5. Move the **secondary to the top** of the accordion. AeroSpace draws the
+   accordion's **first child** as the large/visible window whenever the accordion
+   is not the focused container — focusing the secondary and refocusing the master
+   does *not* stick. So the secondary must literally *be* first. A guarded
+   focus-up loop swaps it up one slot while a window sits above it and stops the
+   instant nothing does — reaching the top without ejecting/collapsing the tree.
+6. `resize --window-id master width` to the seeded width, then focus the master.
 
-Verified on AeroSpace 0.21.2: steps 1–2 + `move left` deterministically produce
-`master ∈ h_tiles`, `stack ∈ v_tiles`. `resize height/width` and `move down/up`
-all succeed.
+Verified on AeroSpace 0.21.2. The guarded focus-based loops (used for both the
+master pop-left and the secondary-to-top) never over-shoot, which is what made
+the old unbounded `move up/down` ejections collapse the tree.
 
 ### Sizing
 
-Master opens at a **reasonable default width** derived from the existing gap
-configs (`split.gaps.toml` + the workspace-mode `*-windows.gaps.toml`
-proportions) rather than an arbitrary number. Outer margins / inner gaps are
-reused as the starting geometry (dropping the old 710px left-centering margin,
-which no longer fits a left-anchored master). alt-R / alt-S tune from there.
+- **Master width** (`DEFAULT_MASTER_WIDTH` = 1408) matches a single window in
+  workspace mode on the XDR: logical width 3008 − `outer.left` 750 −
+  `outer.right` 850 = 1408 points. The "main" window stays the same size across a
+  tile↔workspace toggle. alt-R / alt-S tune it live (persisted).
+- **Outer gaps** on the XDR default to `outer.left` = 375 / `outer.right` = 190,
+  which left-shifts the master and gives the accordion room. alt-W / alt-F adjust
+  them together (ratio preserved, clamped [0, 600]). AeroSpace has no runtime gap
+  command, so these are placeholders in `split.gaps.toml` substituted by
+  `render_config` (lib.sh) and applied with `reload-config`.
+- **Accordion peek** is `accordion-padding` = 200 (globals.toml); a larger value
+  makes the peek bigger and the secondary a little shorter.
+
+**Single-monitor (undocked / built-in only):** the whole workspace is one
+`h_accordion` — whichever window you focus is large, the rest peek. On the small
+laptop screen this keeps the focused window usable instead of shrinking a
+weighted split too far.
 
 ## Promotion / rotation (the core interaction)
 
 State file `.tile-master` tracks the current master window id.
 
-**Promote app N to master** (app key, or reclaim from built-in):
-- secondary := the *old* master (rotate down to the big bottom slot)
-- old secondary rotates up into the small stack
-- `.tile-master` := N
-- run the relayout above
+**Promote app N to master** (`promote.sh`, run by an app key or a reclaim):
+- pull N onto `Tiles` if it lives elsewhere,
+- secondary := the *old* master (rotate it into the accordion, on top),
+- `.tile-master` := N,
+- run the relayout above.
 
-Pressing two app keys back and forth toggles the two apps between master and the
-big secondary — the app you just left is always sitting right there, large.
+Because the demoted master lands on top of the accordion (step 5), it is the
+large/visible window immediately. Pressing two app keys back and forth toggles
+the two apps between master and the big secondary — the app you just left is
+always sitting right there, large.
 
 ## Keymap (tile mode)
 
 Right hand — **app keys** (promote to master; monitor-aware): if the target app
 lives on the built-in monitor, just **focus it there in place** instead of pulling
-it over.
+it over. A second press while already focused runs the app's `--on-focus` action.
 
-| Key | App |
-|-----|-----|
-| alt-U | WezTerm |
-| alt-O | Arc (Browser) |
-| alt-L | Arc / Gmail |
-| alt-H | Slack |
-| alt-Y | Arc / YouTube |
-| alt-C | Calendar |
-| alt-; | Discord |
-| alt-Z | Zoom |
+| Key | App | Second press |
+|-----|-----|--------------|
+| alt-U | WezTerm | — |
+| alt-O | Arc (regular browser) | — |
+| alt-L | Arc / Gmail or Messages | toggle Gmail ↔ Messages |
+| alt-H | Slack | — |
+| alt-Y | Arc / YouTube | re-select the YouTube tab |
+| alt-C | Calendar | open calendar |
+| alt-; | Discord | — |
+| alt-Z | Zoom | — |
+
+Arc has one window per role; app keys match by window title
+(`--find-title` / `--exclude`). "Email" = Gmail **or** Messages, mirroring the
+workspace-mode `resolve-workspace.sh` mapping.
 
 Left hand — **A R S T** (physical left-to-right):
 
@@ -94,16 +128,25 @@ Left hand — **A R S T** (physical left-to-right):
 | alt-S | **Grow** master (split moves **right**) | right of R → split right |
 | alt-T | Focus back to **primary** / master | rightmost → back to center |
 
+Gaps — **W / F**:
+
+| Key | Action |
+|-----|--------|
+| alt-W | **Narrow** the XDR outer gaps (master shifts left, accordion widens) |
+| alt-F | **Widen** the XDR outer gaps (master shifts right, accordion narrows) |
+
+Two independent size knobs: **R/S** = master↔column split width, **W/F** = outer
+gaps (both move together, ratio-preserved, within [0, 600]).
+
 Movement (unchanged, Colemak-DH): alt-M/N/E/I = focus left/down/up/right within
-the XDR (master ↔ secondary ↔ stack).
+the XDR (master ↔ accordion). alt-shift-M/N/E/I = swap in that direction.
 
 **alt-shift-tab** — cross-monitor, depends on focus (asymmetric by design):
-- Focused window on the **XDR** (master or secondary) → **swap** it with the one
-  window on the built-in monitor (they trade places; built-in stays capacity-1).
-  If built-in is empty, it's a one-way push and the vacated XDR slot refills from
-  the stack.
+- Focused window on the **XDR** (master or in the accordion) → **swap** it with
+  the one window on the built-in monitor (they trade places; built-in stays
+  capacity-1). If built-in is empty, it's a one-way push.
 - Focused window on the **built-in** → **no swap**: promote it to master (old
-  master demotes to secondary, same rotate as an app key). Built-in becomes empty.
+  master demotes into the accordion, same rotate as an app key).
 - **Single monitor** (undocked): no-op.
 
 Service mode (alt-shift-quote) unchanged.
@@ -119,11 +162,11 @@ Service mode (alt-shift-quote) unchanged.
 
 Two parts:
 
-**1. `config-version = 2`** — this is the formal "version 2." `reload-config`
-warns that `config-version = 1` is outdated. Opting into v2 changes exactly one
-thing: `persistent-workspaces` stops being inferred from keybinding right-hand
-sides and defaults to `[]`. To preserve behavior we add `config-version = 2` plus
-an explicit `persistent-workspaces` list (in both `globals.toml` files and the
+**1. `config-version = 2`** — the formal "version 2." `reload-config` warns that
+`config-version = 1` is outdated. Opting into v2 changes exactly one thing:
+`persistent-workspaces` stops being inferred from keybinding right-hand sides and
+defaults to `[]`. To preserve behavior we add `config-version = 2` plus an
+explicit `persistent-workspaces` list (in both `globals.toml` files and the
 generated `aerospace.toml`).
 
 **2. `on-window-detected` `test` DSL** — the soft-deprecated dot-notation matchers
@@ -138,44 +181,22 @@ if.window-title-regex-substring = "Gmail"
 if = 'test %{app-bundle-id} = company.thebrowser.Browser && test %{window-title} ~= Gmail'
 ```
 
-Everything else (gaps arrays, mode bindings, `resize smart`, `swap`, `move`,
-`move-workspace-to-monitor`, `workspace-to-monitor-force-assignment`, layout
-commands) is already 0.21-current.
+A no-`if` catch-all is now an error, so the catch-all uses `if = 'true'`.
 
 ## Files
 
-- `lib.sh` — shared helpers + state (`.tile-master`, `.tile-master-width`).
-- `relayout.sh` — idempotent rebuild of the layout (dual: weighted stack; single: accordion).
-- `promote.sh` — promote a window to master (rotate old master → secondary).
+- `lib.sh` — shared helpers + state (`.tile-master`, `.tile-master-width`,
+  `.tile-gap`) and `render_config` (config generation with gap substitution).
+- `relayout.sh` — idempotent rebuild of the layout (dual: master + accordion;
+  single: one `h_accordion`).
+- `promote.sh` — promote a window to master (rotate old master → secondary on top).
 - `app.sh` — app-key handler (launch / on-focus / focus-on-secondary / promote).
-- `monitor-toggle.sh` — alt-shift-tab swap/promote across the built-in monitor.
+- `resize-master.sh` — alt-R / alt-S master-split width (persisted).
+- `resize-gap.sh` — alt-W / alt-F XDR outer-gap adjust (re-render + reload).
 - `focus-monitor.sh` — alt-A / alt-T cross-monitor focus.
-- `resize-master.sh` — alt-R / alt-S master-split resize (persisted).
+- `monitor-toggle.sh` — alt-shift-tab swap/promote across the built-in monitor.
 - `enter.sh` — gather windows + seed master when entering tile mode.
 - `auto-config.aerospace.sh` — generate tile `aerospace.toml` + reload + enter.
-
-Superseded (no longer wired): `split-focus.aerospace.sh`, `move-to-other-tiles.sh`.
-
-## Verification status
-
-Only the built-in display was connected during implementation.
-
-**Verified live (single monitor):**
-- config-version 2 + `test`-DSL migration reloads with zero warnings; windows intact.
-- Tree construction: `flatten → layout v_tiles → move left` yields a flat
-  `h_tiles[master | v_tiles[stack]]`; single-monitor yields one `h_accordion`.
-- Full toggle round-trip: workspace→tile gathers all windows to `Tiles` and seeds
-  master from the focused app; tile→workspace restores every window to its
-  resolved workspace and lands on the master's workspace (continuity).
-- Handlers: `promote` (master rotates), `resize-master` (persists), `focus-monitor`,
-  `monitor-toggle` (no-ops on a single monitor).
-
-**Needs docked (XDR) verification:**
-- Exact geometry/proportions of the weighted master + big-secondary + small-stack
-  split (`SECONDARY_HEIGHT`, `DEFAULT_MASTER_WIDTH` in `lib.sh` are starting
-  guesses to tune with alt-R/alt-S).
-- The cross-monitor `alt-shift-tab` swap (XDR-focused) and promote (built-in-focused).
-- App-key monitor-awareness (focus-in-place when the app is on the built-in).
 
 ## Known pre-existing quirks (not introduced here)
 - YouTube matching/restore relies on the Arc window title containing "YouTube";
