@@ -32,5 +32,21 @@ echo "$WINDOWS" | jq -c '.[]' | while read -r win; do
   fi
 done
 
-# Focus the Terminal workspace as a sensible default after restore
-aerospace workspace Terminal
+# Continuity: land on the tile-mode master's resolved workspace (fall back to
+# Terminal). By now the restore loop has already moved it to that workspace.
+MASTER=$(cat "$SCRIPT_DIR/tile-mode/.tile-master" 2>/dev/null)
+TARGET=""
+if [ -n "$MASTER" ]; then
+  INFO=$(aerospace list-windows --all --json --format '%{window-id} %{app-bundle-id} %{window-title}' 2>/dev/null \
+    | jq -r --arg id "$MASTER" '.[] | select((.["window-id"]|tostring) == $id) | "\(.["app-bundle-id"])\t\(.["window-title"])"')
+  APP=$(printf '%s' "$INFO" | cut -f1)
+  TITLE=$(printf '%s' "$INFO" | cut -f2-)
+  [ -n "$APP" ] && TARGET=$("$RESOLVER" "$APP" "$TITLE")
+fi
+
+if [ -n "$TARGET" ]; then
+  aerospace workspace "$TARGET"
+  aerospace focus --window-id "$MASTER" 2>/dev/null
+else
+  aerospace workspace Terminal
+fi

@@ -1,12 +1,15 @@
+# v2 syntax: `if = 'test %{...}'` (dot-notation `if.app-id` is soft-deprecated).
 [[on-window-detected]]
-if.app-id = "com.brnbw.Tuna"
+if = 'test %{app-bundle-id} = com.brnbw.Tuna'
 run = "layout floating"
 
 [[on-window-detected]]
-if.app-id = "roomeqwizard.launcher"
+if = 'test %{app-bundle-id} = roomeqwizard.launcher'
 run = "layout floating"
 
+# Catch-all: everything else lands on the Tiles workspace
 [[on-window-detected]]
+if = 'true'
 run = "move-node-to-workspace Tiles"
 
 # 'main' binding mode declaration
@@ -37,42 +40,33 @@ alt-shift-i = 'swap right'
 # Swap focused window left
 alt-f = 'swap left'
 
-# App switching — right hand only (Colemak-DH)
-alt-u = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.github.wez.wezterm --app-name WezTerm --find-args "--all app-name"'
-alt-o = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --find-args "--all app-name" --exclude "Gmail|YouTube|Messages"'
-alt-l = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --find-title Gmail --on-focus /Users/scott/.config/aerospace/toggle-email-pin.sh'
-alt-h = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.tinyspeck.slackmacgap --app-name Slack --find-args "--all app-name"'
-alt-semicolon = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.hnc.Discord --app-name Discord --find-args "--all app-name"'
-alt-y = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --find-title YouTube --on-focus "osascript /Users/scott/.config/aerospace/arc-select-tab.scpt 3 1"'
-alt-c = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.apple.iCal --app-name Calendar --find-args "--all app-name" --on-focus /Users/scott/.config/aerospace/open-calendar.sh'
-alt-z = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id us.zoom.xos --app-name zoom.us --find-args "--all app-name"'
+# App keys — right hand (Colemak-DH). Promote the app to master (rotating the old
+# master down to the big secondary slot); if the app is on the built-in monitor,
+# focus it there in place instead.
+alt-u = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.github.wez.wezterm --app-name WezTerm'
+alt-o = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id company.thebrowser.Browser --app-name Arc --exclude "Gmail|YouTube|Messages"'
+alt-l = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id company.thebrowser.Browser --app-name Arc --find-title Gmail --on-focus /Users/scott/.config/aerospace/toggle-email-pin.sh'
+alt-h = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.tinyspeck.slackmacgap --app-name Slack'
+alt-semicolon = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.hnc.Discord --app-name Discord'
+alt-y = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id company.thebrowser.Browser --app-name Arc --find-title YouTube --on-focus "osascript /Users/scott/.config/aerospace/arc-select-tab.scpt 3 1"'
+alt-c = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.apple.iCal --app-name Calendar --on-focus /Users/scott/.config/aerospace/open-calendar.sh'
+alt-z = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id us.zoom.xos --app-name zoom.us'
 
-# Repair tiles layout (re-run split-focus setup)
-alt-0 = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/split-focus.aerospace.sh'
+# Left hand — A R S T (physical left-to-right)
+alt-a = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/focus-monitor.sh secondary'  # focus built-in (far-left) monitor
+alt-r = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/resize-master.sh shrink'      # split left  (master smaller)
+alt-s = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/resize-master.sh grow'        # split right (master bigger)
+alt-t = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/focus-monitor.sh primary'     # focus back to primary / master
 
-# alt-a, alt-s, alt-d, alt-g are free in tile mode (used for gap modes in workspace mode)
+# Repair / re-apply the tile layout
+alt-0 = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/relayout.sh'
 
 # Toggle to workspace mode
 alt-shift-q = 'exec-and-forget /Users/scott/.config/aerospace/toggle-mode.sh'
 
-# # monkeytype (commented out — was alt-t)
-# alt-t = [
-#   'exec-and-forget /Users/scott/.config/aerospace/tile-mode/split-focus.aerospace.sh Arc --all app-name',
-#   '''exec-and-forget osascript -e '
-#   tell application "Arc"
-#     tell front window
-#       tell space "Work"
-#         tell first tab whose name is "monkeytype" to select
-#       end tell
-#     end tell
-#     activate
-#   end tell
-#   '
-#   ''',
-# ]
-
 alt-tab = 'workspace-back-and-forth'
-alt-shift-tab = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/move-to-other-tiles.sh'
+# Move the focused window to / from the built-in secondary monitor (see monitor-toggle.sh)
+alt-shift-tab = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/monitor-toggle.sh'
 
 # Service mode
 alt-shift-quote = 'mode service'

@@ -14,6 +14,15 @@ after-startup-command = []
 # Start AeroSpace at login
 start-at-login = true
 
+# config-version = 2 (AeroSpace v0.21): opt into current config semantics.
+# In v2, persistent-workspaces defaults to [] instead of being inferred from
+# keybindings, so we declare the workspaces this setup uses explicitly.
+config-version = 2
+persistent-workspaces = [
+  "Terminal", "Browser", "Email", "Slack", "Discord", "Calendar", "YouTube",
+  "7", "8", "9", "Z", "Tiles", "Tiles2",
+]
+
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true

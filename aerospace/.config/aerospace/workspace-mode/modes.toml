@@ -1,57 +1,56 @@
 # Auto-workspaces for windows
+# v2 syntax: `if = 'test %{...}'` (dot-notation `if.app-id` is soft-deprecated).
+# && = AND, ~= = case-insensitive regex-substring. Order matters: first match wins.
 [[on-window-detected]]
-if.app-id = "com.github.wez.wezterm"
+if = 'test %{app-bundle-id} = com.github.wez.wezterm'
 run = "move-node-to-workspace Terminal"
 
 [[on-window-detected]]
-if.app-id = "com.apple.iCal"
+if = 'test %{app-bundle-id} = com.apple.iCal'
 run = "move-node-to-workspace Calendar"
 
 [[on-window-detected]]
-if.app-id = "com.hnc.Discord"
+if = 'test %{app-bundle-id} = com.hnc.Discord'
 run = "move-node-to-workspace Discord"
 
-[[on-window-detected]]
-if.app-id = "company.thebrowser.Browser"  # Arc
-if.window-title-regex-substring = "Gmail"
+[[on-window-detected]] # Arc / Gmail
+if = 'test %{app-bundle-id} = company.thebrowser.Browser && test %{window-title} ~= Gmail'
 run = "move-node-to-workspace Email"
 
-[[on-window-detected]]
-if.app-id = "company.thebrowser.Browser"             # Arc
-if.window-title-regex-substring = "Messages for web"
+[[on-window-detected]] # Arc / Messages for web
+if = 'test %{app-bundle-id} = company.thebrowser.Browser && test %{window-title} ~= Messages'
 run = "move-node-to-workspace Email"
 
-[[on-window-detected]]
-if.app-id = "company.thebrowser.Browser"      # Arc
-if.window-title-regex-substring = ".*YouTube"
+[[on-window-detected]] # Arc / YouTube
+if = 'test %{app-bundle-id} = company.thebrowser.Browser && test %{window-title} ~= YouTube'
 run = "move-node-to-workspace YouTube"
 
-[[on-window-detected]]
-if.app-id = "company.thebrowser.Browser"
+[[on-window-detected]] # Arc (generic)
+if = 'test %{app-bundle-id} = company.thebrowser.Browser'
 run = "move-node-to-workspace Browser"
 
 [[on-window-detected]]
-if.app-id = "com.apple.Safari"
+if = 'test %{app-bundle-id} = com.apple.Safari'
 run = "move-node-to-workspace Browser"
 
-[[on-window-detected]]
-if.app-id = "com.tinyspeck.slackmacgap" # Slack
+[[on-window-detected]] # Slack
+if = 'test %{app-bundle-id} = com.tinyspeck.slackmacgap'
 run = "move-node-to-workspace Slack"
 
 [[on-window-detected]]
-if.app-id = "md.obsidian"
+if = 'test %{app-bundle-id} = md.obsidian'
 run = "move-node-to-workspace Email"
 
-[[on-window-detected]]
-if.app-id = "us.zoom.xos"        # Zoom
+[[on-window-detected]] # Zoom
+if = 'test %{app-bundle-id} = us.zoom.xos'
 run = "move-node-to-workspace Slack"
 
 [[on-window-detected]]
-if.app-id = "com.brnbw.Tuna"
+if = 'test %{app-bundle-id} = com.brnbw.Tuna'
 run = "layout floating"
 
 [[on-window-detected]]
-if.app-id = "roomeqwizard.launcher"
+if = 'test %{app-bundle-id} = roomeqwizard.launcher'
 run = "layout floating"
 
 # 'main' binding mode declaration

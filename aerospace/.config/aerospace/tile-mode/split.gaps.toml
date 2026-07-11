@@ -1,16 +1,12 @@
 
-# WINDOW-MODE-1
-# Gaps between windows (inner-*) and between monitor edges (outer-*).
-# Possible values:
-# - Constant:     gaps.outer.top = 8
-# - Per monitor:  gaps.outer.top = [{ monitor.main = 16 }, { monitor."some-pattern" = 32 }, 24]
-#                 In this example, 24 is a default value when there is no match.
-#                 Monitor pattern is the same as for 'workspace-to-monitor-force-assignment'.
-#                 See: https://nikitabobko.github.io/AeroSpace/guide#assign-workspaces-to-monitors
+# TILE-MODE gaps.
+# Master is anchored to the LEFT, so the old 710px left-centering margin is gone.
+# Small outer margins frame the content near full-screen; inner gaps separate the
+# master from the right column (horizontal) and the stacked windows (vertical).
 [gaps]
-outer.left = [{ monitor.built-in = 0 }, { monitor.XDR = 710 }, 0]
-outer.right = [{ monitor.built-in = 40 }, { monitor.XDR = 40 }, 40]
-outer.bottom = [{ monitor.built-in = 0 }, { monitor.XDR = 60 }, 0]
-outer.top = [{ monitor.built-in = 0 }, { monitor.XDR = 40 }, 0]
-inner.horizontal = 20
-inner.vertical = 0
+outer.left = [{ monitor.built-in = 8 }, { monitor.XDR = 10 }, 8]
+outer.right = [{ monitor.built-in = 8 }, { monitor.XDR = 10 }, 8]
+outer.bottom = [{ monitor.built-in = 8 }, { monitor.XDR = 60 }, 8]
+outer.top = [{ monitor.built-in = 8 }, { monitor.XDR = 40 }, 8]
+inner.horizontal = 10
+inner.vertical = 10

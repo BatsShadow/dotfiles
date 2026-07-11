@@ -1,40 +1,22 @@
 #!/usr/bin/env bash
+# Activate tile mode: generate the tile-mode aerospace.toml (globals + gaps +
+# bindings), reload, then gather windows and lay them out via enter.sh.
+# Works on one monitor (accordion) or two (master + weighted stack).
 
-CWD=$(pwd)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TOML_FILE="$SCRIPT_DIR/.workspace-window-modes.toml"
 
-CURRENT_MONITOR=$(aerospace list-monitors --focused --format %{monitor-id})
-XDR_ID=$(aerospace list-monitors | grep XDR | awk '{print $1}')
+cd "$SCRIPT_DIR" || exit 1
 
-if [[ "$CURRENT_MONITOR" -ne "$XDR_ID" ]]; then
-  echo Current monitor is not XDR. Exiting
-  # Allow the script to run on laptop monitor when 0 is pressed
-  if [[ "$1" == "" ]]; then
-    exit 0
-  fi
-fi
-
-CURRENT_WORKSPACE=$(aerospace list-workspaces --visible --monitor $XDR_ID)
-SAVED_MODE=$(cat "$TOML_FILE" | grep "^$CURRENT_WORKSPACE = " | sed -e"s/^$CURRENT_WORKSPACE = //")
-MONITOR_COUNT=$(aerospace list-monitors --count)
-
-cd "$SCRIPT_DIR" || false
-
-# write config file, then reload it
-
-# write to a temp file, then move it to avoid issues
-# with aerospace reading a partial file
+# Write to a temp file first, then move it in, so aerospace never reads a
+# partially-written config.
 TEMP_CONFIG=$(mktemp -t aerospace-config)
 cat globals.toml >"${TEMP_CONFIG}"
 cat split.gaps.toml >>"${TEMP_CONFIG}"
 cat modes.toml >>"${TEMP_CONFIG}"
-cp $TEMP_CONFIG ../aerospace.toml
+cp "$TEMP_CONFIG" ../aerospace.toml
 
 aerospace reload-config
-$SCRIPT_DIR/split-focus.aerospace.sh
+"$SCRIPT_DIR/enter.sh"
 
 # Persist current mode
 echo "tile" > "$SCRIPT_DIR/../.current-mode"
-
-cd "$CWD" || false
