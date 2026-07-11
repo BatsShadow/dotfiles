@@ -37,15 +37,16 @@ alt-shift-n = 'swap down'
 alt-shift-e = 'swap up'
 alt-shift-i = 'swap right'
 
-# Swap focused window left
-alt-f = 'swap left'
+# Narrow / widen the XDR outer gaps together (master shifts, accordion resizes)
+alt-w = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/resize-gap.sh narrow'
+alt-f = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/resize-gap.sh widen'
 
 # App keys — right hand (Colemak-DH). Promote the app to master (rotating the old
 # master down to the big secondary slot); if the app is on the built-in monitor,
 # focus it there in place instead.
 alt-u = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.github.wez.wezterm --app-name WezTerm'
 alt-o = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id company.thebrowser.Browser --app-name Arc --exclude "Gmail|YouTube|Messages"'
-alt-l = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id company.thebrowser.Browser --app-name Arc --find-title Gmail --on-focus /Users/scott/.config/aerospace/toggle-email-pin.sh'
+alt-l = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id company.thebrowser.Browser --app-name Arc --find-title "Gmail|Messages" --on-focus /Users/scott/.config/aerospace/toggle-email-pin.sh'
 alt-h = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.tinyspeck.slackmacgap --app-name Slack'
 alt-semicolon = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.hnc.Discord --app-name Discord'
 alt-y = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id company.thebrowser.Browser --app-name Arc --find-title YouTube --on-focus "osascript /Users/scott/.config/aerospace/arc-select-tab.scpt 3 1"'

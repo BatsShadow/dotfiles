@@ -47,8 +47,12 @@ if ! dual_monitor; then
   exit 0
 fi
 
-# --- Dual monitor: master (left) + weighted vertical stack (right). ---
+# --- Dual monitor: master (left) + accordion column (right). ---
 # Secondary = supplied (old master) if valid & distinct, else first non-master.
+# In the accordion, the "secondary" is simply whichever window is focused: it is
+# drawn large while the other "extra" windows peek behind it (accordion-padding).
+# The accordion can never occlude the secondary — extras are layered behind, not
+# tiled beside it — so the big window stays fully visible regardless of count.
 if [ -z "$SECONDARY" ] || [ "$SECONDARY" = "$MASTER" ] || ! in_tiles "$SECONDARY"; then
   SECONDARY=""
   for w in "${WINS[@]}"; do
@@ -56,25 +60,38 @@ if [ -z "$SECONDARY" ] || [ "$SECONDARY" = "$MASTER" ] || ! in_tiles "$SECONDARY
   done
 fi
 
-# 1. flatten to root siblings, 2. stack everything vertically
+# Build the target tree: h_tiles[ master | v_accordion[ …extras…, secondary ] ].
+#
+# 1. flatten to root siblings.
+# 2. force the ROOT horizontal (layout h_tiles). This is essential: if the root
+#    is vertical, popping the master out only wraps it in an h_tiles *child* and
+#    the root stays vertical -> master renders as a full-width bar ("wide main").
+# 3. move the master left past the edge. Over-shooting ejects it to the root's
+#    left and aerospace's orientation-alternation nests the remaining windows
+#    into a column on the right. Result: h_tiles[ master | v_tiles[…] ].
 aerospace flatten-workspace-tree
 aerospace focus --window-id "$MASTER"
-aerospace layout v_tiles
-
-# 3. pop the master out to the left -> h_tiles[ master | v_tiles[rest] ]
+aerospace layout h_tiles
 aerospace focus --window-id "$MASTER"
-aerospace move left
-
-# 4. drive the secondary to the bottom of the right column
-aerospace focus --window-id "$SECONDARY"
 i=0
 while [ "$i" -lt "$COUNT" ]; do
-  aerospace move down 2>/dev/null || break
+  aerospace move left 2>/dev/null
   i=$((i + 1))
 done
 
-# 5. enlarge the secondary at the bottom, then set the master ↔ column split
-aerospace resize --window-id "$SECONDARY" height "$SECONDARY_HEIGHT" 2>/dev/null
-aerospace resize --window-id "$MASTER" width "$(get_width)" 2>/dev/null
+# 4. convert the right column to a vertical accordion. Focus any window that is
+#    in the column (not the master) and set its parent-container layout; the
+#    master lives under the root h_tiles, so it is unaffected.
+for w in "${WINS[@]}"; do
+  if [ "$w" != "$MASTER" ]; then
+    aerospace focus --window-id "$w"
+    aerospace layout v_accordion
+    break
+  fi
+done
 
+# 5. set the master ↔ column split width, then make the secondary the large
+#    (focused) window inside the accordion, and finally land focus on the master.
+aerospace resize --window-id "$MASTER" width "$(get_width)" 2>/dev/null
+[ -n "$SECONDARY" ] && aerospace focus --window-id "$SECONDARY"
 aerospace focus --window-id "$MASTER"

@@ -1,11 +1,16 @@
 
 # TILE-MODE gaps.
-# Master is anchored to the LEFT, so the old 710px left-centering margin is gone.
-# Small outer margins frame the content near full-screen; inner gaps separate the
-# master from the right column (horizontal) and the stacked windows (vertical).
+# On the XDR the master has a fixed width (DEFAULT_MASTER_WIDTH = 1408) and is
+# left-anchored behind outer.left. The XDR left/right gap values below are
+# placeholders, substituted at generation time from the current gap state
+# (lib.sh render_config). Defaults 375 / 190 (derived by halving the
+# workspace single-window left margin of 750 and giving ~half of that back to the
+# right). alt-W narrows / alt-F widens them together, keeping the 375:190 ratio,
+# within [0, 600] (see resize-gap.sh). The master shifts left and the accordion
+# widens as the gaps shrink. Built-in monitor keeps small even margins.
 [gaps]
-outer.left = [{ monitor.built-in = 8 }, { monitor.XDR = 10 }, 8]
-outer.right = [{ monitor.built-in = 8 }, { monitor.XDR = 10 }, 8]
+outer.left = [{ monitor.built-in = 8 }, { monitor.XDR = __XDR_GAP_LEFT__ }, 8]
+outer.right = [{ monitor.built-in = 8 }, { monitor.XDR = __XDR_GAP_RIGHT__ }, 8]
 outer.bottom = [{ monitor.built-in = 8 }, { monitor.XDR = 60 }, 8]
 outer.top = [{ monitor.built-in = 8 }, { monitor.XDR = 40 }, 8]
 inner.horizontal = 10
