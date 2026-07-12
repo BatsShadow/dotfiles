@@ -13,7 +13,8 @@ toggle or a peeking extra — now moves 2 windows with no flatten, `F=2`); and t
 **S8 accordion-eject** entry (stack scattered windows into a flat accordion, then
 eject the master in one move — entry no longer explodes windows into a grid). The
 eject primitive also replaced the flatten+pop-×N in the full rebuild. S9 (gap
-debounce) remains future work.
+debounce) was assessed and found unnecessary — the `reload-config` re-render does
+not visibly flicker.
 
 ---
 
@@ -212,11 +213,13 @@ compares to today's "always relayout."
   reorder + convert. The same eject primitive now backs the already-tiled rebuild
   too (repair / promote fallback), replacing the pop-×N with a single move.
 
-### S9 — **Gap change** (alt-W / alt-F)
-- `reload-config` is unavoidable (no runtime gap command) → inherently ★★★★★.
+### S9 — **Gap change** (alt-W / alt-F)  ✅ no change needed
+- `reload-config` is unavoidable (no runtime gap command).
 - **Ops:** persist gap → `render_config` → `reload-config` → re-assert master width. **No relayout/flatten.**
-- **Today:** exactly this (`resize-gap.sh`). ✅ — but the `reload` re-renders every
-  window. Open question: can we debounce rapid alt-W/alt-F presses into one reload?
+- **Assessed and left as-is:** in practice the `reload-config` re-render does **not**
+  visibly flicker (confirmed by testing), so debouncing rapid presses would only add
+  latency for no benefit and complicate a currently-simple script. `resize-gap.sh`
+  stays as-is.
 
 ### S10 — **Width change** (alt-R / alt-S)
 - **Ops:** `resize --window-id master width` only.
@@ -245,7 +248,7 @@ compares to today's "always relayout."
 | 4 | **S3 swap** promote without flatten (`F=2`, the A↔B toggle) | **highest** | med | ✅ done (`focus target; swap left`) |
 | 5 | **S4** (promote an accordion *extra*) via same swap + explicit front-set | med | med | ✅ done (unified with S3) |
 | 3 | **S8** accordion-eject entry (stack first, eject master last, skip flatten) | high | med | ✅ done |
-| 2 | **S9 debounce** rapid gap presses into a single reload | med | low | needs design |
+| 2 | **S9 debounce** rapid gap presses into a single reload | — | — | ✅ not needed (reload doesn't visibly flicker) |
 | 6 | Guard single-monitor/cross-monitor promotes from needless relayout | med | low | needs confirm |
 
 The rebuild-from-scratch path stays as the **correctness fallback**: if a
