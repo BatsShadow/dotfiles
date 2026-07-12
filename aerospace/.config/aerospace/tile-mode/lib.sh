@@ -11,6 +11,7 @@ SECONDARY_WS="Tiles2"  # capacity-1 reference slot (pinned to the built-in monit
 
 # --- State files (gitignored) ---
 MASTER_FILE="$TILE_DIR/.tile-master"        # window-id of the current master
+SECONDARY_FILE="$TILE_DIR/.tile-secondary"  # window-id of the accordion's top/front window
 WIDTH_FILE="$TILE_DIR/.tile-master-width"   # master width in logical px (tunable)
 GAP_FILE="$TILE_DIR/.tile-gap"              # XDR outer LEFT gap in px (alt-W/alt-F)
 
@@ -57,9 +58,24 @@ window_workspace() {
     | awk -F'\t' -v id="$1" '$1==id{print $2; exit}'
 }
 
-# --- Master state ---
+# --- Master / secondary state ---
 get_master() { cat "$MASTER_FILE" 2>/dev/null; }
 set_master() { echo "$1" > "$MASTER_FILE"; }
+
+# The secondary is the accordion's top/front window (the just-demoted master). It
+# is tracked so promote can take the cheap "swap with master" fast-path when the
+# target you press is already the secondary (the A<->B toggle). Maintained by both
+# relayout (rebuild) and the swap fast-path so it always names the top col window.
+get_secondary() { cat "$SECONDARY_FILE" 2>/dev/null; }
+set_secondary() { echo "$1" > "$SECONDARY_FILE"; }
+
+# Parent-container layout of a window on the primary workspace (h_tiles for the
+# master, v_accordion for a column window). Cheap and has no focus side effects.
+parent_layout() {
+  aerospace list-windows --workspace "$PRIMARY_WS" \
+    --format '%{window-id} %{window-parent-container-layout}' 2>/dev/null \
+  | awk -v id="$1" '$1==id{print $2; exit}'
+}
 
 get_width() { local w; w="$(cat "$WIDTH_FILE" 2>/dev/null)"; echo "${w:-$DEFAULT_MASTER_WIDTH}"; }
 set_width() { echo "$1" > "$WIDTH_FILE"; }
@@ -89,4 +105,41 @@ render_config() {
   cat "$TILE_DIR/globals.toml"
   sed -e "s/__XDR_GAP_LEFT__/$L/" -e "s/__XDR_GAP_RIGHT__/$R/" "$TILE_DIR/split.gaps.toml"
   cat "$TILE_DIR/modes.toml"
+}
+
+# --- Debug tracing ---------------------------------------------------------
+# When TILE_TRACE names a file, `trace <label>` appends a full snapshot of the
+# Tiles workspace (z-order + geometry + parent-container layout) after a step, so
+# a whole transition can be replayed and inspected for flicker. Unset => zero
+# overhead. Enable e.g.:  TILE_TRACE=/tmp/tile.log ./relayout.sh 255 38
+FRAMES_SRC="$TILE_DIR/tools/frames.swift"
+FRAMES_BIN="$TILE_DIR/tools/.frames-bin"
+# ms-precision wall clock + epoch (BSD `date` has no %N, so use perl).
+_ts()  { perl -MTime::HiRes=time -e 'my $t=time;my@l=localtime($t);printf"%02d:%02d:%02d.%03d",$l[2],$l[1],$l[0],($t-int($t))*1000' 2>/dev/null || date '+%H:%M:%S'; }
+_now() { perl -MTime::HiRes=time -e 'printf"%.3f",time' 2>/dev/null || date +%s; }
+
+# trace_begin <invocation>: log a header with the command that started this
+# process and (re)mark the elapsed-time origin. Call once at the top of a script.
+trace_begin() {
+  [ -n "${TILE_TRACE:-}" ] || return 0
+  : "${TILE_TRACE_T0:=$(_now)}"; export TILE_TRACE_T0
+  printf '\n═══════════ %s │ CMD: %s │ pid=%s\n' "$(_ts)" "$*" "$$" >> "$TILE_TRACE"
+}
+
+# trace <label>: append a full workspace snapshot (z-order + geometry + parent
+# layout) tagged with wall-clock time and Δ since trace_begin. Zero cost unless
+# TILE_TRACE is set.
+trace() {
+  [ -n "${TILE_TRACE:-}" ] || return 0
+  if [ ! -x "$FRAMES_BIN" ] || [ "$FRAMES_SRC" -nt "$FRAMES_BIN" ]; then
+    swiftc -O "$FRAMES_SRC" -o "$FRAMES_BIN" 2>/dev/null
+  fi
+  local now el
+  now="$(_now)"
+  el="$(awk -v a="${TILE_TRACE_T0:-$now}" -v b="$now" 'BEGIN{printf"%+.3f",b-a}')"
+  {
+    echo "──── [$(_ts) Δ${el}s] $* ────  (focused=$(focused_window))"
+    "$TILE_DIR/tools/snapshot.sh" 2>/dev/null
+    echo
+  } >> "$TILE_TRACE"
 }

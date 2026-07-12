@@ -11,6 +11,7 @@
 # Usage: relayout.sh [master-window-id] [secondary-window-id]
 set -uo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+trace_begin "relayout.sh $*"
 
 MASTER="${1:-$(get_master)}"
 SECONDARY="${2:-}"
@@ -33,6 +34,7 @@ aerospace workspace "$PRIMARY_WS"
 if [ "$COUNT" -le 1 ]; then
   aerospace flatten-workspace-tree
   aerospace focus --window-id "$MASTER" 2>/dev/null
+  set_secondary ""
   exit 0
 fi
 
@@ -44,6 +46,7 @@ if ! dual_monitor; then
   aerospace focus --window-id "$MASTER"
   aerospace layout h_accordion
   aerospace focus --window-id "$MASTER"
+  set_secondary ""
   exit 0
 fi
 
@@ -69,34 +72,28 @@ fi
 # 3. move the master left past the edge. Over-shooting ejects it to the root's
 #    left and aerospace's orientation-alternation nests the remaining windows
 #    into a column on the right. Result: h_tiles[ master | v_tiles[…] ].
+trace "0 start (COUNT=$COUNT MASTER=$MASTER SECONDARY=$SECONDARY)"
 aerospace flatten-workspace-tree
+trace "1 flatten-workspace-tree"
 aerospace focus --window-id "$MASTER"
 aerospace layout h_tiles
+trace "2 layout h_tiles (force root horizontal)"
 aerospace focus --window-id "$MASTER"
 i=0
 while [ "$i" -lt "$COUNT" ]; do
   aerospace move left 2>/dev/null
   i=$((i + 1))
 done
+trace "3 master popped left x$COUNT"
 
-# 4. convert the right column to a vertical accordion. Focus any window that is
-#    in the column (not the master) and set its parent-container layout; the
-#    master lives under the root h_tiles, so it is unaffected.
-for w in "${WINS[@]}"; do
-  if [ "$w" != "$MASTER" ]; then
-    aerospace focus --window-id "$w"
-    aerospace layout v_accordion
-    break
-  fi
-done
-
-# 5. drive the secondary to the TOP of the accordion. AeroSpace draws the
-#    accordion's FIRST child as the large/visible window whenever the accordion is
-#    not the focused container — focusing the secondary and refocusing the master
-#    does NOT stick, because the view reverts to the first child. So the secondary
-#    (the just-demoted master) must actually BE first. Guarded focus-up: swap it up
-#    one slot while a window still sits above it; stop the moment nothing does, so
-#    it reaches the top without ever ejecting/collapsing the tree.
+# 4. raise the SECONDARY to the TOP of the column while it is still v_tiles.
+#    `move` reorders a v_tiles column but is a NO-OP inside an accordion (verified
+#    on 0.21.2 — neither `move` nor `swap` reorders accordion children), so the
+#    ordering MUST happen before the accordion conversion. Being the first/top
+#    child fixes the secondary's *position* at the top of the column; being drawn
+#    *on top* (front) is handled separately by focusing it last in step 6. Guarded
+#    move-up: raise one slot while a window still sits above it; stop the instant
+#    nothing does, so it reaches the top without ejecting/collapsing the tree.
 if [ -n "$SECONDARY" ]; then
   guard=0
   while [ "$guard" -lt "$COUNT" ]; do
@@ -108,8 +105,37 @@ if [ -n "$SECONDARY" ]; then
     aerospace move up 2>/dev/null
   done
 fi
+trace "4 secondary raised to top of column"
 
-# 6. set the master ↔ column split width and land focus on the master. The
-#    secondary stays the visible accordion window because it is now the first child.
+# 5. convert the right column to a vertical accordion. Focus any window that is
+#    in the column (not the master) and set its parent-container layout; the
+#    master lives under the root h_tiles, so it is unaffected.
+for w in "${WINS[@]}"; do
+  if [ "$w" != "$MASTER" ]; then
+    aerospace focus --window-id "$w"
+    aerospace layout v_accordion
+    break
+  fi
+done
+trace "5 column -> v_accordion"
+
+# 6. focus the SECONDARY *last* so it becomes the accordion's frontmost window. An
+#    unfocused accordion keeps drawing whichever of its windows was focused most
+#    recently on top of the rest — verified via CGWindowList z-order — and that
+#    survives moving focus out to the master (step 7). Combined with step 4 (the
+#    secondary is the first/top child) it is drawn large at the TOP of the column,
+#    with the extras peeking below. This focus MUST come after the accordion
+#    conversion in step 5, which itself focuses a column window.
+[ -n "$SECONDARY" ] && aerospace focus --window-id "$SECONDARY"
+trace "6 secondary focused (front)"
+
+# 7. set the master ↔ column split width and land focus on the master. A short
+#    settle delay is required: the window server needs a beat to raise the
+#    secondary to the front of the column after the rapid rebuild above, otherwise
+#    the master-focus lands first and an extra window stays frontmost (verified via
+#    CGWindowList z-order — without the pause the secondary loses the front slot).
+[ -n "$SECONDARY" ] && sleep 0.25
 aerospace resize --window-id "$MASTER" width "$(get_width)" 2>/dev/null
 aerospace focus --window-id "$MASTER"
+set_secondary "$SECONDARY"
+trace "7 resize master + focus master (final)"

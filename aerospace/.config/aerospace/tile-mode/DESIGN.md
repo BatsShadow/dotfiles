@@ -13,15 +13,17 @@ Toggle between tile mode and workspace mode with **alt-shift-q** (unchanged key)
    built-in (LEFT / secondary)        XDR (primary)
  ┌────────────────────────┐   ┌──────────────┬──────────────┐
  │                        │   │              │  SECONDARY    │  large (accordion
- │   single reference     │   │    MASTER    │  (on top)     │  front window)
+ │   single reference     │   │    MASTER    │  (top)        │  first child)
  │       window           │   │              ├──────────────┤
- │   (0 or 1 window)      │   │              │  …peek…       │  extras peek behind
+ │   (0 or 1 window)      │   │              │  …peek…       │  extras peek below
  └────────────────────────┘   └──────────────┴──────────────┘
 ```
 
 - The XDR (primary) workspace `Tiles` holds two roles: **master** (big, left)
   and, on the right, an **accordion column** whose front window is the
-  **secondary**. The remaining "extra" windows peek behind it.
+  **secondary**: it is raised to the top of the column and focused last, so
+  AeroSpace keeps drawing it on top even while the master holds focus. The
+  remaining "extra" windows peek below it.
 - The built-in monitor (physically on the **left**) hosts workspace `Tiles2`,
   a **capacity-1** reference slot (0 or 1 window).
 
@@ -49,20 +51,33 @@ converges regardless of the starting tree:
 3. `move left` × N on the master — over-shoot past the edge. AeroSpace ejects it
    to the root's left and its orientation-alternation nests the remaining windows
    into a column on the right → `h_tiles[ master | v_tiles[…] ]`.
-4. `layout v_accordion` on a column window — convert the right column to a
+4. Raise the **secondary to the top** of the column *while it is still `v_tiles`*.
+   This ordering step must happen **before** the accordion conversion: on 0.21.2
+   neither `move` nor `swap` reorders accordion children (both are no-ops inside an
+   accordion), whereas `move` reorders a `v_tiles` column normally. Being the
+   first/top child fixes the secondary's *position* at the top of the column. A
+   guarded focus-up loop raises it one slot while a window sits above it and stops
+   the instant nothing does — reaching the top without ejecting/collapsing the tree.
+5. `layout v_accordion` on a column window — convert the right column to a
    vertical accordion (the master is under the root `h_tiles`, so it is
-   unaffected).
-5. Move the **secondary to the top** of the accordion. AeroSpace draws the
-   accordion's **first child** as the large/visible window whenever the accordion
-   is not the focused container — focusing the secondary and refocusing the master
-   does *not* stick. So the secondary must literally *be* first. A guarded
-   focus-up loop swaps it up one slot while a window sits above it and stops the
-   instant nothing does — reaching the top without ejecting/collapsing the tree.
-6. `resize --window-id master width` to the seeded width, then focus the master.
+   unaffected). The order set in step 4 is now frozen, secondary first.
+6. Focus the **secondary last**. An accordion keeps drawing whichever of its
+   windows was focused most recently *on top of the rest*, and — crucially — that
+   z-order **survives** focus moving back out to the master (confirmed via
+   CGWindowList). So the secondary is both at the top (step 4) *and* the frontmost,
+   fully-visible window while the master is focused; the extras peek below it. This
+   is why a single focus-into-the-accordion "pops it forward" — we just pre-seed
+   that state.
+7. After a short **settle delay** — the window server needs a beat to raise the
+   secondary to the front after the rapid rebuild, otherwise the master-focus lands
+   first and an extra window keeps the front slot — `resize` the master to its
+   seeded width and focus it.
 
-Verified on AeroSpace 0.21.2. The guarded focus-based loops (used for both the
-master pop-left and the secondary-to-top) never over-shoot, which is what made
-the old unbounded `move up/down` ejections collapse the tree.
+Verified on AeroSpace 0.21.2 (front-window behavior checked against CGWindowList
+z-order, since a stray `focus` probe would itself change which window is on top).
+The guarded focus-based loops (used for both the master pop-left and the
+secondary-to-top) never over-shoot, which is what made the old unbounded
+`move up/down` ejections collapse the tree.
 
 ### Sizing
 
@@ -85,18 +100,32 @@ weighted split too far.
 
 ## Promotion / rotation (the core interaction)
 
-State file `.tile-master` tracks the current master window id.
+State files `.tile-master` and `.tile-secondary` track the current master and the
+accordion's front window (the just-demoted master).
 
-**Promote app N to master** (`promote.sh`, run by an app key or a reclaim):
-- pull N onto `Tiles` if it lives elsewhere,
-- secondary := the *old* master (rotate it into the accordion, on top),
-- `.tile-master` := N,
-- run the relayout above.
+**Promote app N to master** (`promote.sh`, run by an app key or a reclaim) takes
+the cheapest of three paths (see FLICKER-PLAN.md for the flicker cost model):
 
-Because the demoted master lands on top of the accordion (step 5), it is the
-large/visible window immediately. Pressing two app keys back and forth toggles
-the two apps between master and the big secondary — the app you just left is
-always sitting right there, large.
+- **S2 — N is already the master:** just re-focus it and exit. No relayout, no
+  window moves (`F=0`). Guards against a full rebuild firing on a redundant keypress.
+- **S3 — N is the current secondary (the A↔B toggle):** `focus N; swap left`. In
+  the canonical tree the secondary is the accordion's first child, whose tree-left
+  neighbour *is* the master, so a single directional `swap left` exchanges exactly
+  those two — N into the master slot, old master to the top/front of the accordion.
+  Only 2 windows move (`F=2`); no flatten, no move loop, no settle sleep. Guarded on
+  the canonical shape (`dual_monitor`, N `== .tile-secondary`, N's parent
+  `v_accordion`, old master's parent `h_tiles`) and verified *after* the swap by
+  re-reading N's parent layout — if it didn't cross into `h_tiles` the layout had
+  drifted, so it falls through to the rebuild.
+- **full — otherwise** (N is an accordion extra, coming from another workspace, or
+  the tree has drifted): pull N onto `Tiles` if needed, secondary := the old master,
+  and run the `relayout.sh` rebuild above.
+
+Because the demoted master ends up at the top/front of the column (via the swap on
+S3, or steps 4 & 6 of the rebuild), it is the large/visible front window immediately
+— even while the new master holds focus. Pressing two app keys back and forth
+toggles the two apps between master and the big secondary through S3 every time — no
+flatten, no flicker — and the app you just left is always sitting right there, large.
 
 ## Keymap (tile mode)
 
@@ -183,13 +212,33 @@ if = 'test %{app-bundle-id} = company.thebrowser.Browser && test %{window-title}
 
 A no-`if` catch-all is now an error, so the catch-all uses `if = 'true'`.
 
+## Debug trace mode
+
+Every script logs its full transition when `TILE_TRACE` names a file:
+
+```bash
+TILE_TRACE=$CLAUDE_CODE_TMPDIR/tile.log ./promote.sh 255
+```
+
+Each script emits a header (`CMD:`, ms-precision timestamp, pid) via `trace_begin`,
+then a labelled `trace` snapshot after each step: the whole `Tiles` workspace as
+real macOS **z-order** + geometry + parent-container layout, with wall-clock time
+and Δ-since-start. This makes a transition replayable step-by-step to hunt flicker
+(watch which windows' frames change and when the front window settles). Overhead is
+zero when `TILE_TRACE` is unset. Implemented in `lib.sh`; snapshots come from
+`tools/frames.swift` (CGWindowList z-order, compiled to `.frames-bin`) joined with
+`aerospace list-windows` by `tools/snapshot.sh`. Front-window facts must be read
+this way, never via a `focus` probe (focusing changes which window is on top).
+
 ## Files
 
-- `lib.sh` — shared helpers + state (`.tile-master`, `.tile-master-width`,
-  `.tile-gap`) and `render_config` (config generation with gap substitution).
+- `lib.sh` — shared helpers + state (`.tile-master`, `.tile-secondary`,
+  `.tile-master-width`, `.tile-gap`), `render_config` (config generation with gap
+  substitution), and the `trace`/`trace_begin` debug harness.
 - `relayout.sh` — idempotent rebuild of the layout (dual: master + accordion;
   single: one `h_accordion`).
-- `promote.sh` — promote a window to master (rotate old master → secondary on top).
+- `promote.sh` — promote a window to master; S2 no-op / S3 swap fast-paths, else
+  full rebuild (rotate old master → secondary on top).
 - `app.sh` — app-key handler (launch / on-focus / focus-on-secondary / promote).
 - `resize-master.sh` — alt-R / alt-S master-split width (persisted).
 - `resize-gap.sh` — alt-W / alt-F XDR outer-gap adjust (re-render + reload).
@@ -197,6 +246,7 @@ A no-`if` catch-all is now an error, so the catch-all uses `if = 'true'`.
 - `monitor-toggle.sh` — alt-shift-tab swap/promote across the built-in monitor.
 - `enter.sh` — gather windows + seed master when entering tile mode.
 - `auto-config.aerospace.sh` — generate tile `aerospace.toml` + reload + enter.
+- `tools/frames.swift`, `tools/snapshot.sh` — debug z-order/geometry snapshot.
 
 ## Known pre-existing quirks (not introduced here)
 - YouTube matching/restore relies on the Arc window title containing "YouTube";

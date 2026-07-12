@@ -15,6 +15,7 @@
 #   --url <url>                        open this Arc URL instead of `open -b` when launching
 set -uo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+trace_begin "app.sh $*"
 
 APP_ID=""; APP_NAME=""; FIND_TITLE=""; EXCLUDE=""; ON_FOCUS=""; URL=""
 while [[ $# -gt 0 ]]; do

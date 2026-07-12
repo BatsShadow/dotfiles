@@ -4,3 +4,5 @@ aerospace.toml
 .tile-master
 .tile-master-width
 .tile-gap
+tile-mode/tools/.frames-bin
+.tile-secondary
