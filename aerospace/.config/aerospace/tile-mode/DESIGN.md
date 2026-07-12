@@ -38,46 +38,46 @@ by `accordion-padding`, so the secondary is always fully visible no matter how
 many windows pile up. AeroSpace only ever shows **one peek per side**, so the
 secondary's size is constant regardless of count (no need to scale the padding).
 
-### How the layout is realized (robust, no fragile tree surgery)
+### How the layout is realized (accordion-eject; least flicker)
 
-`relayout.sh` rebuilds the arrangement from scratch on every change, which always
+`relayout.sh` rebuilds the arrangement from a known-good primitive, which always
 converges regardless of the starting tree:
 
-1. `flatten-workspace-tree` — everything becomes root siblings.
-2. `layout h_tiles` on the master — force the **root horizontal**. This is
-   essential: from a vertical root, popping the master out only wraps it in an
-   `h_tiles` *child* and the root stays vertical, so the master renders as a
-   full-width bar ("wide main").
-3. `move left` × N on the master — over-shoot past the edge. AeroSpace ejects it
-   to the root's left and its orientation-alternation nests the remaining windows
-   into a column on the right → `h_tiles[ master | v_tiles[…] ]`.
-4. Raise the **secondary to the top** of the column *while it is still `v_tiles`*.
-   This ordering step must happen **before** the accordion conversion: on 0.21.2
-   neither `move` nor `swap` reorders accordion children (both are no-ops inside an
-   accordion), whereas `move` reorders a `v_tiles` column normally. Being the
-   first/top child fixes the secondary's *position* at the top of the column. A
-   guarded focus-up loop raises it one slot while a window sits above it and stops
-   the instant nothing does — reaching the top without ejecting/collapsing the tree.
-5. `layout v_accordion` on a column window — convert the right column to a
-   vertical accordion (the master is under the root `h_tiles`, so it is
-   unaffected). The order set in step 4 is now frozen, secondary first.
-6. Focus the **secondary last**. An accordion keeps drawing whichever of its
+1. **Collapse to one flat vertical accordion** (root `v_accordion` holding every
+   window). If the tree is *already* a flat accordion — e.g. `enter.sh` gathered
+   the windows straight into it — this step is **skipped**; otherwise
+   `flatten-workspace-tree` + `layout v_accordion` on the master normalizes any
+   tree into one. Skipping matters: a flatten momentarily **explodes every window
+   into an equal grid tile**, the single biggest source of transition flicker.
+2. **Eject the master leftward in one move.** From a root `v_accordion`, a single
+   `move left` on the master pops it out to `h_tiles[ master | v_accordion[ rest ] ]`
+   — the remaining windows are left as a clean vertical accordion column with no
+   `v_tiles`→`v_accordion` conversion and no per-window pop. (Verified on 0.21.2:
+   ejecting from an accordion goes straight to the split, never through an
+   equal-columns stage.)
+3. **Focus the secondary last.** An accordion keeps drawing whichever of its
    windows was focused most recently *on top of the rest*, and — crucially — that
    z-order **survives** focus moving back out to the master (confirmed via
-   CGWindowList). So the secondary is both at the top (step 4) *and* the frontmost,
-   fully-visible window while the master is focused; the extras peek below it. This
-   is why a single focus-into-the-accordion "pops it forward" — we just pre-seed
-   that state.
-7. After a short **settle delay** — the window server needs a beat to raise the
-   secondary to the front after the rapid rebuild, otherwise the master-focus lands
-   first and an extra window keeps the front slot — `resize` the master to its
-   seeded width and focus it.
+   CGWindowList). So the secondary is the frontmost, fully-visible window while the
+   master is focused; the extras peek behind it. Position within the column does
+   not matter — only which window was focused last.
+4. After a short **settle delay** — the window server needs a beat to raise the
+   secondary to the front, otherwise the master-focus lands first and an extra
+   window keeps the front slot — `resize` the master to its seeded width and focus
+   it.
 
 Verified on AeroSpace 0.21.2 (front-window behavior checked against CGWindowList
 z-order, since a stray `focus` probe would itself change which window is on top).
-The guarded focus-based loops (used for both the master pop-left and the
-secondary-to-top) never over-shoot, which is what made the old unbounded
-`move up/down` ejections collapse the tree.
+
+**Why eject-from-accordion beats the old flatten+pop rebuild.** The earlier design
+did `flatten` → force root `h_tiles` → `move left` × N to pop the master → reorder
+→ convert the column to an accordion — ~7 intermediate layouts, several of which
+tiled all N windows into equal rectangles. The accordion-eject reaches the same
+tree in 2 structural moves and, on entry, **never tiles a window into a grid at
+all**: windows stack (overlap full-screen) as they gather, then one eject + one
+resize. Building the column as an accordion from the start also makes the old
+"reorder the secondary to the top while still `v_tiles`" step unnecessary — front
+is set purely by focus (see step 3).
 
 ### Sizing
 
@@ -246,17 +246,19 @@ this way, never via a `focus` probe (focusing changes which window is on top).
 - `lib.sh` — shared helpers + state (`.tile-master`, `.tile-secondary`,
   `.tile-master-width`, `.tile-gap`), `render_config` (config generation with gap
   substitution), and the `trace`/`trace_begin` debug harness.
-- `relayout.sh` — idempotent rebuild of the layout (dual: master + accordion;
-  single: one `h_accordion`).
-- `promote.sh` — promote a window to master; S2 no-op / S3 swap fast-paths, else
+- `relayout.sh` — idempotent rebuild of the layout via accordion-eject (dual:
+  master + accordion; single: one `h_accordion`). Skips the flatten when the tree
+  is already a flat accordion (`all_in_accordion`).
+- `promote.sh` — promote a window to master; S2 no-op / S3+S4 swap fast-paths, else
   full rebuild (rotate old master → secondary on top).
 - `app.sh` — app-key handler (launch / on-focus / focus-on-secondary / promote).
 - `resize-master.sh` — alt-R / alt-S master-split width (persisted).
 - `resize-gap.sh` — alt-W / alt-F XDR outer-gap adjust (re-render + reload).
 - `focus-monitor.sh` — alt-A / alt-T cross-monitor focus.
 - `monitor-toggle.sh` — alt-shift-tab swap/promote across the built-in monitor.
-- `enter.sh` — gather windows + seed master when entering tile mode (moves only
-  windows not already on `Tiles`, then one relayout rebuild).
+- `enter.sh` — enter tile mode: gather windows straight into a flat accordion
+  (master first, then stack the rest on top — no tiling churn), seed master, then
+  relayout (which ejects the master and skips the flatten).
 - `auto-config.aerospace.sh` — generate tile `aerospace.toml` + reload + enter.
 - `tools/frames.swift`, `tools/snapshot.sh` — debug z-order/geometry snapshot.
 

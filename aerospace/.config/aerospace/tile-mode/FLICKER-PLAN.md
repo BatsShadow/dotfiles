@@ -9,9 +9,11 @@ Status legend: ✅ verified with tools · 🧪 proposed, needs verification · �
 
 **Implemented so far:** the debug trace mode (§3); the **S2 no-op**, **S3 swap**, and
 **S4 swap** fast-paths in `promote.sh` (promoting *any* column window — the A↔B
-toggle or a peeking extra — now moves 2 windows with no flatten, `F=2`, vs the
-rebuild's ~7 intermediate layouts); and the **S8** gather optimisation in `enter.sh`
-(skip windows already on `Tiles`). S9 (gap debounce) remains future work.
+toggle or a peeking extra — now moves 2 windows with no flatten, `F=2`); and the
+**S8 accordion-eject** entry (stack scattered windows into a flat accordion, then
+eject the master in one move — entry no longer explodes windows into a grid). The
+eject primitive also replaced the flatten+pop-×N in the full rebuild. S9 (gap
+debounce) remains future work.
 
 ---
 
@@ -186,22 +188,29 @@ compares to today's "always relayout."
   rather than a full rebuild.
 - **Floor:** 1 new window placed; extras hold.
 
-### S8 — **Workspace mode → tile mode** (alt-shift-q / `enter.sh`)  ✅ partial (skip done; rebuild kept)
-- Inherent high cost: windows are scattered across app-workspaces and must gather.
-- **Done — skip already-home windows:** `enter.sh` now moves only windows **not**
-  already on `Tiles` (re-issuing `move-node-to-workspace` for a home window
-  re-appends it and churns the tree). Verified via trace: scatter 2 of 6 windows,
-  re-enter → only those 2 move, the other 4 skip, layout lands canonical.
-- **Rejected — incremental append (plan item #2):** placing the master then
-  appending each extra into the accordion by hand is exactly the fragile tree
-  surgery `relayout.sh` deliberately avoids, for a once-per-session action. Kept the
-  robust from-scratch rebuild.
-- **Where the cost actually is (measured):** the trace shows the *gather* step at
-  ~0.10s (only off-`Tiles` windows move) but the `relayout` rebuild at ~2.1s across
-  7 intermediate layouts (flatten → h_tiles → pop master → raise secondary →
-  accordion → focus → resize). That rebuild is the entry flicker, and it is inherent
-  when coming from scattered state — the swap fast-path only applies when *already*
-  tiled, so there is no cheap S3/S4-style shortcut for a cold entry.
+### S8 — **Workspace mode → tile mode** (alt-shift-q / `enter.sh`)  ✅ done — accordion-eject
+- Windows are scattered across app-workspaces and must gather. The old cost was the
+  `relayout` rebuild (~7 layouts, flatten explodes all N into equal grid tiles).
+- **What was wrong with the first attempt at incremental:** `move-node-to-workspace`
+  inserts a window at **root level** next to the focused window, *never* nested into
+  the accordion — verified: with `h_tiles[master | v_accordion[a,b]]`, moving each
+  new window in (even with a column window focused) made it a new **root column**
+  that shrank the master (704→469→352px). So the intuitive "master first, feed the
+  rest into the stack" order cannot work: every arrival tiles beside the master.
+  `join-with` re-nests but scrambles the column into mixed `v_tiles`/`h_accordion`
+  nests and still shrinks-then-restores the master each time — also rejected.
+- **What works — invert the order (stack first, eject last):** move the master in,
+  force the root to `v_accordion`, then stack every other window into that accordion
+  — in an accordion each arrival simply **overlaps full-screen**, so gathering
+  causes **zero tiling reshuffle**. Then eject the master leftward in **one** `move
+  left` (from a root `v_accordion` the master pops straight to `h_tiles[master |
+  v_accordion[rest]]`, no equal-columns stage). `relayout` detects the tree is
+  already a flat accordion (`all_in_accordion`) and **skips the flatten** entirely.
+- **Measured (real WS→tile toggle, 6 windows):** entry now takes the path
+  stack-accordion → *skip flatten* → eject → focus secondary → resize — **4 steps,
+  no window ever tiled into a grid** — vs the old flatten + h_tiles + pop-×6 +
+  reorder + convert. The same eject primitive now backs the already-tiled rebuild
+  too (repair / promote fallback), replacing the pop-×N with a single move.
 
 ### S9 — **Gap change** (alt-W / alt-F)
 - `reload-config` is unavoidable (no runtime gap command) → inherently ★★★★★.
@@ -235,7 +244,7 @@ compares to today's "always relayout."
 | 1 | **S2 no-op**: app key == current master → return early | high | trivial | ✅ done |
 | 4 | **S3 swap** promote without flatten (`F=2`, the A↔B toggle) | **highest** | med | ✅ done (`focus target; swap left`) |
 | 5 | **S4** (promote an accordion *extra*) via same swap + explicit front-set | med | med | ✅ done (unified with S3) |
-| 3 | **S8** skip already-on-`Tiles` moves | med | low | ✅ done (rebuild kept; append rejected) |
+| 3 | **S8** accordion-eject entry (stack first, eject master last, skip flatten) | high | med | ✅ done |
 | 2 | **S9 debounce** rapid gap presses into a single reload | med | low | needs design |
 | 6 | Guard single-monitor/cross-monitor promotes from needless relayout | med | low | needs confirm |
 

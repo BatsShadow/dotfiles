@@ -63,79 +63,45 @@ if [ -z "$SECONDARY" ] || [ "$SECONDARY" = "$MASTER" ] || ! in_tiles "$SECONDARY
   done
 fi
 
-# Build the target tree: h_tiles[ master | v_accordion[ …extras…, secondary ] ].
+# Build the target tree: h_tiles[ master | v_accordion[ …extras… ] ] via the
+# accordion-EJECT method (least-flicker; see FLICKER-PLAN.md S8):
 #
-# 1. flatten to root siblings.
-# 2. force the ROOT horizontal (layout h_tiles). This is essential: if the root
-#    is vertical, popping the master out only wraps it in an h_tiles *child* and
-#    the root stays vertical -> master renders as a full-width bar ("wide main").
-# 3. move the master left past the edge. Over-shooting ejects it to the root's
-#    left and aerospace's orientation-alternation nests the remaining windows
-#    into a column on the right. Result: h_tiles[ master | v_tiles[…] ].
+# 1. collapse every window into a single flat vertical accordion (root
+#    v_accordion). If the tree is ALREADY a flat accordion — e.g. enter.sh
+#    gathered the windows straight into it — SKIP the flatten, so entry never
+#    passes through the "explode into COUNT equal grid tiles" flicker storm.
+# 2. eject the master leftward in ONE move. From a root v_accordion, `move left`
+#    pops the master out to h_tiles[ master | v_accordion[ rest ] ], leaving the
+#    others as a clean vertical accordion column — no force-h_tiles, no per-window
+#    pop, no v_tiles->v_accordion conversion (verified on 0.21.2).
+# In the accordion, position does not matter: the visible/front window is simply
+# whichever is focused last, and that z-order survives focus moving to the master.
 trace "0 start (COUNT=$COUNT MASTER=$MASTER SECONDARY=$SECONDARY)"
-aerospace flatten-workspace-tree
-trace "1 flatten-workspace-tree"
-aerospace focus --window-id "$MASTER"
-aerospace layout h_tiles
-trace "2 layout h_tiles (force root horizontal)"
-aerospace focus --window-id "$MASTER"
-i=0
-while [ "$i" -lt "$COUNT" ]; do
-  aerospace move left 2>/dev/null
-  i=$((i + 1))
-done
-trace "3 master popped left x$COUNT"
-
-# 4. raise the SECONDARY to the TOP of the column while it is still v_tiles.
-#    `move` reorders a v_tiles column but is a NO-OP inside an accordion (verified
-#    on 0.21.2 — neither `move` nor `swap` reorders accordion children), so the
-#    ordering MUST happen before the accordion conversion. Being the first/top
-#    child fixes the secondary's *position* at the top of the column; being drawn
-#    *on top* (front) is handled separately by focusing it last in step 6. Guarded
-#    move-up: raise one slot while a window still sits above it; stop the instant
-#    nothing does, so it reaches the top without ejecting/collapsing the tree.
-if [ -n "$SECONDARY" ]; then
-  guard=0
-  while [ "$guard" -lt "$COUNT" ]; do
-    guard=$((guard + 1))
-    aerospace focus --window-id "$SECONDARY"
-    aerospace focus --boundaries workspace --boundaries-action stop up 2>/dev/null
-    [ "$(focused_window)" = "$SECONDARY" ] && break   # nothing above -> at top
-    aerospace focus --window-id "$SECONDARY"
-    aerospace move up 2>/dev/null
-  done
+if all_in_accordion; then
+  trace "1 already a flat accordion -> skip flatten"
+else
+  aerospace flatten-workspace-tree
+  aerospace focus --window-id "$MASTER"
+  aerospace layout v_accordion            # root -> single flat vertical accordion
+  trace "1 flatten + root v_accordion"
 fi
-trace "4 secondary raised to top of column"
+aerospace focus --window-id "$MASTER"
+aerospace move left                        # eject master -> h_tiles[master | column]
+trace "2 master ejected left"
 
-# 5. convert the right column to a vertical accordion. Focus any window that is
-#    in the column (not the master) and set its parent-container layout; the
-#    master lives under the root h_tiles, so it is unaffected.
-for w in "${WINS[@]}"; do
-  if [ "$w" != "$MASTER" ]; then
-    aerospace focus --window-id "$w"
-    aerospace layout v_accordion
-    break
-  fi
-done
-trace "5 column -> v_accordion"
-
-# 6. focus the SECONDARY *last* so it becomes the accordion's frontmost window. An
-#    unfocused accordion keeps drawing whichever of its windows was focused most
-#    recently on top of the rest — verified via CGWindowList z-order — and that
-#    survives moving focus out to the master (step 7). Combined with step 4 (the
-#    secondary is the first/top child) it is drawn large at the TOP of the column,
-#    with the extras peeking below. This focus MUST come after the accordion
-#    conversion in step 5, which itself focuses a column window.
+# focus the SECONDARY *last* so it becomes the accordion's frontmost window. An
+# unfocused accordion keeps drawing whichever of its windows was focused most
+# recently on top of the rest (verified via CGWindowList z-order), and that
+# survives moving focus out to the master below.
 [ -n "$SECONDARY" ] && aerospace focus --window-id "$SECONDARY"
-trace "6 secondary focused (front)"
+trace "3 secondary focused (front)"
 
-# 7. set the master ↔ column split width and land focus on the master. A short
-#    settle delay is required: the window server needs a beat to raise the
-#    secondary to the front of the column after the rapid rebuild above, otherwise
-#    the master-focus lands first and an extra window stays frontmost (verified via
-#    CGWindowList z-order — without the pause the secondary loses the front slot).
+# set the master ↔ column split width and land focus on the master. A short settle
+# is required: the window server needs a beat to raise the secondary to the front
+# after the rebuild, otherwise the master-focus lands first and an extra window
+# stays frontmost (verified via CGWindowList z-order).
 [ -n "$SECONDARY" ] && sleep 0.25
 aerospace resize --window-id "$MASTER" width "$(get_width)" 2>/dev/null
 aerospace focus --window-id "$MASTER"
 set_secondary "$SECONDARY"
-trace "7 resize master + focus master (final)"
+trace "4 resize master + focus master (final)"

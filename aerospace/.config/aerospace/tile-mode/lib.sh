@@ -77,6 +77,18 @@ parent_layout() {
   | awk -v id="$1" '$1==id{print $2; exit}'
 }
 
+# True when every non-floating window on the primary workspace is in a v_accordion
+# container — i.e. the tree is already a single flat vertical accordion, so the
+# eject-based relayout can skip the flatten "explode into equal tiles" step. A
+# canonical tiled layout (master under the root h_tiles) is NOT all-accordion, so
+# this correctly returns false there and the flatten still runs.
+all_in_accordion() {
+  local layouts
+  layouts="$(aerospace list-windows --workspace "$PRIMARY_WS" \
+    --format '%{window-parent-container-layout}' 2>/dev/null | grep -v '^floating$')"
+  [ -n "$layouts" ] && ! grep -qv '^v_accordion$' <<< "$layouts"
+}
+
 get_width() { local w; w="$(cat "$WIDTH_FILE" 2>/dev/null)"; echo "${w:-$DEFAULT_MASTER_WIDTH}"; }
 set_width() { echo "$1" > "$WIDTH_FILE"; }
 
