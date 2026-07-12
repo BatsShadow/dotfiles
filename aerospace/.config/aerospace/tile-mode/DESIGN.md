@@ -108,24 +108,35 @@ the cheapest of three paths (see FLICKER-PLAN.md for the flicker cost model):
 
 - **S2 — N is already the master:** just re-focus it and exit. No relayout, no
   window moves (`F=0`). Guards against a full rebuild firing on a redundant keypress.
-- **S3 — N is the current secondary (the A↔B toggle):** `focus N; swap left`. In
-  the canonical tree the secondary is the accordion's first child, whose tree-left
-  neighbour *is* the master, so a single directional `swap left` exchanges exactly
-  those two — N into the master slot, old master to the top/front of the accordion.
-  Only 2 windows move (`F=2`); no flatten, no move loop, no settle sleep. Guarded on
-  the canonical shape (`dual_monitor`, N `== .tile-secondary`, N's parent
-  `v_accordion`, old master's parent `h_tiles`) and verified *after* the swap by
-  re-reading N's parent layout — if it didn't cross into `h_tiles` the layout had
-  drifted, so it falls through to the rebuild.
-- **full — otherwise** (N is an accordion extra, coming from another workspace, or
-  the tree has drifted): pull N onto `Tiles` if needed, secondary := the old master,
-  and run the `relayout.sh` rebuild above.
+- **S3/S4 — N is any window in the accordion column:** `focus N; swap left`. A
+  column window's tree-left neighbour *is* the master (the accordion has no
+  horizontal siblings, so "left" escapes it), so a single directional `swap left`
+  exchanges exactly those two — N into the master slot, old master into the column.
+  Only 2 windows move (`F=2`); no flatten, no move loop. Guarded on the canonical
+  shape (`dual_monitor`, N's parent `v_accordion`, old master's parent `h_tiles`)
+  and verified *after* the swap by re-reading N's parent layout — if it didn't cross
+  into `h_tiles` the layout had drifted, so it falls through to the rebuild. The old
+  master must land as the column's **front** (visible) window; how depends on where
+  N sat:
+    - **S3 (N was the front child — the A↔B toggle):** old master drops into the
+      vacated front slot automatically, so a bare re-focus of N suffices. Snappy, no
+      settle (~0.18s).
+    - **S4 (N was a peeking extra):** the resulting front is *not* deterministic
+      (verified: two extra-promotions gave different front windows), so we
+      explicitly `focus OLD_MASTER` → settle → `focus N` — the same focus-last +
+      settle the rebuild uses (~0.5s).
+  N is recognised as the front child by `.tile-secondary`.
+- **full — otherwise** (N is coming from another workspace and didn't land in the
+  column, or the tree has drifted): pull N onto `Tiles` if needed, secondary := the
+  old master, and run the `relayout.sh` rebuild above.
 
-Because the demoted master ends up at the top/front of the column (via the swap on
-S3, or steps 4 & 6 of the rebuild), it is the large/visible front window immediately
-— even while the new master holds focus. Pressing two app keys back and forth
-toggles the two apps between master and the big secondary through S3 every time — no
-flatten, no flicker — and the app you just left is always sitting right there, large.
+Because the demoted master ends up at the front of the column (via the swap on
+S3/S4, or steps 4 & 6 of the rebuild), it is the large/visible front window
+immediately — even while the new master holds focus. Pressing two app keys back and
+forth toggles the two apps between master and the big secondary through S3 every time
+— no flatten, no flicker — and the app you just left is always sitting right there,
+large. Promoting a third app that was peeking in the column takes the same cheap
+swap (S4).
 
 ## Keymap (tile mode)
 
@@ -244,7 +255,8 @@ this way, never via a `focus` probe (focusing changes which window is on top).
 - `resize-gap.sh` — alt-W / alt-F XDR outer-gap adjust (re-render + reload).
 - `focus-monitor.sh` — alt-A / alt-T cross-monitor focus.
 - `monitor-toggle.sh` — alt-shift-tab swap/promote across the built-in monitor.
-- `enter.sh` — gather windows + seed master when entering tile mode.
+- `enter.sh` — gather windows + seed master when entering tile mode (moves only
+  windows not already on `Tiles`, then one relayout rebuild).
 - `auto-config.aerospace.sh` — generate tile `aerospace.toml` + reload + enter.
 - `tools/frames.swift`, `tools/snapshot.sh` — debug z-order/geometry snapshot.
 

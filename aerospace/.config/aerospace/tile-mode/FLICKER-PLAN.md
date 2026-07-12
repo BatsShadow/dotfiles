@@ -7,10 +7,11 @@ not a guess.
 
 Status legend: ✅ verified with tools · 🧪 proposed, needs verification · ⚠️ known-fragile
 
-**Implemented so far:** the debug trace mode (§3), the **S2 no-op** and **S3 swap**
-fast-paths in `promote.sh` (the A↔B toggle now moves 2 windows with no flatten and
-no intermediate layouts — trace shows 1 snapshot vs the rebuild's 8). S4/S8 remain
-future work.
+**Implemented so far:** the debug trace mode (§3); the **S2 no-op**, **S3 swap**, and
+**S4 swap** fast-paths in `promote.sh` (promoting *any* column window — the A↔B
+toggle or a peeking extra — now moves 2 windows with no flatten, `F=2`, vs the
+rebuild's ~7 intermediate layouts); and the **S8** gather optimisation in `enter.sh`
+(skip windows already on `Tiles`). S9 (gap debounce) remains future work.
 
 ---
 
@@ -152,14 +153,22 @@ compares to today's "always relayout."
   by the swap while it is still crossing, and its *front* z-slot is inherited from the
   focus the swap gives it — no separate focus-last dance needed on this path.
 
-### S4 — Already tiled, target = an **extra** in the accordion (not the front)
-- **Ideal end:** target → master; old master → accordion front/top; old secondary
+### S4 — Already tiled, target = an **extra** in the accordion (not the front)  ✅ done
+- **Ideal end:** target → master; old master → accordion front; old secondary
   → an ordinary extra. Other extras hold still.
-- **Floor: 2 geometry** (target out, old master in) **+ Z** (front child changes).
-- **Ops (🧪):** same pair-move as C3b for target↔master, then the front-of-column
-  is set purely by **focus** (cost Z, no geometry) — focus old master last, settle,
-  focus new master.
-- **Today:** full flatten+rebuild.
+- **Floor: 2 geometry** (target out, old master in) **+ Z** (front child changes). Achieved.
+- **What worked (verified):** the *same* `focus target; swap left` as S3 — a
+  directional `swap left` crosses to the master from **any** column child, not just
+  the front one (confirmed on three different extras). Difference from S3: after the
+  swap the resulting front window is **not deterministic** for a non-front extra
+  (two promotions left two different windows in front), so S4 sets it explicitly:
+  `focus OLD_MASTER` → `sleep 0.25` (settle) → `focus NEW_MASTER`. That is the only
+  cost over S3 (~0.5s vs ~0.18s); still `F=2`, no flatten.
+- **Implemented:** unified with S3 in `promote.sh` — the guard no longer requires
+  `target == .tile-secondary`; it accepts any window whose parent is `v_accordion`
+  (old master `h_tiles`). `WAS_FRONT` (target `== .tile-secondary`) picks the snappy
+  no-settle re-focus (S3) vs the explicit front-set (S4). Post-swap verification and
+  rebuild fallback unchanged.
 
 ### S5 — Target on **another tiled workspace** (not `Tiles`, not built-in)
 - **Ops:** `move-node-to-workspace … Tiles` (1 window animates in) → then S4.
@@ -177,16 +186,22 @@ compares to today's "always relayout."
   rather than a full rebuild.
 - **Floor:** 1 new window placed; extras hold.
 
-### S8 — **Workspace mode → tile mode** (alt-shift-q / `enter.sh`)
+### S8 — **Workspace mode → tile mode** (alt-shift-q / `enter.sh`)  ✅ partial (skip done; rebuild kept)
 - Inherent high cost: windows are scattered across app-workspaces and must gather.
-- **Today:** pull *every* window to `Tiles` (even ones already there) → `relayout`
-  (which then `flatten`s). Double disturbance.
-- **Ops to test (🧪):**
-  1. Only `move-node-to-workspace` windows **not already** on `Tiles` (skip no-ops).
-  2. Build incrementally: place master first, then **append** each extra into the
-     accordion (each append moves 1 window; already-placed ones stay) — avoid the
-     mid-sequence `flatten` that equalizes everything before re-splitting.
-- **Measure:** `F` for "flatten+rebuild" vs "incremental append" on a 5-window set.
+- **Done — skip already-home windows:** `enter.sh` now moves only windows **not**
+  already on `Tiles` (re-issuing `move-node-to-workspace` for a home window
+  re-appends it and churns the tree). Verified via trace: scatter 2 of 6 windows,
+  re-enter → only those 2 move, the other 4 skip, layout lands canonical.
+- **Rejected — incremental append (plan item #2):** placing the master then
+  appending each extra into the accordion by hand is exactly the fragile tree
+  surgery `relayout.sh` deliberately avoids, for a once-per-session action. Kept the
+  robust from-scratch rebuild.
+- **Where the cost actually is (measured):** the trace shows the *gather* step at
+  ~0.10s (only off-`Tiles` windows move) but the `relayout` rebuild at ~2.1s across
+  7 intermediate layouts (flatten → h_tiles → pop master → raise secondary →
+  accordion → focus → resize). That rebuild is the entry flicker, and it is inherent
+  when coming from scattered state — the swap fast-path only applies when *already*
+  tiled, so there is no cheap S3/S4-style shortcut for a cold entry.
 
 ### S9 — **Gap change** (alt-W / alt-F)
 - `reload-config` is unavoidable (no runtime gap command) → inherently ★★★★★.
@@ -219,9 +234,9 @@ compares to today's "always relayout."
 |---|--------|-------|------|-------|
 | 1 | **S2 no-op**: app key == current master → return early | high | trivial | ✅ done |
 | 4 | **S3 swap** promote without flatten (`F=2`, the A↔B toggle) | **highest** | med | ✅ done (`focus target; swap left`) |
+| 5 | **S4** (promote an accordion *extra*) via same swap + explicit front-set | med | med | ✅ done (unified with S3) |
+| 3 | **S8** skip already-on-`Tiles` moves | med | low | ✅ done (rebuild kept; append rejected) |
 | 2 | **S9 debounce** rapid gap presses into a single reload | med | low | needs design |
-| 3 | **S8** skip already-on-`Tiles` moves; incremental append | high | med | needs test |
-| 5 | **S4** (promote an accordion *extra*) via swap+focus, no flatten | med | med | needs test |
 | 6 | Guard single-monitor/cross-monitor promotes from needless relayout | med | low | needs confirm |
 
 The rebuild-from-scratch path stays as the **correctness fallback**: if a
