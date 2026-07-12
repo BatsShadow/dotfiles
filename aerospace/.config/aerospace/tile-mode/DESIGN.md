@@ -181,12 +181,22 @@ gaps (both move together, ratio-preserved, within [0, 600]).
 Movement (unchanged, Colemak-DH): alt-M/N/E/I = focus left/down/up/right within
 the XDR (master ↔ accordion). alt-shift-M/N/E/I = swap in that direction.
 
-**alt-shift-tab** — cross-monitor, depends on focus (asymmetric by design):
-- Focused window on the **XDR** (master or in the accordion) → **swap** it with
-  the one window on the built-in monitor (they trade places; built-in stays
-  capacity-1). If built-in is empty, it's a one-way push.
-- Focused window on the **built-in** → **no swap**: promote it to master (old
-  master demotes into the accordion, same rotate as an app key).
+**alt-shift-tab** — move the focused window between screens; **focus always
+follows the window to its new screen**:
+- Focused window on the **built-in** → reclaim it as master on the XDR (old master
+  demotes into the accordion). Focus follows to the XDR.
+- Focused window on the **XDR**:
+  - If it is the **master**, first **promote the secondary** (the cheap swap) so
+    the XDR layout stays canonical throughout — the window you are sending is then
+    just the accordion's front, and moving it out leaves a clean master + column
+    behind (no rebuild). *Then* send the old master to the built-in. This is the
+    key fix: sending the master directly used to break the `h_tiles[master | …]`
+    tree; promoting first keeps it intact.
+  - If it is a **column window**, just send it out — the master is untouched, and
+    a moved-out accordion window leaves a clean column (a new front is designated).
+  - If the built-in already holds a window, that window **swaps** back onto the
+    XDR (which needs a rebuild, since a moved-in window lands at the root).
+  - Focus follows the sent window to the built-in.
 - **Single monitor** (undocked): no-op.
 
 Service mode (alt-shift-quote) unchanged.
@@ -255,7 +265,8 @@ this way, never via a `focus` probe (focusing changes which window is on top).
 - `resize-master.sh` — alt-R / alt-S master-split width (persisted).
 - `resize-gap.sh` — alt-W / alt-F XDR outer-gap adjust (re-render + reload).
 - `focus-monitor.sh` — alt-A / alt-T cross-monitor focus.
-- `monitor-toggle.sh` — alt-shift-tab swap/promote across the built-in monitor.
+- `monitor-toggle.sh` — alt-shift-tab: move the focused window across the built-in
+  monitor (promote-secondary-first when it's the master); focus follows the window.
 - `enter.sh` — enter tile mode: gather windows straight into a flat accordion
   (master first, then stack the rest on top — no tiling churn), seed master, then
   relayout (which ejects the master and skips the flatten).
