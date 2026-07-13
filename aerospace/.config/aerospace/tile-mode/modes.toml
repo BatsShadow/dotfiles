@@ -21,6 +21,11 @@ cmd-m = []
 alt-slash = 'layout tiles accordion'
 alt-comma = 'layout horizontal vertical'
 
+# Fullscreen the focused window IN PLACE (AeroSpace-managed, toggles). The node
+# stays in the tree, so exiting returns it to its exact rail slot — unlike macOS
+# native fullscreen, which leaves the workspace and lands back at the root.
+alt-v = 'fullscreen'
+
 # Resize
 alt-shift-minus = 'resize smart -50'
 alt-shift-equal = 'resize smart +50'
