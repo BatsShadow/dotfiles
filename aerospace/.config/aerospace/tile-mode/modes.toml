@@ -53,6 +53,22 @@ alt-y = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-i
 alt-c = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.apple.iCal --app-name Calendar --on-focus /Users/scott/.config/aerospace/open-calendar.sh'
 alt-z = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id us.zoom.xos --app-name zoom.us'
 
+# Look at Arc's "PRs" tab (Work space): focus the main Arc window, then select PRs.
+alt-p = [
+  'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id company.thebrowser.Browser --app-name Arc --exclude "Gmail|YouTube|Messages"',
+  '''exec-and-forget osascript -e '
+  tell application "Arc"
+    tell front window
+      tell space "Work"
+        tell first tab whose name is "PRs" to select
+      end tell
+    end tell
+    activate
+  end tell
+  '
+  ''',
+]
+
 # Stage keys (alt-shift + app key) — swap that app onto the Stage (the deliberate
 # "make this my primary surface" verb). Same matching as the Look keys, plus
 # --stage; focus follows. alt-shift-t stages whatever is focused.
