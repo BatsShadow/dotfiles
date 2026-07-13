@@ -50,7 +50,7 @@ alt-l = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-i
 alt-h = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.tinyspeck.slackmacgap --app-name Slack'
 alt-semicolon = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.hnc.Discord --app-name Discord'
 alt-y = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id company.thebrowser.Browser --app-name Arc --find-title YouTube --on-focus "osascript /Users/scott/.config/aerospace/arc-select-tab.scpt 3 1"'
-alt-d = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.apple.iCal --app-name Calendar --on-focus /Users/scott/.config/aerospace/open-calendar.sh'
+alt-k = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.apple.iCal --app-name Calendar --on-focus /Users/scott/.config/aerospace/open-calendar.sh'
 alt-z = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id us.zoom.xos --app-name zoom.us'
 
 # Look at Arc's "PRs" tab (Work space): focus the main Arc window, then select PRs.
@@ -78,7 +78,7 @@ alt-shift-l = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh -
 alt-shift-h = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.tinyspeck.slackmacgap --app-name Slack'
 alt-shift-semicolon = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.hnc.Discord --app-name Discord'
 alt-shift-y = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id company.thebrowser.Browser --app-name Arc --find-title YouTube'
-alt-shift-d = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.apple.iCal --app-name Calendar'
+alt-shift-k = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.apple.iCal --app-name Calendar'
 alt-shift-z = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id us.zoom.xos --app-name zoom.us'
 
 # Left hand — A R S T (physical left-to-right)
