@@ -48,12 +48,21 @@ default-root-container-layout = 'tiles'
 #               tall monitor (anything higher than wide) gets vertical orientation
 default-root-container-orientation = 'auto'
 
+# on-focus-changed fires on EVERY focus change. We use it to catch a window
+# RETURNING from macOS-native fullscreen: it already exists (so on-window-detected
+# never re-fires) but on exit it regains focus and AeroSpace re-tiles it at the
+# tree root as a stray column. rail-integrate.sh folds it back into the rail; with
+# no stray it is a cheap one-list-windows no-op (the ~always case), and a lock
+# stops the focus events it triggers from re-entering it.
+on-focus-changed = [
+  'exec-and-forget /Users/scott/.config/aerospace/tile-mode/rail-integrate.sh',
+]
+
 # Mouse follows focus when focused window changes
 # Drop it from your config, if you don't like this behavior
 # See https://nikitabobko.github.io/AeroSpace/guide#on-focus-changed-callbacks
 # See https://nikitabobko.github.io/AeroSpace/commands#move-mouse
 # Fallback value (if you omit the key): on-focused-monitor-changed = []
-# on-focus-changed = ['move-mouse window-lazy-center']
 # on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 
 # You can effectively turn off macOS "Hide application" (cmd-h) feature by toggling this flag

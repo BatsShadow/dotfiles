@@ -15,7 +15,7 @@ run = "layout floating"
 if = 'true'
 run = [
   'move-node-to-workspace Tiles',
-  'exec-and-forget /Users/scott/.config/aerospace/tile-mode/rail-integrate.sh',
+  'exec-and-forget /Users/scott/.config/aerospace/tile-mode/rail-integrate.sh --settle',
 ]
 
 # 'main' binding mode declaration
