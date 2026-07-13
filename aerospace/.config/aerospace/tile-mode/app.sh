@@ -20,12 +20,15 @@
 #   --exclude <regex>                  exclude windows whose title matches this (case-insensitive)
 #   --on-focus <cmd>                   Look only: run when already focused on a match
 #   --url <url>                        open this Arc URL instead of `open -b` when launching
+#   --find-url <regex>                 additionally require the active tab URL to match (Arc)
+#   --exclude-url <regex>              exclude windows whose active tab URL matches (Arc)
 #   --stage                            promote the match to the Stage instead of just focusing
 set -uo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 trace_begin "app.sh $*"
 
 APP_ID=""; APP_NAME=""; FIND_TITLE=""; EXCLUDE=""; ON_FOCUS=""; URL=""; STAGE=0
+FIND_URL=""; EXCLUDE_URL=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --app-id) APP_ID="$2"; shift 2 ;;
@@ -34,22 +37,42 @@ while [[ $# -gt 0 ]]; do
     --exclude) EXCLUDE="$2"; shift 2 ;;
     --on-focus) ON_FOCUS="$2"; shift 2 ;;
     --url) URL="$2"; shift 2 ;;
+    --find-url) FIND_URL="$2"; shift 2 ;;
+    --exclude-url) EXCLUDE_URL="$2"; shift 2 ;;
     --stage) STAGE=1; shift ;;
     *) shift ;;
   esac
 done
 
-# Matching windows -> "window-id<TAB>workspace" lines.
-matches() {
+# Candidate windows for this app: window-id<TAB>title<TAB>workspace (tree order).
+app_windows() {
   aerospace list-windows --all --json \
     --format '%{window-id} %{app-bundle-id} %{window-title} %{workspace}' 2>/dev/null \
-  | jq -r --arg bid "$APP_ID" --arg inc "$FIND_TITLE" --arg exc "$EXCLUDE" '
-      .[]
+  | jq -r --arg bid "$APP_ID" '.[]
       | select(.["app-bundle-id"] == $bid)
-      | select($inc == "" or (.["window-title"] | test($inc; "i")))
-      | select($exc == "" or ((.["window-title"] | test($exc; "i")) | not))
-      | "\(.["window-id"])\t\(.workspace)"
-    '
+      | "\(.["window-id"])\t\(.["window-title"])\t\(.workspace)"'
+}
+
+# Surviving windows -> "window-id<TAB>workspace" after title AND url filters.
+# URL filters (Arc) classify a window by its active tab URL, since titles follow
+# the page/video name and are unreliable. If Arc can't be queried (empty map),
+# the url filters are skipped so matching degrades to title-only.
+matches() {
+  local urlmap="" id title ws url
+  if [ -n "$FIND_URL" ] || [ -n "$EXCLUDE_URL" ]; then
+    urlmap="$("$AERO_DIR/arc-window-urls.sh" 2>/dev/null)"
+  fi
+  while IFS=$'\t' read -r id title ws; do
+    [ -z "$id" ] && continue
+    if [ -n "$FIND_TITLE" ] && ! grep -qiE "$FIND_TITLE" <<< "$title"; then continue; fi
+    if [ -n "$EXCLUDE" ]    &&   grep -qiE "$EXCLUDE"    <<< "$title"; then continue; fi
+    if [ -n "$urlmap" ] && { [ -n "$FIND_URL" ] || [ -n "$EXCLUDE_URL" ]; }; then
+      url="$(awk -F'\t' -v t="$title" '$1==t{print $2; exit}' <<< "$urlmap")"
+      if [ -n "$FIND_URL" ]    && ! grep -qiE "$FIND_URL"    <<< "$url"; then continue; fi
+      if [ -n "$EXCLUDE_URL" ] &&   grep -qiE "$EXCLUDE_URL" <<< "$url"; then continue; fi
+    fi
+    printf '%s\t%s\n' "$id" "$ws"
+  done < <(app_windows)
 }
 
 MATCHES="$(matches)"
