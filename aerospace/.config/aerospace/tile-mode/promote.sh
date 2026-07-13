@@ -10,12 +10,15 @@
 #
 # If the target window is on the secondary monitor, it is pulled onto Tiles first.
 #
-# Usage: promote.sh <window-id>
+# Usage: promote.sh [window-id]   (no arg -> stage the currently focused window,
+#                                  which is how alt-shift-t "stage the focused
+#                                  window" is wired.)
 set -uo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 trace_begin "promote.sh $*"
 
 NEW_MASTER="${1:-}"
+[ -z "$NEW_MASTER" ] && NEW_MASTER="$(focused_window)"
 [ -z "$NEW_MASTER" ] && exit 0
 
 OLD_MASTER="$(get_master)"

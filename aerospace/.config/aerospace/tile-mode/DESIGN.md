@@ -7,6 +7,14 @@ the secondary monitor — the most productive way possible.
 
 Toggle between tile mode and workspace mode with **alt-shift-q** (unchanged key).
 
+> **Interaction model updated — see `STAGE-RAIL-DESIGN.md`.** The *geometry* below
+> (master + accordion, built-in reference slot) is current, but the *keys* have
+> been re-split: app keys are now pure **Look** (focus only, no layout change),
+> `alt-shift-<app>` / `alt-shift-t` **Stage** a window, and `alt-shift-a` is the
+> single-slot **Aux** stash (replacing `alt-shift-tab`). The "Keybindings" and
+> "alt-shift-tab" sections further down describe the *previous* model and are
+> pending a rewrite.
+
 ## Layout
 
 ```
@@ -259,14 +267,18 @@ this way, never via a `focus` probe (focusing changes which window is on top).
 - `relayout.sh` — idempotent rebuild of the layout via accordion-eject (dual:
   master + accordion; single: one `h_accordion`). Skips the flatten when the tree
   is already a flat accordion (`all_in_accordion`).
-- `promote.sh` — promote a window to master; S2 no-op / S3+S4 swap fast-paths, else
-  full rebuild (rotate old master → secondary on top).
-- `app.sh` — app-key handler (launch / on-focus / focus-on-secondary / promote).
-- `resize-master.sh` — alt-R / alt-S master-split width (persisted).
+- `promote.sh` — Stage a window (promote to master); S2 no-op / S3+S4 swap
+  fast-paths, else full rebuild (rotate old master → secondary on top). No arg =
+  stage the focused window (alt-shift-t).
+- `app.sh` — app-key handler. Look (default): launch / on-focus / focus-on-Aux /
+  focus nearest match (pure focus, no layout change). `--stage`: promote the
+  match to the Stage (alt-shift-<app>).
+- `resize-master.sh` — alt-R / alt-S Stage↔Rail rebalance width (persisted).
 - `resize-gap.sh` — alt-W / alt-F XDR outer-gap adjust (re-render + reload).
-- `focus-monitor.sh` — alt-A / alt-T cross-monitor focus.
-- `monitor-toggle.sh` — alt-shift-tab: move the focused window across the built-in
-  monitor (promote-secondary-first when it's the master); focus follows the window.
+- `focus-monitor.sh` — alt-A Look-at-Aux / alt-T Look-at-Stage cross-monitor focus.
+- `aux-toggle.sh` — alt-shift-a: single-slot Aux stash. Empty → pin focused
+  (promote Rail-front first if it's the master; focus follows). Occupied → evict
+  to the Rail (focus stays put, for the two-tap swap).
 - `enter.sh` — enter tile mode: gather windows straight into a flat accordion
   (master first, then stack the rest on top — no tiling churn), seed master, then
   relayout (which ejects the master and skips the flatten).

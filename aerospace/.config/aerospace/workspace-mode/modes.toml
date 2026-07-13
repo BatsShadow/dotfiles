@@ -109,6 +109,9 @@ alt-r = [
   'layout tiles horizontal',
 ]
 alt-a = 'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh'
+# Push the whole workspace to the next monitor (same finger as tile mode's Aux
+# stash — "send it to the other screen"). Replaces alt-shift-tab.
+alt-shift-a = 'move-workspace-to-monitor --wrap-around next'
 
 # Utility workspaces
 alt-7 = [
@@ -237,7 +240,6 @@ alt-shift-y = [
 alt-shift-q = 'exec-and-forget /Users/scott/.config/aerospace/toggle-mode.sh'
 
 alt-tab = 'workspace-back-and-forth'
-alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
 
 # Service mode
 alt-shift-quote = 'mode service'

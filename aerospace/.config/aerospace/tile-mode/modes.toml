@@ -41,9 +41,9 @@ alt-shift-i = 'swap right'
 alt-w = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/resize-gap.sh narrow'
 alt-f = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/resize-gap.sh widen'
 
-# App keys — right hand (Colemak-DH). Promote the app to master (rotating the old
-# master down to the big secondary slot); if the app is on the built-in monitor,
-# focus it there in place instead.
+# App keys (Look) — right hand (Colemak-DH). PURE FOCUS: raise/focus the app
+# wherever it lives (a Rail window rises to the accordion front; a match on the
+# built-in is focused there in place). Never mutates the layout.
 alt-u = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.github.wez.wezterm --app-name WezTerm'
 alt-o = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id company.thebrowser.Browser --app-name Arc --exclude "Gmail|YouTube|Messages"'
 alt-l = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id company.thebrowser.Browser --app-name Arc --find-title "Gmail|Messages" --on-focus /Users/scott/.config/aerospace/toggle-email-pin.sh'
@@ -53,11 +53,28 @@ alt-y = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-i
 alt-c = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.apple.iCal --app-name Calendar --on-focus /Users/scott/.config/aerospace/open-calendar.sh'
 alt-z = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id us.zoom.xos --app-name zoom.us'
 
+# Stage keys (alt-shift + app key) — swap that app onto the Stage (the deliberate
+# "make this my primary surface" verb). Same matching as the Look keys, plus
+# --stage; focus follows. alt-shift-t stages whatever is focused.
+alt-shift-u = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.github.wez.wezterm --app-name WezTerm'
+alt-shift-o = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id company.thebrowser.Browser --app-name Arc --exclude "Gmail|YouTube|Messages"'
+alt-shift-l = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id company.thebrowser.Browser --app-name Arc --find-title "Gmail|Messages"'
+alt-shift-h = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.tinyspeck.slackmacgap --app-name Slack'
+alt-shift-semicolon = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.hnc.Discord --app-name Discord'
+alt-shift-y = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id company.thebrowser.Browser --app-name Arc --find-title YouTube'
+alt-shift-c = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.apple.iCal --app-name Calendar'
+alt-shift-z = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id us.zoom.xos --app-name zoom.us'
+
 # Left hand — A R S T (physical left-to-right)
-alt-a = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/focus-monitor.sh secondary'  # focus built-in (far-left) monitor
-alt-r = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/resize-master.sh shrink'      # split left  (master smaller)
-alt-s = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/resize-master.sh grow'        # split right (master bigger)
-alt-t = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/focus-monitor.sh primary'     # focus back to primary / master
+alt-a = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/focus-monitor.sh secondary'  # Look at Aux (built-in / far-left)
+alt-r = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/resize-master.sh shrink'      # rebalance: Stage smaller / Rail wider
+alt-s = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/resize-master.sh grow'        # rebalance: Stage bigger / Rail narrower
+alt-t = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/focus-monitor.sh primary'     # Look at Stage (focus the master)
+
+# alt-shift-a: Aux stash toggle (empty -> pin focused; occupied -> evict to Rail)
+alt-shift-a = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/aux-toggle.sh'
+# alt-shift-t: Stage the focused window (generic, attention-addressed staging)
+alt-shift-t = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/promote.sh'
 
 # Repair / re-apply the tile layout
 alt-0 = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/relayout.sh'
@@ -66,8 +83,6 @@ alt-0 = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/relayout.sh'
 alt-shift-q = 'exec-and-forget /Users/scott/.config/aerospace/toggle-mode.sh'
 
 alt-tab = 'workspace-back-and-forth'
-# Move the focused window to / from the built-in secondary monitor (see monitor-toggle.sh)
-alt-shift-tab = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/monitor-toggle.sh'
 
 # Service mode
 alt-shift-quote = 'mode service'

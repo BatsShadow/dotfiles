@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Shared helpers + state for the rewritten tile mode.
-# Sourced by relayout.sh, promote.sh, app.sh, monitor-toggle.sh, etc.
+# Sourced by relayout.sh, promote.sh, app.sh, aux-toggle.sh, etc.
 
 TILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AERO_DIR="$(cd "$TILE_DIR/.." && pwd)"
