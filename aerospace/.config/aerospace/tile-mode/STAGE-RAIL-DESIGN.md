@@ -55,7 +55,13 @@ its zone unless a deliberate arrangement verb moves it.
 | **Stage** | XDR, big primary area (today's *master*) | 1 window | Primary work surface |
 | **Rail** | XDR, the accordion column (today's *secondary + extras*) | ordered, **stable** list | Readable, one-key-away parking |
 | **Aux** | built-in monitor (`Tiles2`) | exactly 1 window (or empty) | A single persistent reference |
-| *Deck* | offscreen | running-but-unplaced apps | Summoned onto the Rail on demand |
+| *Floating* | above the tiles | apps forced to float (Tuna, REW) | Incidental; ignored by all arrangement verbs |
+
+Every window in tile mode is in exactly one of these: Stage, Rail, Aux, or
+floating. There is no hidden/offscreen state — `enter.sh` gathers every tiled
+window onto `Tiles` (Stage or Rail) or `Tiles2` (Aux), and floaters just float.
+Launching an app with no window (via a Look key) lands its new window on the
+Rail through the existing `on-window-detected` rule.
 
 The Rail is a real, **readable** pane, not a sliver: its front window is large
 enough to use, and the rebalance keys widen it further when needed. This is why
@@ -82,8 +88,11 @@ each intent is a single press.
 - **`alt-a`** — look at Aux (focus the built-in). *(Unchanged from today.)*
 - **`alt-t`** — look at the Stage (focus the current Stage window). *(Unchanged.)*
 
-If an app has no window, its Look key launches it (today's behavior). If it is
-running but unplaced (Deck), its Look key brings it onto the Rail and focuses it.
+If an app has no window, its Look key launches it (today's behavior); the new
+window lands on the Rail. If an app has **several** matching windows, Look raises
+the **first/nearest** match (today's behavior — no per-app cycling). To bring a
+*specific* other window of that app to the Stage, Look to it, walk to the exact
+window with the directional keys, then `alt-shift-t` (stage the focused window).
 
 ### Rebalance — resize the split, still no staging
 
@@ -139,7 +148,16 @@ are self-targeting and have no analogous two-tap idiom.
 **Behavior change from today:** un-parking returns to the **Rail**, not the
 Stage. Today reclaiming from the built-in promotes straight to master; here
 staging is a separate, deliberate verb. `alt-shift-a` fully replaces the old
-`alt-shift-tab` monitor-toggle.
+`alt-shift-tab` monitor-toggle, which is **removed** (not aliased).
+
+**Workspace mode gets the same key.** In workspace mode `alt-shift-a` is
+currently unbound; the cross-monitor action lives on `alt-shift-tab`
+(`move-workspace-to-monitor --wrap-around next`). To keep one consistent
+"send it to the other screen" gesture across both modes, that action moves to
+`alt-shift-a` in workspace mode and `alt-shift-tab` is removed there too. The
+behavior stays mode-appropriate — Aux pin/evict in tile mode, whole-workspace
+move in workspace mode — but the finger and the intent are the same. (`alt-a`
+in workspace mode keeps re-applying the auto-config layout, unchanged.)
 
 ### Manual arrangement (power layer, retained)
 
@@ -160,13 +178,13 @@ staging is a separate, deliberate verb. `alt-shift-a` fully replaces the old
 | Rebalance gaps | `alt-w/f` | resize gaps (same) |
 | Stage an app | `alt-shift-<app>` | **new** |
 | Stage the focused window | `alt-shift-t` | **new** |
-| Aux toggle (pin / evict) | `alt-shift-a` | **new** (replaces `alt-shift-tab`) |
+| Aux toggle (pin / evict) | `alt-shift-a` | **new** (was `alt-shift-tab`, removed) |
 | Reorder Rail / manual swap | `alt-shift-m/n/e/i` | swap (same, reframed) |
 | Toggle workspace mode | `alt-shift-q` | same |
 | Repair layout | `alt-0` | same |
 
-Freed by this design: `alt-shift-tab` (was monitor-toggle) — removed or left as
-an alias for `alt-shift-a`, TBD in the plan.
+`alt-shift-tab` (was monitor-toggle) is **removed** in both tile mode and
+workspace mode; its cross-monitor role moves to `alt-shift-a`.
 
 ## State model
 
@@ -197,13 +215,16 @@ implementation decision for the plan.
 **Changes:**
 
 - **`app.sh`** — Look keys stop promoting. They become pure focus/raise
-  (launch-if-absent and summon-from-Deck preserved). A parallel Stage-it entry
+  (launch-if-absent preserved; first/nearest match). A parallel Stage-it entry
   point drives `promote.sh` for the `alt-shift-<app>` keys.
 - **`monitor-toggle.sh` → an Aux toggle** on `alt-shift-a` with the stateful
   pin/evict semantics above (evict → Rail, not Stage; focus asymmetry as
   specified).
-- **`modes.toml`** — add `alt-shift-<app>` and `alt-shift-t`; repoint
-  `alt-shift-a`; retire/alias `alt-shift-tab`.
+- **`modes.toml`** (tile mode) — add `alt-shift-<app>` and `alt-shift-t`;
+  repoint `alt-shift-a` to the Aux toggle; remove `alt-shift-tab`.
+- **`workspace-mode/modes.toml`** — move `move-workspace-to-monitor
+  --wrap-around next` from `alt-shift-tab` to `alt-shift-a`; remove
+  `alt-shift-tab`.
 
 ## Non-goals / explicitly cut
 
@@ -216,9 +237,5 @@ implementation decision for the plan.
 
 ## Open questions for the plan
 
-1. `alt-shift-tab`: remove, or keep as an alias of `alt-shift-a`?
-2. How much of `.tile-master` / `.tile-secondary` can actually be retired versus
+1. How much of `.tile-master` / `.tile-secondary` can actually be retired versus
    kept as a front-hint for the swap fast-path?
-3. Look-at-app when the app has **multiple** windows (e.g. Arc with several
-   matches): cycle among them, or always raise the same/first match? (Today
-   `app.sh` picks the first Rail match.)
