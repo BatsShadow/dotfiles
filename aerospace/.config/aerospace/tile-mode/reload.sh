@@ -17,3 +17,5 @@ M="$(get_master)"
 if [ -n "$M" ] && window_exists "$M"; then
   aerospace resize --window-id "$M" width "$(get_width)" 2>/dev/null
 fi
+
+osascript -e 'display notification "Config reloaded" with title "AeroSpace"' &

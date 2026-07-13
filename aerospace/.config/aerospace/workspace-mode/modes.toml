@@ -245,7 +245,9 @@ alt-tab = 'workspace-back-and-forth'
 alt-shift-quote = 'mode service'
 
 [mode.service.binding]
-esc = ['reload-config', 'mode main']
+# Re-render the config from source (modes/globals/gaps) then reload + notify — a
+# bare reload-config would reload the stale generated artifact and ignore edits.
+esc = ['exec-and-forget /Users/scott/.config/aerospace/workspace-mode/reload.sh', 'mode main']
 r = ['flatten-workspace-tree', 'mode main'] # reset layout
 f = [
   'layout floating tiling',
