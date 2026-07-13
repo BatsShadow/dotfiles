@@ -108,13 +108,28 @@ set_gap_left()  { echo "$1" > "$GAP_FILE"; }
 # right gap derived from left, preserving the default ratio (rounded)
 gap_right_for() { echo $(( ($1 * DEFAULT_GAP_RIGHT + DEFAULT_GAP_LEFT / 2) / DEFAULT_GAP_LEFT )); }
 
+# --- Accordion padding (alt-X shorter / alt-C taller) ---
+# The Rail is a vertical accordion; accordion-padding is the peek strip of the
+# window behind the front one. Larger padding => taller peeks (more of the other
+# Rail windows shows) and a slightly shorter front window. Like the gaps, there
+# is no runtime command, so a change re-renders globals.toml and reload-configs
+# (see resize-accordion.sh).
+ACCORDION_FILE="$TILE_DIR/.tile-accordion-padding"
+DEFAULT_ACCORDION_PADDING=200
+ACCORDION_MIN=40
+ACCORDION_MAX=600
+ACCORDION_STEP=60
+
+get_accordion_padding() { local p; p="$(cat "$ACCORDION_FILE" 2>/dev/null)"; echo "${p:-$DEFAULT_ACCORDION_PADDING}"; }
+set_accordion_padding() { echo "$1" > "$ACCORDION_FILE"; }
+
 # Emit the full tile-mode aerospace.toml (globals + gaps + modes) with the XDR
 # gap placeholders substituted for the current values. Single source of truth for
 # both auto-config (mode activation) and resize-gap (live gap tweak).
 render_config() {
-  local L R
-  L="$(get_gap_left)"; R="$(gap_right_for "$L")"
-  cat "$TILE_DIR/globals.toml"
+  local L R P
+  L="$(get_gap_left)"; R="$(gap_right_for "$L")"; P="$(get_accordion_padding)"
+  sed -e "s/__ACCORDION_PADDING__/$P/" "$TILE_DIR/globals.toml"
   sed -e "s/__XDR_GAP_LEFT__/$L/" -e "s/__XDR_GAP_RIGHT__/$R/" "$TILE_DIR/split.gaps.toml"
   cat "$TILE_DIR/modes.toml"
 }

@@ -35,8 +35,10 @@ enable-normalization-opposite-orientation-for-nested-containers = true
 # column. A larger value makes the peek bigger and the focused secondary shorter.
 # AeroSpace only ever shows ONE peek per side, so this stays constant regardless
 # of how many extra windows are in the column (no need to scale it with count).
-# You can set 0 to disable the padding feature
-accordion-padding = 200
+# Placeholder substituted at generation time from the current padding state
+# (lib.sh render_config; default 200). alt-X shortens / alt-C grows the peek,
+# within [40, 600] (see resize-accordion.sh).
+accordion-padding = __ACCORDION_PADDING__
 
 # Possible values: tiles|accordion
 default-root-container-layout = 'tiles'
