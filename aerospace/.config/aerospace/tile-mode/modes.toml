@@ -7,16 +7,10 @@ run = "layout floating"
 if = 'test %{app-bundle-id} = roomeqwizard.launcher'
 run = "layout floating"
 
-# Catch-all: everything else lands on the Tiles workspace, then gets folded into
-# the rail. A window detected here (new window, or one returning from macOS-native
-# fullscreen) otherwise lands at the tree ROOT as a stray column beside the master;
-# rail-integrate.sh detects that and rebuilds the canonical master+rail.
+# Catch-all: everything else lands on the Tiles workspace
 [[on-window-detected]]
 if = 'true'
-run = [
-  'move-node-to-workspace Tiles',
-  'exec-and-forget /Users/scott/.config/aerospace/tile-mode/rail-integrate.sh --settle',
-]
+run = "move-node-to-workspace Tiles"
 
 # 'main' binding mode declaration
 [mode.main.binding]
@@ -102,6 +96,11 @@ alt-shift-t = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/promote.
 # other Rail windows shows. alt-X shorter, alt-C taller.
 alt-x = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/resize-accordion.sh shorter'
 alt-c = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/resize-accordion.sh taller'
+
+# Fix screen (alt-V): surgically fold any stray root-level window (e.g. one
+# returning from macOS-native fullscreen) back into the rail — moves ONLY the
+# misplaced windows, no full relayout. alt-0 is the heavier full rebuild.
+alt-v = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/fix-screen.sh'
 
 # Repair / re-apply the tile layout
 alt-0 = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/relayout.sh'
