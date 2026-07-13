@@ -7,10 +7,16 @@ run = "layout floating"
 if = 'test %{app-bundle-id} = roomeqwizard.launcher'
 run = "layout floating"
 
-# Catch-all: everything else lands on the Tiles workspace
+# Catch-all: everything else lands on the Tiles workspace, then gets folded into
+# the rail. A window detected here (new window, or one returning from macOS-native
+# fullscreen) otherwise lands at the tree ROOT as a stray column beside the master;
+# rail-integrate.sh detects that and rebuilds the canonical master+rail.
 [[on-window-detected]]
 if = 'true'
-run = "move-node-to-workspace Tiles"
+run = [
+  'move-node-to-workspace Tiles',
+  'exec-and-forget /Users/scott/.config/aerospace/tile-mode/rail-integrate.sh',
+]
 
 # 'main' binding mode declaration
 [mode.main.binding]
@@ -20,11 +26,6 @@ cmd-m = []
 # Layout toggles
 alt-slash = 'layout tiles accordion'
 alt-comma = 'layout horizontal vertical'
-
-# Fullscreen the focused window IN PLACE (AeroSpace-managed, toggles). The node
-# stays in the tree, so exiting returns it to its exact rail slot — unlike macOS
-# native fullscreen, which leaves the workspace and lands back at the root.
-alt-v = 'fullscreen'
 
 # Resize
 alt-shift-minus = 'resize smart -50'
