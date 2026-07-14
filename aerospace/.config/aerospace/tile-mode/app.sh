@@ -28,7 +28,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 trace_begin "app.sh $*"
 
 APP_ID=""; APP_NAME=""; FIND_TITLE=""; EXCLUDE=""; ON_FOCUS=""; URL=""; STAGE=0
-FIND_URL=""; EXCLUDE_URL=""
+FIND_URL=""; EXCLUDE_URL=""; ANY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --app-id) APP_ID="$2"; shift 2 ;;
@@ -39,6 +39,7 @@ while [[ $# -gt 0 ]]; do
     --url) URL="$2"; shift 2 ;;
     --find-url) FIND_URL="$2"; shift 2 ;;
     --exclude-url) EXCLUDE_URL="$2"; shift 2 ;;
+    --any) ANY=1; shift ;;
     --stage) STAGE=1; shift ;;
     *) shift ;;
   esac
@@ -53,10 +54,15 @@ app_windows() {
       | "\(.["window-id"])\t\(.["window-title"])\t\(.workspace)"'
 }
 
-# Surviving windows -> "window-id<TAB>workspace" after title AND url filters.
-# URL filters (Arc) classify a window by its active tab URL, since titles follow
-# the page/video name and are unreliable. If Arc can't be queried (empty map),
-# the url filters are skipped so matching degrades to title-only.
+# Surviving windows -> "window-id<TAB>workspace" after the title/url filters.
+# URL filters (Arc) classify a window by its active tab URL. Titles alone are
+# unreliable (they follow the page/video name), but the URL alone is too: the
+# pinned "topApp" YouTube tab reports an EMPTY url, so a YouTube window sitting on
+# its home tab has no youtube.com to match. --any bridges that: a window is a
+# match if its title matches FIND_TITLE OR its url matches FIND_URL (default is
+# AND). Excludes (title + url) always subtract, regardless of --any. If Arc can't
+# be queried (empty map), url predicates are treated as non-matching, so --any
+# degrades gracefully to title-only.
 matches() {
   local urlmap="" id title ws url
   if [ -n "$FIND_URL" ] || [ -n "$EXCLUDE_URL" ]; then
@@ -64,13 +70,27 @@ matches() {
   fi
   while IFS=$'\t' read -r id title ws; do
     [ -z "$id" ] && continue
-    if [ -n "$FIND_TITLE" ] && ! grep -qiE "$FIND_TITLE" <<< "$title"; then continue; fi
-    if [ -n "$EXCLUDE" ]    &&   grep -qiE "$EXCLUDE"    <<< "$title"; then continue; fi
-    if [ -n "$urlmap" ] && { [ -n "$FIND_URL" ] || [ -n "$EXCLUDE_URL" ]; }; then
+    url=""
+    if [ -n "$urlmap" ]; then
       url="$(awk -F'\t' -v t="$title" '$1==t{print $2; exit}' <<< "$urlmap")"
-      if [ -n "$FIND_URL" ]    && ! grep -qiE "$FIND_URL"    <<< "$url"; then continue; fi
-      if [ -n "$EXCLUDE_URL" ] &&   grep -qiE "$EXCLUDE_URL" <<< "$url"; then continue; fi
     fi
+
+    # Excludes always win.
+    if [ -n "$EXCLUDE" ]     &&   grep -qiE "$EXCLUDE"     <<< "$title"; then continue; fi
+    if [ -n "$EXCLUDE_URL" ] &&   grep -qiE "$EXCLUDE_URL" <<< "$url";   then continue; fi
+
+    # Find predicates: AND by default, OR under --any (only differs when both set).
+    local t_set=0 u_set=0 t_hit=0 u_hit=0
+    [ -n "$FIND_TITLE" ] && { t_set=1; grep -qiE "$FIND_TITLE" <<< "$title" && t_hit=1; }
+    [ -n "$FIND_URL" ]   && { u_set=1; grep -qiE "$FIND_URL"   <<< "$url"   && u_hit=1; }
+    if [ $((t_set + u_set)) -gt 0 ]; then
+      if [ "$ANY" = 1 ]; then
+        [ "$t_hit" = 1 ] || [ "$u_hit" = 1 ] || continue
+      else
+        { [ "$t_set" = 0 ] || [ "$t_hit" = 1 ]; } && { [ "$u_set" = 0 ] || [ "$u_hit" = 1 ]; } || continue
+      fi
+    fi
+
     printf '%s\t%s\n' "$id" "$ws"
   done < <(app_windows)
 }
