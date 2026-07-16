@@ -5,9 +5,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOML_FILE="$SCRIPT_DIR/.workspace-window-modes.toml"
 
 CURRENT_MONITOR=$(aerospace list-monitors --focused --format %{monitor-id})
-XDR_ID=$(aerospace list-monitors | grep XDR | awk '{print $1}')
+XDR_ID=$(aerospace list-monitors --format '%{monitor-id} %{monitor-name}' | grep -i XDR | awk '{print $1}' | head -n1)
+MONITOR_COUNT=$(aerospace list-monitors --count)
 
-if [[ "$CURRENT_MONITOR" -ne "$XDR_ID" ]]; then
+# Monitor workspace mode manages: the XDR when it's connected, otherwise the
+# only/focused monitor. Without this fallback, a single-monitor setup leaves
+# XDR_ID empty, which breaks every `--monitor $XDR_ID` query below.
+TARGET_MONITOR="${XDR_ID:-$CURRENT_MONITOR}"
+
+# With multiple monitors, workspace mode only manages the XDR — so ignore
+# auto/no-arg invocations fired while focused on a different monitor. On a
+# single monitor there is nothing to bail out of, so this guard is skipped.
+if [ "$MONITOR_COUNT" -ge 2 ] && [ -n "$XDR_ID" ] && [ "$CURRENT_MONITOR" != "$XDR_ID" ]; then
   # Allow the script to run on laptop monitor when 0 is pressed
   if [[ "$1" == "" ]]; then
     echo Current monitor is not XDR. Exiting
@@ -15,16 +24,12 @@ if [[ "$CURRENT_MONITOR" -ne "$XDR_ID" ]]; then
   fi
 fi
 
-CURRENT_WORKSPACE=$(aerospace list-workspaces --visible --monitor $XDR_ID)
+CURRENT_WORKSPACE=$(aerospace list-workspaces --visible --monitor "$TARGET_MONITOR")
 SAVED_MODE=$(cat "$TOML_FILE" | grep "^$CURRENT_WORKSPACE = " | sed -e"s/^$CURRENT_WORKSPACE = //")
-MONITOR_COUNT=$(aerospace list-monitors --count)
 
-WINDOW_COUNT=3
-if [ "$MONITOR_COUNT" -eq 2 ]; then
-  # Exclude floating windows from the count
-  WINDOW_COUNT=$(aerospace list-windows --monitor $XDR_ID --workspace visible \
-    --format '%{window-parent-container-layout}' | grep -cv '^floating$')
-fi
+# Exclude floating windows from the count
+WINDOW_COUNT=$(aerospace list-windows --monitor "$TARGET_MONITOR" --workspace visible \
+  --format '%{window-parent-container-layout}' | grep -cv '^floating$')
 
 if [ "$WINDOW_COUNT" -eq 0 ]; then
   WINDOW_COUNT=1
