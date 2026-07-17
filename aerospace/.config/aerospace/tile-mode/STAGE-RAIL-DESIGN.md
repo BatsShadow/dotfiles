@@ -247,7 +247,7 @@ relearn.
 
 | Intent | Key | Was |
 |--------|-----|-----|
-| Look at app | `alt-<app>` (u/o/l/h/;/y/k/z) | promote app to master |
+| Look at app | `alt-<app>` (u/o/l/h/;/y/k/`,`/`.`) | promote app to master |
 | Look — directional | `alt-m/n/e/i` | focus (same) |
 | Look at Aux | `alt-a` | focus built-in (same) |
 | Look at Shelf | `alt-d` | **new** (Shelf) |
@@ -270,6 +270,50 @@ Look / toggle shapes. `d` is free since Calendar moved to `k`.
 
 `alt-shift-tab` (was monitor-toggle) is **removed** in both tile mode and
 workspace mode; its cross-monitor role moves to `alt-shift-a`.
+
+### The hand rule
+
+`alt` is a home-row mod on **left-`r`** and **right-`i`**, so every binding wants
+to be an *opposite-hand* chord. That forces a split, and the keymap should hold
+to it:
+
+> **Right hand = apps. Left hand = zones and layout.**
+
+Apps (`u o l h ; y k , .`) are all right-hand, held with **left-`r`** alt. Zone
+and layout controls (`a` Aux, `t` Stage, `d` Shelf, `r`/`s` rebalance, `w`/`f`
+gaps, `x`/`c` right-column size, `v` fix-screen) are all left-hand, held with
+**right-`i`** alt.
+
+This is why **Zoom moved from `alt-z` to `alt-,`** *(2026-07-17)*: `z` is the
+left pinky in Colemak-DH, so `alt-z` meant holding alt with left-ring and
+reaching with left-pinky on the **same hand** — the only app key that broke the
+rule, and it felt like it. **Safari** took `alt-.` alongside it, extending the
+bottom-row app run: `k` Calendar, `h` Slack, `,` Zoom, `.` Safari.
+
+Known remaining exception: **`alt-p`** (Arc's PRs tab) is left-hand (`p` is
+left-ring, top row). It is an app *action* rather than an app key, so the reach
+matters less; `alt-j` is free if it ever grates.
+
+**Workspace mode mirrors both keys** so the two modes never disagree about what a
+key means: `,` = Zoom, `.` = Safari in both. Workspace mode's model is one app per
+workspace, so this gave Zoom and Safari their own **`Zoom`** and **`Safari`**
+workspaces (previously they were filed into `Slack` and `Browser` by
+`on-window-detected`). `alt-shift-,` / `alt-shift-.` move a window there, matching
+every other workspace-mode app key.
+
+### Layout toggles are disabled in tile mode
+
+*(2026-07-17.)* `alt-slash` (`layout tiles accordion`) and `layout horizontal
+vertical` are stock-AeroSpace bindings that mutate the container layout
+directly — flipping the Rail's `v_accordion` to `v_tiles`, or the root's
+orientation. In tile mode they can only **break the canonical Stage | Rail
+tree**, leaving you to repair it with `alt-V` / `alt-0`. They are footguns here
+and are bound to `[]`.
+
+They remain in **workspace mode**, where free-form tiling makes them meaningful:
+`alt-slash` = tiles/accordion, and `layout horizontal vertical` moved from
+`alt-comma` to **`alt-shift-slash`** — putting both toggles on slash and freeing
+`alt-comma` so the two modes don't disagree about what comma means.
 
 ## State model
 

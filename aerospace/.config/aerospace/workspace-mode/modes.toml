@@ -29,9 +29,9 @@ run = "move-node-to-workspace YouTube"
 if = 'test %{app-bundle-id} = company.thebrowser.Browser'
 run = "move-node-to-workspace Browser"
 
-[[on-window-detected]]
+[[on-window-detected]] # Safari — its own workspace (alt-period), not grouped with Arc
 if = 'test %{app-bundle-id} = com.apple.Safari'
-run = "move-node-to-workspace Browser"
+run = "move-node-to-workspace Safari"
 
 [[on-window-detected]] # Slack
 if = 'test %{app-bundle-id} = com.tinyspeck.slackmacgap'
@@ -41,9 +41,9 @@ run = "move-node-to-workspace Slack"
 if = 'test %{app-bundle-id} = md.obsidian'
 run = "move-node-to-workspace Email"
 
-[[on-window-detected]] # Zoom
+[[on-window-detected]] # Zoom — its own workspace (alt-comma), not grouped with Slack
 if = 'test %{app-bundle-id} = us.zoom.xos'
-run = "move-node-to-workspace Slack"
+run = "move-node-to-workspace Zoom"
 
 [[on-window-detected]]
 if = 'test %{app-bundle-id} = com.brnbw.Tuna'
@@ -58,9 +58,12 @@ run = "layout floating"
 
 cmd-m = []
 
-# Layout toggles
+# Layout toggles — free-form tiling lives here (tile mode disables both: they
+# would break its canonical Stage | Rail tree). Both now sit on slash, which
+# frees alt-comma to be the Zoom app key in tile mode without the two modes
+# disagreeing about what comma means.
 alt-slash = 'layout tiles accordion'
-alt-comma = 'layout horizontal vertical'
+alt-shift-slash = 'layout horizontal vertical'
 
 # Focus (Colemak-DH: m=left, n=down, e=up, i=right)
 alt-m = 'focus left'
@@ -193,6 +196,23 @@ alt-c = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com
 alt-shift-c = [
   'move-node-to-workspace Calendar',
   'workspace Calendar',
+  'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
+]
+
+# Zoom (alt-comma) and Safari (alt-period) — same keys as tile mode, so the two
+# modes agree: `,` = Zoom, `.` = Safari. Both are right-hand keys, held with the
+# left-r alt home-row mod (see STAGE-RAIL-DESIGN.md "The hand rule").
+alt-comma = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id us.zoom.xos --app-name zoom.us --workspace Zoom'
+alt-shift-comma = [
+  'move-node-to-workspace Zoom',
+  'workspace Zoom',
+  'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
+]
+
+alt-period = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.apple.Safari --app-name Safari --workspace Safari'
+alt-shift-period = [
+  'move-node-to-workspace Safari',
+  'workspace Safari',
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]
 

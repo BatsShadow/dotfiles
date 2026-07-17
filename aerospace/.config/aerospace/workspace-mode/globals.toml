@@ -20,6 +20,7 @@ start-at-login = true
 config-version = 2
 persistent-workspaces = [
   "Terminal", "Browser", "Email", "Slack", "Discord", "Calendar", "YouTube",
+  "Zoom", "Safari",
   "7", "8", "9", "Z", "Tiles", "Tiles2",
 ]
 

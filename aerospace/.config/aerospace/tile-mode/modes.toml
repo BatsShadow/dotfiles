@@ -17,9 +17,14 @@ run = "move-node-to-workspace Tiles"
 
 cmd-m = []
 
-# Layout toggles
-alt-slash = 'layout tiles accordion'
-alt-comma = 'layout horizontal vertical'
+# Layout toggles — deliberately DISABLED in tile mode. They mutate the container
+# layout directly (flipping the Rail's v_accordion to v_tiles, or the root's
+# orientation), which breaks the canonical Stage | Rail tree and leaves you
+# repairing it with alt-V / alt-0. They belong to free-form tiling, so they live
+# in workspace mode only (there: alt-slash = tiles/accordion,
+# alt-shift-slash = horizontal/vertical). alt-comma is now the Zoom app key.
+alt-slash = []
+alt-shift-slash = []
 
 # Resize
 alt-shift-minus = 'resize smart -50'
@@ -51,7 +56,8 @@ alt-h = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-i
 alt-semicolon = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.hnc.Discord --app-name Discord'
 alt-y = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id company.thebrowser.Browser --app-name Arc --any --find-title "^YouTube$" --find-url "youtube\.com" --on-focus "osascript /Users/scott/.config/aerospace/arc-select-tab.scpt 3 1"'
 alt-k = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.apple.iCal --app-name Calendar --on-focus /Users/scott/.config/aerospace/open-calendar.sh'
-alt-z = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id us.zoom.xos --app-name zoom.us'
+alt-comma = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id us.zoom.xos --app-name zoom.us'
+alt-period = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.apple.Safari --app-name Safari'
 
 # Look at Arc's "PRs" tab (Work space): focus the main Arc window, then select PRs.
 alt-p = [
@@ -79,7 +85,8 @@ alt-shift-h = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh -
 alt-shift-semicolon = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.hnc.Discord --app-name Discord'
 alt-shift-y = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id company.thebrowser.Browser --app-name Arc --any --find-title "^YouTube$" --find-url "youtube\.com"'
 alt-shift-k = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.apple.iCal --app-name Calendar'
-alt-shift-z = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id us.zoom.xos --app-name zoom.us'
+alt-shift-comma = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id us.zoom.xos --app-name zoom.us'
+alt-shift-period = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.apple.Safari --app-name Safari'
 
 # Left hand — A R S T (physical left-to-right)
 alt-a = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/focus-monitor.sh secondary'  # Look at Aux (built-in / far-left)
