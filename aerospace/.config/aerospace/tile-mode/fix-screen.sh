@@ -11,6 +11,11 @@
 # moves ONLY those strays into the accordion and leaves everything else — focus,
 # the rail's front window, the master — untouched. No flatten, no relayout, no
 # mass refocus (that heavier rebuild is alt-0 / relayout.sh).
+#
+# Direction comes from SCREEN GEOMETRY, never from list order: `aerospace
+# list-windows` sorts alphabetically by app name, so tree position cannot be read
+# from it (see lib.sh "Geometry"). Each step re-measures, because every move
+# changes the very positions the next decision depends on.
 set -uo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 trace_begin "fix-screen.sh"
@@ -19,25 +24,11 @@ trace_begin "fix-screen.sh"
 
 MASTER="$(get_master)"
 
-is_accordion() { case "$1" in *accordion) return 0 ;; *) return 1 ;; esac; }
-
-# Flat DFS tree order of the primary workspace: "<window-id>\t<parent-layout>".
+# Flat list of the primary workspace: "<window-id>\t<parent-layout>".
+# ORDER IS ALPHABETICAL BY APP NAME — meaningful for membership only.
 tree() {
   aerospace list-windows --workspace "$PRIMARY_WS" \
     --format '%{window-id}%{tab}%{window-parent-container-layout}' 2>/dev/null
-}
-
-# Echo "<stray-index> <first-accordion-index>" for a window id (-1 when absent).
-# Index is position in DFS order, which tells us whether the stray is to the
-# left of the rail (move it right to enter) or to the right (move it left).
-locate() {
-  local target="$1" i=0 sidx=-1 facc=-1 wid layout
-  while IFS=$'\t' read -r wid layout; do
-    [ "$wid" = "$target" ] && sidx=$i
-    if is_accordion "$layout" && [ "$facc" -lt 0 ]; then facc=$i; fi
-    i=$((i + 1))
-  done < <(tree)
-  echo "$sidx $facc"
 }
 
 # Collect the strays up front (their ids stay valid as the tree changes).
@@ -53,21 +44,38 @@ if [ "${#STRAYS[@]}" -eq 0 ]; then
   exit 0
 fi
 
-# Fold each stray toward the rail one step at a time until it is inside the
-# accordion. Moving toward a container enters it; moving toward a sibling window
-# just swaps (harmless) and the next step continues in the same direction, so a
-# stray several columns away still converges. Capped so a degenerate tree (no
-# accordion to enter) can't spin.
+# Nothing to fold INTO: with no accordion in the tree there is no rail yet (e.g.
+# the master is alone with one newcomer). Building one needs the eject rebuild,
+# which is alt-0's job, not this surgical pass. Leave the tree untouched.
+if [ -z "$(rail_windows)" ]; then
+  trace "no accordion in the tree — nothing to fold into (use alt-0)"
+  exit 0
+fi
+
+# Fold each stray toward the rail, one measured step at a time. Moving toward a
+# container enters it; moving toward a sibling window swaps (harmless) and the
+# next step re-measures and continues, so a stray several columns out converges.
 for stray in "${STRAYS[@]}"; do
-  for _ in 1 2 3 4 5 6 7 8; do
+  for _ in 1 2 3 4 5 6; do
     is_accordion "$(parent_layout "$stray")" && break
-    read -r sidx facc < <(locate "$stray")
-    [ "$facc" -lt 0 ] && break            # no accordion in the tree — can't fold
-    if [ "$sidx" -lt "$facc" ]; then
+
+    RAIL_X="$(rail_xcenter)"
+    SX="$(window_xcenter "$stray")"
+    # Off-screen/unmeasurable: refuse to guess. A wrong guess repeated is what
+    # rotates the whole tree; doing nothing leaves alt-0 as a clean recovery.
+    [ -z "$RAIL_X" ] || [ -z "$SX" ] && { trace "stray $stray unmeasurable; skipping"; break; }
+
+    if [ "$SX" -lt "$RAIL_X" ]; then
       aerospace move --window-id "$stray" right 2>/dev/null || break
     else
       aerospace move --window-id "$stray" left 2>/dev/null || break
     fi
+
+    sleep 0.15                       # let the window server settle before re-measuring
+    NEW_SX="$(window_xcenter "$stray")"
+    # Wedged: the move reported success but the window did not actually go
+    # anywhere. Stop rather than hammer the tree with more blind moves.
+    [ "$NEW_SX" = "$SX" ] && { trace "stray $stray did not move; giving up"; break; }
   done
   trace "stray $stray -> $(parent_layout "$stray")"
 done

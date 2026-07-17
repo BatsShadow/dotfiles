@@ -81,6 +81,14 @@ parent_layout() {
 # h_accordion on the single-monitor stack).
 is_accordion() { case "$1" in *accordion) return 0 ;; *) return 1 ;; esac; }
 
+# Window-ids currently inside an accordion container on the primary workspace —
+# i.e. the Rail's members.
+rail_windows() {
+  aerospace list-windows --workspace "$PRIMARY_WS" --json \
+    --format '%{window-id} %{window-parent-container-layout}' 2>/dev/null \
+  | jq -r '.[] | select(.["window-parent-container-layout"] | endswith("accordion")) | .["window-id"]'
+}
+
 # Park focus on a Rail window so a window born NEXT can join the Rail.
 #
 # AeroSpace births a newly-detected window as a SIBLING of the focused window.
@@ -102,10 +110,38 @@ park_focus_in_rail() {
   if [ -n "$s" ] && is_accordion "$(parent_layout "$s")"; then
     aerospace focus --window-id "$s" 2>/dev/null && return 0
   fi
-  for w in $(tiles_windows); do
-    if is_accordion "$(parent_layout "$w")"; then
-      aerospace focus --window-id "$w" 2>/dev/null && return 0
-    fi
+  for w in $(rail_windows); do
+    aerospace focus --window-id "$w" 2>/dev/null && return 0
+  done
+  return 1
+}
+
+# --- Geometry ---------------------------------------------------------------
+# GROUND TRUTH for where a window sits relative to the Rail.
+#
+# `aerospace list-windows` returns windows sorted ALPHABETICALLY BY APP NAME, not
+# in tree order (verified: reordering a window inside the Rail does not change the
+# list). So a window's index in that list says NOTHING about its tree position,
+# and anything deriving left/right from it is reading noise. Screen geometry is
+# the honest signal. CGWindowList via the frames tool: no permissions needed, no
+# focus side effects.
+ensure_frames_bin() {
+  [ -x "$FRAMES_BIN" ] && [ ! "$FRAMES_SRC" -nt "$FRAMES_BIN" ] && return 0
+  swiftc -O "$FRAMES_SRC" -o "$FRAMES_BIN" 2>/dev/null
+}
+
+# Horizontal centre (integer px) of a window id; empty when it is not on screen.
+window_xcenter() {
+  ensure_frames_bin || return 1
+  "$FRAMES_BIN" 2>/dev/null | awk -F'\t' -v i="$1" '$2==i{printf "%d", $3 + $5/2; exit}'
+}
+
+# Horizontal centre of the Rail. Accordion members are stacked on top of each
+# other, so they all share one centre and any member answers for the column.
+rail_xcenter() {
+  local w
+  for w in $(rail_windows); do
+    window_xcenter "$w"; return 0
   done
   return 1
 }
