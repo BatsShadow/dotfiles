@@ -1,10 +1,15 @@
-# Tile mode UX redesign — Stage / Rail / Aux
+# Tile mode UX redesign — Stage / Rail / Shelf / Aux
 
 *Design spec — 2026-07-12. Design only; no implementation here. Turned into an
 implementation plan separately.*
 
+*Amended 2026-07-17 — added the **Shelf**, a fourth zone. Stage / Rail / Aux is
+built and in use; the Shelf is **designed but not yet implemented**. Sections
+below are marked where the Shelf changes them.*
+
 This is a UX-level redesign of tile mode's **interaction model** (which keys do
-what, and what moves when). It does **not** change the underlying geometry: the
+what, and what moves when). Aside from the Shelf (which adds one optional,
+opt-in split — see below), it does **not** change the underlying geometry: the
 XDR still shows a big primary area beside an accordion column, and the built-in
 still hosts a single reference window. What changes is the *meaning of the keys*
 and, crucially, **what causes the layout to mutate at all**. See `DESIGN.md` for
@@ -45,7 +50,7 @@ One-liner for teaching it:
 > *App keys move your eyes; the shifted app key moves a window; nothing moves on
 > its own.*
 
-## The model: three stable zones
+## The model: four stable zones
 
 Windows live in named places with **stable membership**. A window does not leave
 its zone unless a deliberate arrangement verb moves it.
@@ -54,14 +59,21 @@ its zone unless a deliberate arrangement verb moves it.
 |------|-------|-------|------|
 | **Stage** | XDR, big primary area (today's *master*) | 1 window | Primary work surface |
 | **Rail** | XDR, the accordion column (today's *secondary + extras*) | ordered, **stable** list | Readable, one-key-away parking |
+| **Shelf** | XDR, strip below the Rail | exactly 1 window (or empty) | A persistent reference kept **visible and drivable** |
 | **Aux** | built-in monitor (`Tiles2`) | exactly 1 window (or empty) | A single persistent reference |
 | *Floating* | above the tiles | apps forced to float (Tuna, REW) | Incidental; ignored by all arrangement verbs |
 
-Every window in tile mode is in exactly one of these: Stage, Rail, Aux, or
+Every window in tile mode is in exactly one of these: Stage, Rail, Shelf, Aux, or
 floating. There is no hidden/offscreen state — `enter.sh` gathers every tiled
 window onto `Tiles` (Stage or Rail) or `Tiles2` (Aux), and floaters just float.
 Launching an app with no window (via a Look key) lands its new window on the
 Rail through the existing `on-window-detected` rule.
+
+**Shelf and Aux are siblings**: both are single-slot reference holders. They
+differ only in *where you look* — Aux is peripheral (the built-in), Shelf is in
+your main field of view under the Rail. Reach for the Shelf when a reference must
+stay watchable **on the big screen**; reach for Aux to get it off the XDR
+entirely.
 
 The Rail is a real, **readable** pane, not a sliver: its front window is large
 enough to use, and the rebalance keys widen it further when needed. This is why
@@ -159,6 +171,71 @@ behavior stays mode-appropriate — Aux pin/evict in tile mode, whole-workspace
 move in workspace mode — but the finger and the intent are the same. (`alt-a`
 in workspace mode keeps re-applying the auto-config layout, unchanged.)
 
+### Shelf — a single-slot, *visible* parking strip
+
+*(Added 2026-07-17. Not yet implemented.)*
+
+The Shelf is for the window you want to **keep an eye on and keep driving** while
+you work: a music player you glance at and tap play/pause on, a log tailing, a
+timer, a doc you keep rechecking. Its membership is **ad-hoc** — it is empty
+until you decide, in the moment, "I'd rather keep this visible for now."
+
+**Why not just use the Rail?** The Rail is an accordion: only its front window is
+fully readable, the rest peek. That is precisely wrong for "keep this visible" —
+the moment you Look at any other Rail app, your music player is a peek strip. The
+Shelf's defining property is that its window **stays fully visible no matter what
+the Rail is doing**. That property is the entire reason the zone exists.
+
+**Geometry.** Empty by default: the Rail owns the whole right column exactly as
+today, so an unused Shelf costs **nothing**. Occupied, the right column splits:
+
+```
+h_tiles[ Stage | v_tiles[ v_accordion[Rail] | Shelf ] ]
+```
+
+The Stage keeps full height and is never touched by the Shelf.
+
+**Capacity is 1**, enforced exactly the way Aux enforces it: shelving while
+occupied evicts the incumbent back to the Rail first.
+
+**`alt-shift-d`** — Shelve. One contextual key, mirroring the Aux toggle:
+
+- **Focused on a normal window** → park it on the Shelf; any incumbent returns to
+  the Rail. **Focus does not follow** — you parked it to watch it, not to work in
+  it, so focus returns to the **Stage**.
+- **Focused on the Shelf window** → un-shelve it back to the Rail. **Focus
+  follows** — you are re-activating it.
+
+**`alt-d`** — Look at the Shelf: focus the Shelf window in place. This is what
+makes the Shelf **drivable** (play/pause, pick a track) rather than merely
+decorative. Pure attention; never moves anything.
+
+This obeys the existing focus rule rather than bending it: focus follows only
+when a gesture designates a new *primary* surface (Stage-it, Aux-pin). Shelving
+designates a *reference*, not a primary — so it does not follow. `alt-d` is the
+deliberate way in, and it is one key.
+
+**Free from the existing model:**
+
+- An app's Look key (`alt-<app>`) focuses its window **in place** if it is on the
+  Shelf — it will not yank it off (same rule as Aux-in-place).
+- **Stage-it** (`alt-shift-<app>` / `alt-shift-t`) pulls a Shelf window onto the
+  Stage; the Shelf empties and the Rail reclaims the column.
+- A Shelf window that closes empties the Shelf; the Rail reclaims the column.
+
+**`alt-x` / `alt-c` become contextual.** They keep meaning *"shorter / taller in
+the right column"* and retarget to whichever vertical adjustment is actually
+meaningful:
+
+- **Shelf empty** → adjust the Rail accordion peek (today's behavior,
+  `resize-accordion.sh`).
+- **Shelf occupied** → adjust the Rail ↔ Shelf split height.
+
+Accepted tradeoff: while the Shelf is up you cannot also nudge the accordion
+peek. Peek is a set-once-and-forget value; Shelf height is the thing you actually
+want to tune live when something is parked. This costs no new keys and nothing to
+relearn.
+
 ### Manual arrangement (power layer, retained)
 
 - **`alt-shift-m/n/e/i`** — directional swap. Now most useful for **reordering
@@ -170,18 +247,26 @@ in workspace mode keeps re-applying the auto-config layout, unchanged.)
 
 | Intent | Key | Was |
 |--------|-----|-----|
-| Look at app | `alt-<app>` (u/o/l/h/;/y/c/z) | promote app to master |
+| Look at app | `alt-<app>` (u/o/l/h/;/y/k/z) | promote app to master |
 | Look — directional | `alt-m/n/e/i` | focus (same) |
 | Look at Aux | `alt-a` | focus built-in (same) |
+| Look at Shelf | `alt-d` | **new** (Shelf) |
 | Look at Stage | `alt-t` | focus master (same) |
 | Rebalance Stage/Rail | `alt-r/s` | resize master (same) |
 | Rebalance gaps | `alt-w/f` | resize gaps (same) |
+| Right-column vertical size | `alt-x/c` | accordion peek — **now contextual** (peek, or Rail↔Shelf split when Shelf occupied) |
 | Stage an app | `alt-shift-<app>` | **new** |
 | Stage the focused window | `alt-shift-t` | **new** |
 | Aux toggle (pin / evict) | `alt-shift-a` | **new** (was `alt-shift-tab`, removed) |
+| Shelve / un-shelve | `alt-shift-d` | **new** (Shelf) |
 | Reorder Rail / manual swap | `alt-shift-m/n/e/i` | swap (same, reframed) |
 | Toggle workspace mode | `alt-shift-q` | same |
+| Fix screen (fold strays into Rail) | `alt-v` | **new** |
 | Repair layout | `alt-0` | same |
+
+`alt-d` / `alt-shift-d` deliberately mirror `alt-a` / `alt-shift-a` (Aux): the
+two single-slot reference zones sit on neighboring keys with identical
+Look / toggle shapes. `d` is free since Calendar moved to `k`.
 
 `alt-shift-tab` (was monitor-toggle) is **removed** in both tile mode and
 workspace mode; its cross-monitor role moves to `alt-shift-a`.
@@ -192,7 +277,15 @@ Zone membership is derivable from AeroSpace's own tree:
 
 - **Stage** = the window under the root `h_tiles` (the `h_tiles` master).
 - **Rail** = the `v_accordion` members on `Tiles`, in tree order.
+- **Shelf** = the lone `v_tiles` member of the right column on `Tiles` (0 or 1) —
+  i.e. the child of the right column that is *not* the Rail accordion.
 - **Aux** = the occupant of `Tiles2` (0 or 1).
+
+The Shelf stays derivable like the rest, with one wrinkle: **`relayout.sh`
+flattens the tree**, which destroys the evidence. It must therefore capture the
+Shelf occupant *before* flattening and restore it after. Whether that capture can
+stay transient or needs a durable `.tile-shelf` hint (to survive mode toggles and
+restarts) is an implementation decision — see open questions.
 
 Because Look never mutates the tree and Stage-it is an order-preserving swap, the
 Rail's tree order is naturally stable — AeroSpace maintains child order and
@@ -226,6 +319,27 @@ implementation decision for the plan.
   --wrap-around next` from `alt-shift-tab` to `alt-shift-a`; remove
   `alt-shift-tab`.
 
+**Changes for the Shelf** *(2026-07-17, not yet implemented)*:
+
+- **New `shelf-toggle.sh`** — close sibling of `aux-toggle.sh` (single slot,
+  evict-incumbent, contextual un-shelve). The Aux toggle is the template.
+- **`relayout.sh`** — capture the Shelf occupant before `flatten-workspace-tree`,
+  and rebuild the right column as `v_tiles[ v_accordion[Rail] | Shelf ]` when
+  occupied (today it always builds a bare `v_accordion`). This is the one real
+  cost of the Shelf: a second structural step on rebuild, and therefore some added
+  flicker surface — but only while the Shelf is in use.
+- **⚠️ `fix-screen.sh`** — its stray rule is "a `Tiles` window whose parent
+  container is not an accordion and is not the master." A Shelf window's parent is
+  `v_tiles`, so **today's rule would classify the Shelf as a stray and fold it
+  into the Rail** on the next `alt-v`. The rule must exempt the Shelf occupant.
+  Same care applies to anything else that reasons about "root-level" windows.
+- **`app.sh`** — Look focuses a Shelf resident **in place** (extend the existing
+  Aux-in-place branch); Stage-it pulls it off the Shelf.
+- **`resize-accordion.sh`** — front it with a contextual dispatch: peek when the
+  Shelf is empty, Rail↔Shelf split height when occupied.
+- **`modes.toml`** (tile mode) — add `alt-d` / `alt-shift-d`; repoint `alt-x/c` at
+  the contextual resize.
+
 ## Non-goals / explicitly cut
 
 - **Dual / split stage (side-by-side).** The readable Rail plus Rebalance covers
@@ -239,3 +353,11 @@ implementation decision for the plan.
 
 1. How much of `.tile-master` / `.tile-secondary` can actually be retired versus
    kept as a front-hint for the swap fast-path?
+2. **Shelf durability.** Can the Shelf occupant stay purely tree-derived
+   (captured/restored around `relayout.sh`'s flatten), or does it need a durable
+   `.tile-shelf` hint to survive a mode toggle or an AeroSpace restart? Related:
+   should a tile→workspace→tile round-trip *preserve* the Shelf, or is resetting
+   it to empty acceptable (and simpler)? Default lean: reset is acceptable.
+3. **Shelf height default.** What starting fraction of the right column should the
+   Shelf take (and its min/max), by analogy to `DEFAULT_ACCORDION_PADDING`? A
+   music player wants little; a log tail wants more.
