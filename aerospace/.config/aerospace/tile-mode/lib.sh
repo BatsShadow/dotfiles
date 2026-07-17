@@ -77,6 +77,39 @@ parent_layout() {
   | awk -v id="$1" '$1==id{print $2; exit}'
 }
 
+# True for any accordion parent layout (v_accordion on the dual-monitor Rail,
+# h_accordion on the single-monitor stack).
+is_accordion() { case "$1" in *accordion) return 0 ;; *) return 1 ;; esac; }
+
+# Park focus on a Rail window so a window born NEXT can join the Rail.
+#
+# AeroSpace births a newly-detected window as a SIBLING of the focused window.
+# So focus at launch time decides the new window's parent: focus a Rail window
+# (parent v_accordion) and the newcomer joins the Rail; focus the master (parent
+# = root h_tiles) and it becomes a THIRD root-level column — a stray. Launching
+# is the one moment app.sh cannot be pure attention: the new window has to be
+# born somewhere, and only focus steers it.
+#
+# Prefers the secondary (the Rail's front window): it is already the one drawn on
+# top, so focusing it is visually a no-op beyond the focus ring.
+# Returns 1 when the Rail holds no window (master alone) — there is then no
+# accordion to be born into and the caller has nothing better to do than launch.
+park_focus_in_rail() {
+  local f s w
+  f="$(focused_window)"
+  [ -n "$f" ] && is_accordion "$(parent_layout "$f")" && return 0   # already parked
+  s="$(get_secondary)"
+  if [ -n "$s" ] && is_accordion "$(parent_layout "$s")"; then
+    aerospace focus --window-id "$s" 2>/dev/null && return 0
+  fi
+  for w in $(tiles_windows); do
+    if is_accordion "$(parent_layout "$w")"; then
+      aerospace focus --window-id "$w" 2>/dev/null && return 0
+    fi
+  done
+  return 1
+}
+
 # True when every non-floating window on the primary workspace is in a v_accordion
 # container — i.e. the tree is already a single flat vertical accordion, so the
 # eject-based relayout can skip the flatten "explode into equal tiles" step. A

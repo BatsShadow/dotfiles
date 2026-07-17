@@ -98,7 +98,13 @@ matches() {
 MATCHES="$(matches)"
 
 # 1. Nothing running -> launch.
+# Park focus in the Rail FIRST: the new window is born as a sibling of whatever
+# is focused, so launching with the master focused would hang the newcomer off
+# the root as a third column instead of the Rail (see park_focus_in_rail).
+# Prevention, not repair — once born in the wrong container it takes tree surgery
+# (alt-0) to fold back in.
 if [ -z "$MATCHES" ]; then
+  park_focus_in_rail
   if [ -n "$URL" ]; then
     "$AERO_DIR/open-arc-url.sh" "$URL"
   else
