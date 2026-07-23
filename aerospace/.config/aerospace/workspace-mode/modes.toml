@@ -192,8 +192,11 @@ alt-shift-semicolon = [
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]
 
-alt-c = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.apple.iCal --app-name Calendar --workspace Calendar --on-focus /Users/scott/.config/aerospace/open-calendar.sh'
-alt-shift-c = [
+# Calendar — alt-k to match tile mode (tile can't use alt-c: there c/x are the
+# Rail peek-resize). `k` is right-hand, satisfying the app-key hand rule; `c` was
+# a left-hand outlier. See STAGE-RAIL-DESIGN.md "The hand rule".
+alt-k = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.apple.iCal --app-name Calendar --workspace Calendar --on-focus /Users/scott/.config/aerospace/open-calendar.sh'
+alt-shift-k = [
   'move-node-to-workspace Calendar',
   'workspace Calendar',
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
