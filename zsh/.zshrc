@@ -82,7 +82,7 @@ alias dev-order-snapshot="cdupngo && cd tools/pull-json-api-order && DB_ENV=dev 
 alias export-creds='~/src/upngo/upngo-web/tools/export-creds.sh'
 alias clean-release-branches="git br | rg '(beta|prod)-release' | xargs git br -d"
 
-alias voyager-flash='zapp flash https://configure.zsa.io/voyager/layouts/lJqJz/latest/0'
+alias voyager-flash='zapp flash https://configure.zsa.io/voyager/layouts/MRxjr/pjBzjW/0'
 
 # Recover when Finder shows "application is not open anymore" and apps won't launch.
 # Escalates: restart Finder/Dock → rebuild LaunchServices DB → nuke launchservicesd.
