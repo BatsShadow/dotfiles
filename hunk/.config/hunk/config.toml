@@ -1,4 +1,4 @@
-theme = "ayu-dark" # any built-in theme id, auto, or custom
+theme = "custom"     # any built-in theme id, auto, or custom
 mode = "auto"        # auto, split, stack
 vcs = "git"          # git, jj, sl
 watch = false
@@ -8,4 +8,27 @@ wrap_lines = false
 menu_bar = true
 agent_notes = false
 prompt_save_view_preferences = true
-transparent_background = false
+transparent_background = true
+
+# ayu-dark, but the terminal shows through everywhere except changed lines.
+#
+# transparent_background = true forces background, panel, panelAlt, contextBg,
+# contextContentBg and lineNumberBg to "transparent". It runs *after* this block
+# resolves and it does not touch the added/removed keys, so the overrides below
+# survive and changed rows stay opaque.
+#
+# #10141c is ayu-dark's own editor background — i.e. what the surfaces would
+# have been if transparency were off.
+[custom_theme]
+base = "ayu-dark"
+label = "Ayu Dark Transparent"
+
+addedBg = "#10141c"          # added row
+removedBg = "#10141c"        # removed row
+addedContentBg = "#10141c"   # added row, code column
+removedContentBg = "#10141c" # removed row, code column
+movedAddedBg = "#10141c"     # moved-block added row
+movedRemovedBg = "#10141c"   # moved-block removed row
+
+# No [custom_theme.syntax] block on purpose: setting even one syntax key drops
+# ayu-dark's Shiki grammar colors and flattens all tokens to a single color.
