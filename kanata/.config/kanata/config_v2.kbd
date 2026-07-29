@@ -21,10 +21,21 @@
   combo-timeout 60                       ;; same as ZMK
   
   ;; keys for tap-hold-release-tap-keys-release templates
-  left-side-keys   (q w f p b x c d v) ;; these keys will always make the precedent same hand tap-hold-release-tap-keys-release output tap. B is missing because I, sometimes, alt finger it
-  right-side-keys  (j l u y ; m ' k h , . /) ;; these keys will always make the precedent same hand tap-hold-release-tap-keys-release output tap
-  home-row-left-keys  (a r s t z g)        ;; home row mods + z for shift  - these will output a tap if they're released after the first key
-  home-row-right-keys (n e i o)        ;; home row mods             - these will output a tap if they're released after the first key
+  ;;
+  ;; IMPORTANT: these lists are matched against PHYSICAL keys, i.e. the names in
+  ;; defsrc -- not the Colemak letters this config outputs. (Per the kanata docs:
+  ;; "The keys ... correspond to the physical input keys, or in other words the
+  ;; key that corresponds to defsrc. This is in contrast to the fork and switch
+  ;; actions which operates on outputted keys.")
+  ;;
+  ;; So each list below is written in defsrc coordinates, with the Colemak letter
+  ;; it produces noted in the comment. Writing them as output letters silently
+  ;; breaks things: physical p outputs ';', so listing 'p' as a left-side key made
+  ;; shift (@t, on physical f) short-circuit to a tap and type "t;" instead of ":".
+  left-side-keys   (q w e r t z x c v) ;; outputs: q w f p b  x c d v -- same-hand keys that force an early tap
+  right-side-keys  (y u i o p h n m , . /) ;; outputs: j l u y ; m k h , . / -- same-hand keys that force an early tap
+  home-row-left-keys  (a s d f g lsft b)   ;; outputs: a r s t g + z (shift) -- tap if released after the first key
+  home-row-right-keys (j k l ;)            ;; outputs: n e i o             -- tap if released after the first key
 )
 
 ;; home row mods templates mimicking urob's timerless home row mods implementation
