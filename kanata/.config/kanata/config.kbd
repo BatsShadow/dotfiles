@@ -68,6 +68,21 @@
   (tap-hold-keys $quick-tap-ms $tappingterm $tap-key $hold-key (t! ropts) (require-prior-idle 0))
 )
 
+;; Top-row keys that hold into the modnav layer, each supplying one modifier.
+;; Their key lists differ from the hrm ones in both directions:
+;;
+;;   q w e r  hold-on-press, not tap-on-press, so a second one pressed inside the
+;;            tapping term stacks its modifier instead of forcing an early tap
+;;   u i h j k l m ,
+;;            hold-on-press so an arrow fires and repeats on press rather than
+;;            waiting for its release under permissive hold
+(deftemplate navmod (tap-key hold-action)
+  (tap-hold-keys $quick-tap-ms $tapping-term $tap-key $hold-action
+    (tap-on-press         t z x c v)
+    (tap-on-press-release a s d f g lsft b)
+    (hold-on-press        q w e r u i h j k l m ,))
+)
+
 (defalias
   a (t! lhrm        $tapping-term   a  lctrl )
   r (t! lhrm        $tapping-term   r  lalt  )
@@ -80,6 +95,14 @@
   e (t! rhrm        $tapping-term   e  rmet  )
   i (t! rhrm        $tapping-term   i  lalt  )
   o (t! rhrm        $tapping-term   o  rctl  )
+
+  ;; Each holds into modnav carrying its own modifier, and modnav puts the same
+  ;; four modifiers on the same four keys, so holding one and pressing another
+  ;; stacks them: hold p for shift+arrows, add q for ctrl+shift+arrows.
+  q (t! navmod q (multi lctrl (layer-while-held modnav)))
+  w (t! navmod w (multi lalt  (layer-while-held modnav)))
+  f (t! navmod f (multi lmet  (layer-while-held modnav)))
+  p (t! navmod p (multi lsft  (layer-while-held modnav)))
 
   ;; Space is a thumb key and deliberately avoids the hrm templates. Those lists
   ;; split rolls from chords positionally (same hand = tap, other hand = hold),
@@ -104,7 +127,7 @@
 
 (deflayer mac_base
   brdn brup mctl sls  _    _    prev pp   next mute vold  volu
-  _    q    w    f    p    b    j    l    u    y    ;
+  _    @q   @w   @f   @p   b    j    l    u    y    ;
   esc  @a   @r   @s   @t   @g   m    @n   @e   @i   @o
   @z   x    c    d    v    @z   k    h    ,    .    /
   @fn       _         @spc
@@ -132,4 +155,15 @@
   _    _    _    _    _    _    =    4    5    6    -
   _    _    _    _    _    _    .    1    2    3    S-=
   fn        _         0
+)
+
+;; Arrow cluster sits where nav's does. The modifier comes from whichever key
+;; held into this layer, so no modifier is baked into the arrows themselves; the
+;; four here are for stacking a second and third one on top.
+(deflayer modnav
+  _    _    _    _    _    _    _    _    _    _    _     _
+  _    lctrl lalt lmet lsft _   _    pgup home _    _
+  _    _    _    _    _    _    left down up   right _
+  _    _    _    _    _    _    _    pgdn end  _    _
+  fn        _         _
 )
