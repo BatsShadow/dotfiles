@@ -66,8 +66,20 @@
   g (t! lhrm   $tapping-term   g (layer-while-held num) )
   z (t! lhrm   $tapping-term   z  lsft  )
 
-  spc (t! lhrm $tapping-term   spc (layer-while-held nav) )
-  
+  ;; Space is a thumb key, so it deliberately does NOT use the lhrm/rhrm
+  ;; templates. Those lists separate rolls from chords positionally (same hand =
+  ;; tap, other hand = hold), which works for the alphas because those two sets
+  ;; are disjoint. For space they are identical: every letter on both hands is
+  ;; both a roll partner (" the") and a nav chord partner. So no list can split
+  ;; them, and lhrm just made the left half of nav unreachable within the
+  ;; tapping term while leaving the right half hold-preferred.
+  ;;
+  ;; Plain tap-hold-release (QMK's "permissive hold") separates them by release
+  ;; order instead, which needs no lists: a roll releases space first (spc down,
+  ;; n down, spc UP, n up) so it taps, while a chord nests the other key wholly
+  ;; inside the hold (spc down, h down, h up, spc up) so it holds.
+  spc (tap-hold-release $quick-tap-ms $tapping-term (multi spc @tap) (layer-while-held nav))
+
   n (t! rhrm   $tapping-term   n  rsft  )
   e (t! rhrm   $tapping-term   e  rmet  )
   i (t! rhrm   $tapping-term   i  lalt  )
@@ -100,7 +112,6 @@
   / (t! nomod /)
 
   fn (layer-while-held function)
-  ;;nspc (tap-hold-release $tap-time $hold-time spc (layer-while-held nav))
 )
 
 (defvirtualkeys  
@@ -128,12 +139,12 @@
   _    q    w    f    p    b    j    l    u    y    ;
   esc  a    r    s   @t    g    m   @n    e    i    o
   z    x    c    d    v    z    k    h    ,    .    /
-  @fn       _         _
+  @fn       _         spc
 )
 
 (deflayer function
   f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11   f12
-  _    _    _    _    _    _    _    _    _    _    _
+  _    _    _    _    lrld _    _    _    _    _    _   ;; fn+R (physical r) reloads this config
   _    _    _    _    _    _    _    _    _    _    _
   _    _    _    _    _    _    _    _    _    _    _
   fn        _         _
@@ -144,7 +155,7 @@
   _    _    _    _    _    _    _    _    _    _    _     _
   _    S-2  S-,  /    S-.  S-\  _    _    _    _    _
   _    S-1  S-9  S-0  -    S--  left down up  right _
-  S-[  [    ]    S-]  _    _    _    _    _    _    _
+  S-[  [    ]    S-]  _    _    _    S-;  _    _    _
   fn        _         _
 )
 
