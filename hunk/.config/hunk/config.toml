@@ -1,5 +1,5 @@
 theme = "custom"     # any built-in theme id, auto, or custom
-mode = "auto"        # auto, split, stack
+mode = "stack"       # auto, split, stack
 vcs = "git"          # git, jj, sl
 watch = false
 exclude_untracked = false
@@ -14,4 +14,4 @@ transparent_background = true
 base = "ayu-dark"
 label = "ayu-dark-custom"
 
-addedBg = "#1c1d23"
+addedBg = "#0b0e14"
