@@ -22,7 +22,7 @@ The install script iterates all top-level directories, stows them, then installs
 
 - **zsh** — Shell config split across `.zshenv` (env vars, brew init, cargo), `.zprofile` (PATH, oh-my-zsh setup, oh-my-posh prompt), `.zshrc` (aliases, keybindings, zoxide, eza). Private env vars in `private.env` (not committed).
 - **git** — `.gitconfig` with extensive aliases (see `[alias]` section). Uses `diff-so-fancy` for diffs. Conditional includes for different work contexts.
-- **kanata** — Keyboard remapping via Kanata with Karabiner VirtualHIDDevice drivers. Custom build. Installed as LaunchDaemons (`sudo kanata/.config/kanata/install.sh`). Config split into `base.kbd` and `config.kbd`.
+- **kanata** — Keyboard remapping via Kanata with Karabiner VirtualHIDDevice drivers. Installed from Homebrew, run as LaunchDaemons (`sudo kanata/.config/kanata/install.sh`). Colemak-DH with home row mods in `config.kbd`; `fn+R` live-reloads it.
 - **tmux** — Prefix is `Ctrl+Space`. Plugins managed by TPM (plugins dir is gitignored). Catppuccin theme. vim-tmux-navigator for seamless vim/tmux pane switching.
 - **lazyvim** — Neovim config based on LazyVim. Custom plugins in `lua/plugins/`. Uses Catppuccin theme.
 - **wezterm** — Terminal emulator config in `wezterm.lua`.
