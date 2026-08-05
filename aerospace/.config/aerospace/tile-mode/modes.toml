@@ -129,4 +129,8 @@ f = [
   'layout floating tiling',
   'mode main',
 ] # Toggle between floating and tiling layout
+
+# Eject every external drive so the dock can be unplugged without opening Finder
+q = ['exec-and-forget /Users/scott/.config/aerospace/eject-drives.sh', 'mode main']
+
 backspace = ['close-all-windows-but-current', 'mode main']
