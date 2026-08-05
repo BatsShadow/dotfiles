@@ -43,7 +43,7 @@
 ;; cannot split one into the two tiers above.
 (deftemplate lopts ()
   (tap-on-press         q w e r t z x c v)  ;; outputs: q w f p b  x c d v
-  (tap-on-press-release a s d f g lsft b)   ;; outputs: a r s t g + z (shift)
+  (tap-on-press-release a s d f g lsft b)   ;; outputs: a r s t g, z (shift), z
 )
 
 (deftemplate ropts ()
@@ -89,7 +89,7 @@
   s (t! lhrm        $tapping-term   s  lmet  )
   t (t! lhrm-nopi   $tapping-term   t  lsft  )
   g (t! lhrm        $tapping-term   g (layer-while-held num) )
-  z (t! lhrm        $tapping-term   z  lsft  )
+  z (t! lhrm-nopi   $tapping-term   z  lsft  )
 
   n (t! rhrm-nopi   $tapping-term   n  rsft  )
   e (t! rhrm        $tapping-term   e  rmet  )
@@ -129,7 +129,7 @@
   brdn brup mctl sls  _    _    prev pp   next mute vold  volu
   _    @q   @w   @f   @p   b    j    l    u    y    ;
   esc  @a   @r   @s   @t   @g   m    @n   @e   @i   @o
-  @z   x    c    d    v    @z   k    h    ,    .    /
+  @z   x    c    d    v    z    k    h    ,    .    /
   @fn       _         @spc
 )
 
@@ -141,11 +141,13 @@
   fn        _         _
 )
 
+;; macOS screenshots: the rightmost column is full screen / selection / capture
+;; UI, and physical y is selection straight to the clipboard.
 (deflayer nav
-  _    _    _    _    _    _    _    _    _    _    _     _
-  _    S-2  S-,  /    S-.  S-\  _    _    _    _    _
-  _    S-1  S-9  S-0  -    S--  left down up  right _
-  S-[  [    ]    S-]  _    _    _    S-;  _    _    _
+  _    _    _    _    _    _    _       _    _    _     _     _
+  _    S-2  S-,  /    S-.  S-\  M-C-S-4 _    _    _     M-S-3
+  _    S-1  S-9  S-0  -    S--  left    down up   right M-S-4
+  S-[  [    ]    S-]  _    _    _       S-;  _    _     M-S-5
   fn        _         _
 )
 
