@@ -141,6 +141,13 @@ flamingo="$ayu_markup"
 blue="$ayu_entity"
 sky_blue="$ayu_regexp"
 
+# Claude session segment. Deliberately the darkest slug on the bar: contrast is
+# relative, so a quiet base lets the single amber "waiting" glyph carry without
+# anything having to get brighter in absolute terms. ayu_error stays unused so
+# red remains available for states that are genuinely broken.
+claude_slug_bg="$ayu_selection"
+claude_slug_fg="$ayu_ui"
+
 TMUX_POWERLINE_SEPARATOR_LEFT_BOLD=""
 TMUX_POWERLINE_SEPARATOR_LEFT_THIN=""
 TMUX_POWERLINE_SEPARATOR_RIGHT_BOLD=""
@@ -161,16 +168,26 @@ TMUX_POWERLINE_DEFAULT_RIGHTSIDE_SEPARATOR=${TMUX_POWERLINE_DEFAULT_RIGHTSIDE_SE
 
 # shellcheck disable=SC2128
 current_window=$sky
+# Keep the segment's idea of the bubble and text colours in step with the theme.
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_CUR_BG="$current_window"
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TEXT_FG="$TMUX_POWERLINE_DEFAULT_FOREGROUND_COLOR"
 if [ -z "$TMUX_POWERLINE_WINDOW_STATUS_CURRENT" ]; then
   TMUX_POWERLINE_WINDOW_STATUS_CURRENT=(
-    "#[fg=$current_window,bg=$thm_bg]"
+    # @cc_cur_bg is the bubble fill, per window, falling back to the global
+    # default. It turns amber while that window is waiting on you — recolouring
+    # the fill is the only treatment that stays legible here, since amber text
+    # on the cyan fill would be near-invisible with both being light.
+    "#[fg=#{@cc_cur_bg},bg=$thm_bg]"
     "$TMUX_POWERLINE_DEFAULT_RIGHTSIDE_SEPARATOR"
     # "#[$(format inverse)]"
-    "#[fg=$thm_bg,bg=$current_window]"
+    "#[fg=$thm_bg,bg=#{@cc_cur_bg}]"
     "#I#F"
     # "$TMUX_POWERLINE_SEPARATOR_RIGHT_THIN"
     " #W"
-    "#[fg=$current_window,bg=$thm_bg]"
+    # Bare glyph, trailing the name: it inherits the bubble's dark foreground,
+    # and the fill colour is already carrying the alert.
+    "#{@cc_glyph}"
+    "#[fg=#{@cc_cur_bg},bg=$thm_bg]"
     "$TMUX_POWERLINE_DEFAULT_LEFTSIDE_SEPARATOR"
     "#[$(format regular)]"
   )
@@ -186,10 +203,19 @@ fi
 # shellcheck disable=SC2128
 if [ -z "$TMUX_POWERLINE_WINDOW_STATUS_FORMAT" ]; then
   TMUX_POWERLINE_WINDOW_STATUS_FORMAT=(
-    "#[$(format regular)]"
+    # @cc_fg overrides just the foreground: a non-current window has no fill to
+    # recolour, so the entire label goes amber while it waits on you. Busy and
+    # idle leave it at the normal colour and let the glyph do the work.
+    "#[$(format regular)]#[fg=#{@cc_fg}]"
     " #I#{?window_flags,#F, }"
     #"$TMUX_POWERLINE_SEPARATOR_THIN"
-    " #W "
+    " #W"
+    # Trails the name. @cc_icon carries its own colour, so restore the regular
+    # style after it. No #{?...} guard: an unset option expands to nothing, and
+    # wrapping this in a conditional would break it, since #{?a,b,c} splits on
+    # commas and the style below contains several.
+    "#{@cc_icon}#[$(format regular)]"
+    " "
   )
 fi
 
@@ -247,6 +273,7 @@ if [ -z "$TMUX_POWERLINE_RIGHT_STATUS_SEGMENTS" ]; then
     # "pwd $mauve $surface0"
     #"macos_notification_count 29 255"
     #"mailcount 9 255"
+    "claude_sessions $claude_slug_bg $claude_slug_fg"
     "tmux_session_info $flamingo $thm_bg"
     "now_playing $spotify_green $spotify_black"
     #"cpu 240 136"

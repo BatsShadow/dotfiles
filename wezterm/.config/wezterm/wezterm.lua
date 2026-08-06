@@ -164,9 +164,16 @@ config.initial_cols = 176
 local roman_features = { 'calt', 'liga' }
 local italic_features = { 'calt', 'liga', 'ss01' }
 
+-- The "NF" faces are GitHub Next's own Nerd-Font-patched build of Monaspace,
+-- same 1.400 outlines with the icon glyphs merged in. Using them rather than
+-- falling through to a separate icon font keeps text and icons in ONE face:
+-- Monaspace sits on a 730/1000em cap height and a -200 descender, SauceCodePro
+-- on 660/-273, and that mismatch is what made Nerd Font icons ride visibly low
+-- against the surrounding text. Same face, same metrics, no misalignment.
 config.font = wezterm.font_with_fallback({
-  { family = 'Monaspace Neon', harfbuzz_features = roman_features },
+  { family = 'Monaspace Neon NF', harfbuzz_features = roman_features },
   { family = 'SF Pro', scale = 1.0 },
+  -- Last-resort only; the NF faces above already cover the icon ranges.
   { family = 'SauceCodePro Nerd Font Mono' },
 })
 
@@ -175,7 +182,7 @@ config.font_rules = {
     intensity = 'Normal',
     italic = false,
     font = wezterm.font({
-      family = 'Monaspace Neon',
+      family = 'Monaspace Neon NF',
       weight = 'Medium',
       harfbuzz_features = roman_features,
     }),
@@ -184,7 +191,7 @@ config.font_rules = {
     intensity = 'Bold',
     italic = false,
     font = wezterm.font({
-      family = 'Monaspace Xenon',
+      family = 'Monaspace Xenon NF',
       weight = 'Black',
       harfbuzz_features = roman_features,
     }),
@@ -193,7 +200,7 @@ config.font_rules = {
     intensity = 'Normal',
     italic = true,
     font = wezterm.font({
-      family = 'Monaspace Argon',
+      family = 'Monaspace Argon NF',
       weight = 'Light',
       style = 'Italic',
       harfbuzz_features = italic_features,
@@ -203,7 +210,7 @@ config.font_rules = {
     intensity = 'Bold',
     italic = true,
     font = wezterm.font({
-      family = 'Monaspace Krypton',
+      family = 'Monaspace Krypton NF',
       weight = 'Medium',
       harfbuzz_features = italic_features,
     }),
