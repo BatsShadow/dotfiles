@@ -87,7 +87,7 @@ for __cc_helper in collect windows agents; do
 		source "${__cc_helpers}/${__cc_helper}.sh"
 	fi
 done
-unset __cc_helper
+unset __cc_helper __cc_helpers
 
 generate_segmentrc() {
 	read -r -d '' rccontents <<EORC
