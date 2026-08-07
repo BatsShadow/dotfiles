@@ -6,6 +6,13 @@
 # same state without spawning a process per window. A window entering the
 # waiting state also raises a macOS notification.
 #
+# Counts are shown from the highest-priority non-zero state rightwards, so the
+# label sits against a number that means something rather than behind a run of
+# zeros. At rest that is `󰚩 30·`; with something waiting it is the full
+# `󰚩 1󰫢  1󰧞  30·`. No sessions at all still renders `󰚩 0·` -- this segment
+# leads the right-hand status, so a vanishing one would shift everything after
+# it, and a stated zero cannot be mistaken for the feature being broken.
+#
 # Data comes from ~/.claude/sessions/<pid>.json -- one file per live session,
 # written by the CLI and removed when the session exits. Relevant fields:
 #
@@ -197,14 +204,11 @@ run_segment() {
 	# leak into every sibling segment, same as any other name here.
 	local waiting=0 busy=0 idle=0 kind window state a b c
 
-	if [ "$raw" = "EMPTY" ]; then
-		# Genuinely no sessions — drop the stale frame rather than showing it
-		# forever, and strip every window icon.
-		rm -f "$cache"
-		__cc_sync_windows desired transitions
-		return 0
-	fi
-
+	# EMPTY needs no branch of its own. The three counts are already zero, the
+	# parse loop below matches only COUNTS and WIN so the bare sentinel falls
+	# through untouched, and an empty `desired` is what makes the sync strip
+	# every window icon. The render block then states the zero rather than
+	# blanking the segment, and tee overwrites the stale frame in the cache.
 	local amb=""
 	while read -r kind a b c; do
 		case "$kind" in
@@ -282,14 +286,37 @@ run_segment() {
 	# the first number.
 	local lgap="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP"
 	out+="#[fg=${label_color}]${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL}${lgap}"
-	# All three counts are spaced identically -- the glyphs do the separating,
-	# so the gap is empty and the groups stay visually even.
-	out+="#[fg=${wait_color}${wait_attr}]${waiting}${gap}${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH}"
-	out+="#[fg=${segfg},nobold]  "
-	out+="#[fg=${busy_color}]${busy}${gap}${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH}"
-	out+="#[fg=${segfg}]  "
-	out+="#[fg=${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR}]${idle}${gap}${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH}"
-	out+="#[fg=${segfg}]"
+
+	# Show the groups from the highest-priority non-zero state rightwards, so at
+	# rest the label abuts the only count that says anything instead of two
+	# zeros. Interior and trailing zeros stay: a zero busy beside a non-zero
+	# waiting is news, since it means nothing is in flight to resolve those
+	# waiting sessions on its own. Idle is always present, which is what makes
+	# no sessions at all read as a stated `0` rather than an absent segment --
+	# and an absent segment would shift the whole right-hand block of the bar.
+	#
+	# Deliberately the same priority order that picks the label colour above, so
+	# the label and the count it touches can never disagree about which state
+	# they are describing.
+	local -a groups=()
+	if [ "$waiting" -gt 0 ]; then
+		groups+=("#[fg=${wait_color}${wait_attr}]${waiting}${gap}${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH}")
+	fi
+	if [ "$waiting" -gt 0 ] || [ "$busy" -gt 0 ]; then
+		groups+=("#[fg=${busy_color}]${busy}${gap}${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH}")
+	fi
+	groups+=("#[fg=${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR}]${idle}${gap}${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH}")
+
+	# All the counts are spaced identically -- the glyphs do the separating, so
+	# the gap is empty and the groups stay visually even. The nobold rides on
+	# every separator rather than just the first: the bold belongs to the waiting
+	# group, and the waiting group is precisely the one that can disappear.
+	local sep="#[fg=${segfg},nobold]  " joined="" g
+	for g in "${groups[@]}"; do
+		joined+="${joined:+$sep}${g}"
+	done
+	out+="$joined"
+	out+="#[fg=${segfg},nobold]"
 
 	printf '%s' "$out" | tee "$cache"
 	return 0

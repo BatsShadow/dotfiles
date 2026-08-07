@@ -544,9 +544,6 @@ CC_SYNC_CALLS=0
 seg_run
 assert_eq "$CC_SYNC_CALLS" "1" "an empty read runs the window sync"
 assert_eq "$(win_state w1:0)" "" "an empty read clears window state"
-assert_eq "$(cat "${WORK}/seg.out")" "" "an empty read prints nothing"
-[ -e "$CC_CACHE" ] && cache_state="present" || cache_state="dropped"
-assert_eq "$cache_state" "dropped" "an empty read drops the stale frame"
 
 # Settle at idle so the flip below is a genuine edge rather than a first sight.
 rm -f "$SESSIONS"/*.json "$CC_NOTIFY_LOG"
@@ -572,6 +569,77 @@ assert_eq "$(cat "$CC_NOTIFY_LOG" 2>/dev/null)" "$(printf 'w1:0\tpermission prom
 rm -f "$CC_NOTIFY_LOG"
 seg_run
 assert_eq "$(cat "$CC_NOTIFY_LOG" 2>/dev/null)" "" "holding at waiting does not re-notify"
+
+rm -f "$SESSIONS"/*.json
+seg_run
+
+printf 'count trimming\n'
+# At rest the segment used to render `0 0 5`, putting two zeros between the
+# label and the only count that says anything. The rule now is: show the groups
+# from the highest-priority non-zero state rightwards, and idle alone when
+# nothing is non-zero.
+
+# The counts come straight from the session records; whether a record resolves
+# to a window is a separate question the pid walk answers. So a state can be
+# driven with pids that own no pane, which is the only way to set the three
+# counts independently of the one window this suite owns.
+counts_case() {
+	local w="$1" b="$2" i="$3" n=0
+	rm -f "$SESSIONS"/*.json
+	for ((n = 0; n < w; n++)); do session_file "$SESSIONS" "$((910000 + n))" waiting interactive; done
+	for ((n = 0; n < b; n++)); do session_file "$SESSIONS" "$((920000 + n))" busy interactive; done
+	for ((n = 0; n < i; n++)); do session_file "$SESSIONS" "$((930000 + n))" idle interactive; done
+	seg_run
+}
+
+# What the eye sees, with the tmux style directives taken back out. Asserting on
+# the marked-up string would pin the colours too, which belong to the separate
+# rule about which state the label takes.
+seg_text() {
+	sed 's/#\[[^]]*\]//g' "${WORK}/seg.out"
+}
+
+L="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL}${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP}"
+G="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP}"
+WG="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH}"
+BG="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH}"
+IG="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH}"
+
+counts_case 0 0 0
+assert_eq "$(seg_text)" "${L}0${G}${IG}" "no sessions renders the idle group alone"
+[ -e "$CC_CACHE" ] && cache_state="present" || cache_state="dropped"
+assert_eq "$cache_state" "present" "the no-sessions frame replaces the stale one"
+
+counts_case 0 0 5
+assert_eq "$(seg_text)" "${L}5${G}${IG}" "idle only renders one group"
+
+counts_case 0 1 5
+assert_eq "$(seg_text)" "${L}1${G}${BG}  5${G}${IG}" "busy and idle renders two groups, no leading zero"
+
+# Interior zeros stay. A zero busy beside a non-zero waiting is news: nothing is
+# in flight, so neither of those waiting sessions will resolve on its own.
+counts_case 2 0 5
+assert_eq "$(seg_text)" "${L}2${G}${WG}  0${G}${BG}  5${G}${IG}" "a zero busy between waiting and idle survives"
+
+# Trailing zeros stay too -- trimming both ends would make the width jump around
+# non-monotonically as demand changes.
+counts_case 2 1 0
+assert_eq "$(seg_text)" "${L}2${G}${WG}  1${G}${BG}  0${G}${IG}" "a trailing zero idle survives"
+
+# The bold rides on the waiting count, and the waiting group is exactly the one
+# that can now disappear -- so every separator has to carry the reset, or the
+# bold leaks into whatever follows it.
+counts_case 2 0 5
+frame="$(cat "${WORK}/seg.out")"
+assert_contains "$frame" ",bold]2" "a non-zero waiting count is bold"
+# The first style directive after the waiting glyph is the one that has to clear
+# the bold; the fg-only ones after it inherit that. The reset rides on the
+# separator, and the separator is what disappears when the waiting group does --
+# which is why it is asserted here rather than assumed.
+assert_contains "$(printf '%s' "${frame#*"$WG"}" | grep -o '#\[[^]]*\]' | head -1)" "nobold" "the bold is cleared immediately after the waiting count"
+
+counts_case 0 3 5
+assert_not_contains "$(cat "${WORK}/seg.out")" ",bold]" "nothing is bold when nothing is waiting"
 
 rm -f "$SESSIONS"/*.json
 seg_run
