@@ -60,9 +60,25 @@ export EDITOR="NVIM_APPNAME=lazyvim /opt/homebrew/bin/nvim"
 export SVN_EDITOR="NVIM_APPNAME=lazyvim /opt/homebrew/bin/nvim"
 export LSCOLORS=ExGxFxdaCxDaDahbadacec
 
-# fzf: ayu palette — entity-blue pointer, blue-tinted full-width highlight, no
-# bold on the current row, and the terminal background for the gutter strip.
-export FZF_DEFAULT_OPTS="--highlight-line --color=fg+:regular,hl:#ffb454,hl+:regular:#ffb454,current-fg:regular,gutter:-1,pointer:#59C2FF,prompt:#59C2FF,bg+:#112034"
+# fzf: ayu palette — entity-blue pointer, blue-tinted full-width highlight, and
+# no bold on the current row.
+#
+# The gutter is blanked rather than coloured. fzf draws it as a solid '▌' rail
+# down the left of every row, and the only lever on its appearance is a
+# foreground colour -- so any setting that hides it has to paint it, which would
+# punch an opaque stripe through this window's transparency and blur. A space
+# has nothing to paint, so the desktop shows through as it should.
+#
+# Nothing is lost by dropping it: the gutter column exists to host the pointer
+# on the current line, and --highlight-line with bg+ already marks that row
+# across its full width. The pointer itself is unaffected -- it is a separate
+# glyph and still renders on the current row.
+#
+# This became necessary at fzf 0.74. Earlier versions drew the gutter as a
+# background-only column, where the previous gutter:-1 ("terminal default")
+# correctly meant invisible; 0.74 draws a foreground glyph, so -1 started
+# rendering the rail in normal text colour on every row.
+export FZF_DEFAULT_OPTS="--highlight-line --gutter=' ' --color=fg+:regular,hl:#ffb454,hl+:regular:#ffb454,current-fg:regular,pointer:#59C2FF,prompt:#59C2FF,bg+:#112034"
 
 ZSH_TMUX_AUTOSTART=true
 ZSH_TMUX_DEFAULT_SESSION_NAME=default
