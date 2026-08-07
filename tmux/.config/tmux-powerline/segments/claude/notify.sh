@@ -38,7 +38,12 @@ __cc_notify() {
 
 __cc_notify_one() {
 	local window="$1" subtitle="$2"
-	local label="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL"
+	# NOTIFY_LABEL, not the bar's LABEL: that one is a Nerd Font private-use
+	# glyph, and Notification Center draws with the system font, so it lands as
+	# a tofu box in front of the window name. An empty label leaves the window
+	# name to stand alone rather than a leading space.
+	local label="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL"
+	local title="${label:+${label} }${window}"
 
 	# Every branch below forks and returns immediately rather than waiting on
 	# the notifier: this runs on the status-interval path, and terminal-notifier
@@ -73,7 +78,7 @@ __cc_notify_one() {
 		# rather than stacking another card for the same session.
 		(
 			terminal-notifier \
-				-title "${label} ${window}" \
+				-title "$title" \
 				-message "$subtitle" \
 				-group "cc-${window}" \
 				-execute "'${shquote_goto}' '${shquote_window}' '${shquote_app}'"
@@ -89,7 +94,7 @@ __cc_notify_one() {
 	# backslash landing right before the closing quote -- which would escape
 	# that quote and run the literal on into the surrounding script -- is a
 	# realistic case, not just a theoretical one.
-	local t="${label} ${window}" m="$subtitle"
+	local t="$title" m="$subtitle"
 	t="${t//\\/\\\\}"
 	m="${m//\\/\\\\}"
 	t="${t//\"/\\\"}"

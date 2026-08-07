@@ -449,5 +449,24 @@ export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD="$saved_notify_cmd"
 execute_arg=$(grep -A1 '^-execute$' "$CC_TN_LOG" | tail -1)
 assert_contains "$execute_arg" "o'\''brien:0" "a single quote in the session name is escaped for -execute, not left to close the argument early"
 
+# The title heads the notification card, which Notification Center draws in the
+# system font -- it has no Nerd Font glyphs, so the segment's own label would
+# arrive there as a tofu box in front of the window name.
+title_arg=$(grep -A1 '^-title$' "$CC_TN_LOG" | tail -1)
+assert_eq "$title_arg" "Claude o'brien:0" "the notification title uses the plain-text label, not the bar glyph"
+assert_not_contains "$title_arg" "$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL" "the bar glyph never reaches a notification title"
+
+# An empty label leaves the window name standing alone, rather than a title
+# that starts with a space.
+rm -f "$CC_TN_LOG"
+saved_notify_label="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL"
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL=""
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD=""
+notify_case "w1:0" "w1:0=900030"
+wait 2>/dev/null
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD="$saved_notify_cmd"
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL="$saved_notify_label"
+assert_eq "$(grep -A1 '^-title$' "$CC_TN_LOG" | tail -1)" "w1:0" "an empty notification label leaves the window name alone"
+
 printf '\n%d passed, %d failed\n' "$CC_PASS" "$CC_FAIL"
 [ "$CC_FAIL" -eq 0 ]

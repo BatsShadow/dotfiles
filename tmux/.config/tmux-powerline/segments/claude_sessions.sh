@@ -42,6 +42,14 @@ TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR
 # cell and it renders low and squashed. The two spaces below are load-bearing.
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL:-󰚩}"
 
+# Label heading a notification, which is a different problem from the label on
+# the bar. The glyph above is in the Nerd Font private use area -- that font is
+# installed in the terminal, but Notification Center renders with the system
+# font, so the glyph arrives there as a tofu box in front of the window name.
+# Plain text is the only thing that reads correctly in both places. Empty is
+# honoured, and drops the label from the title entirely.
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL-Claude}"
+
 # Only the waiting state is chromatic. Everything else is a luminance ramp, so
 # at rest the segment is pure greyscale and colour on the bar always means
 # "something needs you".
@@ -119,6 +127,9 @@ generate_segmentrc() {
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR}"
 # Label shown before the counts.
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL}"
+# Label heading a notification. Plain text, not the glyph above: Notification
+# Center renders with the system font, which has no Nerd Font glyphs.
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL}"
 # Colours per state. Keep waiting as the only saturated one.
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_COLOR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_COLOR}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_COLOR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_COLOR}"
