@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Stub for terminal-notifier. Records the full argv, one argument per line, so
+# a test can assert on exactly what -execute would run without ever reaching
+# the real binary. Being first on PATH for the whole suite (see
+# test_tmux_start in lib.sh) also means no test, including this one, can ever
+# reach the real terminal-notifier by accident.
+printf '%s\n' "$@" >>"${CC_TN_LOG:-/dev/null}"
+exit 0

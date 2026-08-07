@@ -3,9 +3,10 @@
 #
 # Prints waiting/busy/idle counts across every running Claude session, and as a
 # side effect stamps per-window options so window-status-format can show the
-# same state without spawning a process per window.
+# same state without spawning a process per window. A window entering the
+# waiting state also raises a macOS notification.
 #
-# Data comes from ~/.claude/sessions/<pid>.json — one file per live session,
+# Data comes from ~/.claude/sessions/<pid>.json -- one file per live session,
 # written by the CLI and removed when the session exits. Relevant fields:
 #
 #   {"pid":17928,"status":"idle","name":"dotfiles","kind":"interactive",
@@ -13,19 +14,41 @@
 #
 # status is one of idle | busy | waiting. `claude agents --json` reports the
 # same thing and is the supported interface, but it costs ~290ms of node
-# startup, which is far too slow for a 1s status-interval.
+# startup, which is far too slow for a 1s status-interval -- so it is asked
+# only when a background session sits in the one state its file cannot resolve.
+#
+# This file holds config and rendering. The work lives in claude/:
+#   collect.sh  read session files, resolve windows, emit sentinels
+#   windows.sh  push state into window options, detect transitions
+#   agents.sh   the blocked-agent cache
+#   notify.sh   macOS notification delivery
+#   goto.sh     notification click target
+#   tests/      run.sh, safe to run against the live server
 #
 # Window options set on each window owning a claude process:
 #   @cc_state  plain state name, used only to diff against the desired state
 #   @cc_icon   styled glyph for normal windows
 #   @cc_glyph  bare glyph for the current window, which renders inverted and
 #              supplies its own foreground colour
+#
+# Server options:
+#   @cc_primed  set once state has been populated, so a server restart does not
+#               report every waiting session as a fresh transition
+#   @cc_bg_amb  the ambiguous background set the blocked list was computed for
 
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR:-${HOME}/.claude/sessions}"
 # Nerd Font glyph. It is double-width, so it must be followed by whitespace --
 # with a printing character immediately after it the terminal clips it into one
 # cell and it renders low and squashed. The two spaces below are load-bearing.
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL:-󰚩}"
+
+# Label heading a notification, which is a different problem from the label on
+# the bar. The glyph above is in the Nerd Font private use area -- that font is
+# installed in the terminal, but Notification Center renders with the system
+# font, so the glyph arrives there as a tofu box in front of the window name.
+# Plain text is the only thing that reads correctly in both places. Empty is
+# honoured, and drops the label from the title entirely.
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL-Claude}"
 
 # Only the waiting state is chromatic. Everything else is a luminance ramp, so
 # at rest the segment is pure greyscale and colour on the bar always means
@@ -50,10 +73,12 @@ TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_S
 # A background agent blocked on input is recorded as "idle" in its session
 # file -- the file's status vocabulary has no value for it. The only place
 # that condition appears is `claude agents --json`, which costs ~290ms and so
-# cannot sit on the status-interval path. Refresh it on a throttle instead,
-# in the background, and read the cached result.
+# cannot sit on the status-interval path. It is asked only when a background
+# session enters the ambiguous idle state; see claude/agents.sh.
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD:-claude}"
-TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL:-10}"
+# Backstop only, not the primary trigger: the longest an answer may stand
+# before being asked again, and only while something is actually ambiguous.
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL:-60}"
 
 # Normal fill colour of the current-window bubble, and normal window-label
 # text colour. The theme exports its own values so these cannot drift apart.
@@ -72,12 +97,39 @@ TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIO
 # inside the option value so the window format needs no conditional.
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_GAP-}"
 
+# Notification delivery. Empty means auto-detect: terminal-notifier if it is
+# installed, otherwise osascript. Set it to a command to override, which is how
+# the test suite captures notifications.
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD-}"
+# Application raised when a notification is clicked.
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TERM_APP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TERM_APP:-WezTerm}"
+
+# Helpers live in a subdirectory rather than beside this file. tmux-powerline
+# sources every *.sh in its own segments directory when generating a default
+# config (lib/config_file.sh) and resolves segments by bare name
+# (lib/powerline.sh), and neither path recurses -- so nothing here can be
+# mistaken for a segment.
+#
+# A missing helper degrades to a quiet segment rather than an error in the
+# status bar, which is why each source is guarded rather than assumed.
+__cc_helpers="${BASH_SOURCE[0]%/*}/claude"
+for __cc_helper in collect windows agents notify; do
+	if [ -r "${__cc_helpers}/${__cc_helper}.sh" ]; then
+		# shellcheck disable=SC1090
+		source "${__cc_helpers}/${__cc_helper}.sh"
+	fi
+done
+unset __cc_helper __cc_helpers
+
 generate_segmentrc() {
 	read -r -d '' rccontents <<EORC
 # Directory holding one JSON status file per live Claude session.
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR}"
 # Label shown before the counts.
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL}"
+# Label heading a notification. Plain text, not the glyph above: Notification
+# Center renders with the system font, which has no Nerd Font glyphs.
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL}"
 # Colours per state. Keep waiting as the only saturated one.
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_COLOR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_COLOR}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_COLOR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_COLOR}"
@@ -87,334 +139,20 @@ export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH="${TMUX_POWERLINE_SEG_CLAUD
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH}"
-# Blocked background agents: how to ask, and how stale that answer may get.
+# Blocked background agents: how to ask, and the backstop interval that bounds
+# how stale an answer may get while something is ambiguous.
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL}"
 # Spacing. Each is inserted verbatim, so a space means one cell.
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_GAP}"
+# Notification delivery. Empty auto-detects terminal-notifier, then osascript.
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD}"
+# Application raised when a notification is clicked.
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TERM_APP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TERM_APP}"
 EORC
 	echo "$rccontents"
-}
-
-# Plant the default bubble fill and label colour as GLOBAL options.
-#
-# tmux resolves a user option window -> session -> global, so a window that
-# this script has never touched still renders with the right colours. Without
-# them a newly created window expands #{@cc_cur_bg} to nothing, the format
-# becomes "#[fg=,bg=...]", tmux discards the whole style, and the window flashes
-# unstyled until the next segment run picks it up.
-#
-# show-options -gv errors on an option that does not exist yet -- precisely the
-# case being fixed -- so read the full listing, which always succeeds.
-__cc_ensure_globals() {
-	local want_bg="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_CUR_BG"
-	local want_fg="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TEXT_FG"
-	local got_bg="" got_fg="" line value
-
-	while IFS= read -r line; do
-		case "$line" in
-		'@cc_cur_bg '*) value="${line#@cc_cur_bg }" ;;
-		'@cc_fg '*) value="${line#@cc_fg }" ;;
-		*) continue ;;
-		esac
-		# show-options quotes values; the colours start with '#' so they always
-		# come back quoted.
-		value="${value#\"}"
-		value="${value%\"}"
-		case "$line" in
-		'@cc_cur_bg '*) got_bg="$value" ;;
-		*) got_fg="$value" ;;
-		esac
-	done < <(tmux show-options -g 2>/dev/null)
-
-	local cmds=()
-	[ "$got_bg" != "$want_bg" ] && cmds+=(set-option -g @cc_cur_bg "$want_bg")
-	if [ "$got_fg" != "$want_fg" ]; then
-		[ ${#cmds[@]} -gt 0 ] && cmds+=(";")
-		cmds+=(set-option -g @cc_fg "$want_fg")
-	fi
-	[ ${#cmds[@]} -gt 0 ] && tmux "${cmds[@]}" 2>/dev/null
-
-	return 0
-}
-
-# Resolve each session's pid up its process tree until it reaches a pane, so a
-# session is attributed to the window that actually owns it. Matching on the
-# session `name` instead would be wrong: two sessions can share a name (there
-# are currently two called fp-wallet-avs) and background agents have no window.
-# Seconds since a file was last modified, or nothing if it does not exist.
-__cc_file_age() {
-	local m
-	m=$(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null) || return 1
-	[ -n "$m" ] || return 1
-	echo $(( $(date +%s) - m ))
-}
-
-# Kick a background refresh of the blocked-agent list if the cache has aged
-# out. Never blocks: the caller uses whatever the cache already holds, so the
-# blocked state can lag by up to TTL seconds while everything sourced from the
-# session files stays current.
-#
-# The subshell MUST have its stdout redirected. tmux reads a #() command until
-# EOF, so a child still holding the inherited pipe would stall the status bar.
-__cc_refresh_blocked() {
-	local cache="$1" age
-	age=$(__cc_file_age "$cache")
-	[ -n "$age" ] && [ "$age" -lt "$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL" ] && return 0
-
-	# Directory create is atomic, so only one refresh can be in flight even
-	# though a new copy of this script runs every status-interval.
-	local lock="${cache}.lock"
-	mkdir "$lock" 2>/dev/null || return 0
-
-	(
-		trap 'rmdir "$lock" 2>/dev/null' EXIT
-		local out=""
-		if command -v timeout >/dev/null 2>&1; then
-			out=$(timeout 10 "$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD" agents --json 2>/dev/null)
-		else
-			out=$("$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD" agents --json 2>/dev/null)
-		fi
-
-		if [ -n "$out" ]; then
-			# Only agents that still have a pid. A parked conversation with no
-			# process cannot be attributed to a window, and several of those
-			# are weeks old -- permanently amber entries would just train the
-			# eye to ignore the colour.
-			printf '%s' "$out" \
-				| jq -r '.[]? | select(.kind == "background" and .state == "blocked" and .pid != null) | .pid' \
-					2>/dev/null > "${cache}.$$"
-			mv -f "${cache}.$$" "$cache" 2>/dev/null || rm -f "${cache}.$$"
-		else
-			# Reset the throttle even on failure, so a broken CLI cannot turn
-			# into a refresh attempt every single status-interval.
-			touch "$cache" 2>/dev/null
-		fi
-	) >/dev/null 2>&1 &
-
-	return 0
-}
-
-__cc_collect() {
-	local dir="$1" blocked_cache="$2"
-	{
-		echo "P"
-		ps -eo pid=,ppid=
-		echo "W"
-		tmux list-panes -a -F '#{pane_pid} #{session_name}:#{window_index}'
-		echo "B"
-		[ -n "$blocked_cache" ] && cat "$blocked_cache" 2>/dev/null
-		echo "S"
-		cat "$dir"/*.json 2>/dev/null | jq -r -n '
-			[inputs]
-			| .[]
-			| select(.pid != null and .status != null)
-			| [(.pid | tostring), .status, (.kind // "-"),
-			   (.jobId // "-"), (.parkedJobId // "-")]
-			| @tsv' 2>/dev/null
-	} | awk '
-		$0 == "P" { mode = "P"; next }
-		$0 == "W" { mode = "W"; next }
-		$0 == "B" { mode = "B"; next }
-		$0 == "S" { mode = "S"; next }
-		mode == "P" { parent[$1] = $2; next }
-		mode == "W" { pane[$1] = $2; next }
-		mode == "B" { blocked[$1] = 1; next }
-		# Buffer the sessions rather than resolving inline: a background agent
-		# can be read before the interactive session that parked it.
-		mode == "S" {
-			# A background agent blocked on input records itself as idle, so
-			# the blocked list is the only thing that can promote it. Trust it
-			# over the file.
-			st = $2
-			if ($1 in blocked) st = "waiting"
-
-			n++
-			spid[n] = $1; sstatus[n] = st; skind[n] = $3; sjob[n] = $4
-			if ($5 != "-") parked[$5] = $1
-
-			if (st == "waiting")   waiting++
-			else if (st == "busy") busy++
-			else                   idle++
-		}
-		END {
-			if (!n) { print "EMPTY"; exit }
-			printf "COUNTS %d %d %d\n", waiting + 0, busy + 0, idle + 0
-
-			for (s = 1; s <= n; s++) {
-				p = spid[s]
-
-				# A background agent has no pane of its own — it is spawned
-				# under the daemon, not under a shell. Its work still belongs
-				# to the window whose session parked it, which is the window
-				# the user is actually looking at, so borrow that pid and
-				# resolve from there. Without this the window shows the idle
-				# state of the parked session while the real work happens
-				# invisibly. Note the awk body is single-quoted, so no
-				# apostrophes in these comments.
-				if (skind[s] == "bg" && sjob[s] != "-" && (sjob[s] in parked))
-					p = parked[sjob[s]]
-
-				rank = (sstatus[s] == "waiting" ? 3 : (sstatus[s] == "busy" ? 2 : 1))
-
-				# Walk up to the owning pane. Bounded so a cycle or a
-				# reparented process can never spin.
-				for (i = 0; i < 24; i++) {
-					if (p == "" || p == "0" || p == "1") break
-					if (p in pane) {
-						w = pane[p]
-						# A window can hold more than one session — including a
-						# parked one plus its background agent. Most demanding
-						# state wins.
-						if (rank > best[w]) { best[w] = rank; state[w] = sstatus[s] }
-						break
-					}
-					p = parent[p]
-				}
-			}
-
-			for (w in state) printf "WIN %s %s\n", w, state[w]
-		}
-	'
-}
-
-# Push @cc_* onto windows that changed, and strip them from windows that no
-# longer host a session. Writing unconditionally would make tmux redraw the
-# status line every second, so only genuine transitions produce a tmux call.
-__cc_sync_windows() {
-	# Prefixed to avoid a circular nameref if the caller's variable shares the
-	# name, which silently resolves the map to empty.
-	local -n __cc_desired=$1
-	local current window state curbg cmds=() first=1
-
-	# Every window, not just the Claude ones: the current-window bubble colour
-	# has to be reset on windows that stop waiting too, so all of them need to
-	# be considered.
-	#
-	# The separator must not be whitespace. Bash collapses *runs* of IFS
-	# whitespace into one delimiter, so with tabs an unset option silently
-	# disappears and every later field shifts left -- a window with no state
-	# then parses its colour as its state, which makes every window look
-	# changed and rewrites the lot every second. A control byte is no good
-	# either: tmux escapes 0x1f into a literal backslash-zero-three-seven.
-	current=$(tmux list-windows -a -F \
-		'#{session_name}:#{window_index}|#{@cc_state}|#{@cc_cur_bg}|#{@cc_fg}|#{@cc_icon}' 2>/dev/null)
-
-	local -A have=() have_bg=() have_fg=() have_icon=() all=()
-	while IFS='|' read -r window state curbg fg icon; do
-		[ -n "$window" ] || continue
-		all["$window"]=1
-		[ -n "$state" ] && have["$window"]="$state"
-		have_bg["$window"]="$curbg"
-		have_fg["$window"]="$fg"
-		have_icon["$window"]="$icon"
-	done <<<"$current"
-
-	for window in "${!all[@]}"; do
-		# tmux rejects an over-long command sequence outright with "command too
-		# long" and applies none of it, so flush in chunks instead of building
-		# one giant batch. Only a first build or a config change gets anywhere
-		# near this; the steady state sends nothing at all.
-		if [ ${#cmds[@]} -ge 120 ]; then
-			tmux "${cmds[@]}" 2>/dev/null
-			cmds=()
-			first=1
-		fi
-
-		state="${__cc_desired[$window]-}"
-
-		# The current window renders as a filled bubble, and amber text on that
-		# cyan fill is near-invisible since both are light. Recolouring the
-		# bubble itself is the only treatment that stays legible there.
-		local want_bg="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_CUR_BG"
-		# On a non-current window there is no fill to recolour, so the whole
-		# label goes amber instead of just the glyph. Busy and idle leave the
-		# text alone and let the glyph carry the state on its own.
-		local want_fg="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TEXT_FG"
-		if [ "$state" = "waiting" ]; then
-			want_bg="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_COLOR"
-			want_fg="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_COLOR"
-		fi
-
-		# When the wanted value is just the default, clear the window-level
-		# option rather than writing the default into it. The window then
-		# inherits the global, which is what lets a brand new window render
-		# correctly before this script has ever seen it.
-		if [ "${have_bg[$window]-}" != "$want_bg" ]; then
-			[ $first -eq 1 ] && first=0 || cmds+=(";")
-			if [ "$want_bg" = "$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_CUR_BG" ]; then
-				cmds+=(set-option -w -t "$window" -u @cc_cur_bg)
-			else
-				cmds+=(set-option -w -t "$window" @cc_cur_bg "$want_bg")
-			fi
-		fi
-
-		if [ "${have_fg[$window]-}" != "$want_fg" ]; then
-			[ $first -eq 1 ] && first=0 || cmds+=(";")
-			if [ "$want_fg" = "$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TEXT_FG" ]; then
-				cmds+=(set-option -w -t "$window" -u @cc_fg)
-			else
-				cmds+=(set-option -w -t "$window" @cc_fg "$want_fg")
-			fi
-		fi
-
-		if [ -z "$state" ]; then
-			[ -z "${have[$window]-}" ] && continue
-			[ $first -eq 1 ] && first=0 || cmds+=(";")
-			cmds+=(set-option -w -t "$window" -u @cc_state ";")
-			cmds+=(set-option -w -t "$window" -u @cc_glyph ";")
-			cmds+=(set-option -w -t "$window" -u @cc_icon)
-			continue
-		fi
-
-		local glyph color
-		case "$state" in
-		waiting)
-			glyph="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH"
-			color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_COLOR"
-			;;
-		busy)
-			glyph="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH"
-			color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_COLOR"
-			;;
-		*)
-			glyph="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH"
-			color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR"
-			;;
-		esac
-
-		# The separator lives inside the option value so the window format
-		# needs no conditional: an unset option then contributes nothing at
-		# all, spacing included. An empty glyph means the state is not worth
-		# marking, so the options are cleared rather than set to a style with
-		# nothing after it.
-		local wg="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_GAP"
-		local want_icon="" want_glyph=""
-		if [ -n "$glyph" ]; then
-			want_icon="#[fg=${color}]${wg}${glyph}"
-			want_glyph="${wg}${glyph}"
-		fi
-
-		# Diff on the rendered value, not on the state name. Diffing on state
-		# would leave every window holding a stale glyph or colour after a
-		# config change, since the state has not moved.
-		[ "${have_icon[$window]-}" = "$want_icon" ] && continue
-
-		[ $first -eq 1 ] && first=0 || cmds+=(";")
-		cmds+=(set-option -w -t "$window" @cc_state "$state" ";")
-		if [ -z "$want_icon" ]; then
-			cmds+=(set-option -w -t "$window" -u @cc_glyph ";")
-			cmds+=(set-option -w -t "$window" -u @cc_icon)
-		else
-			cmds+=(set-option -w -t "$window" @cc_glyph "$want_glyph" ";")
-			cmds+=(set-option -w -t "$window" @cc_icon "$want_icon")
-		fi
-	done
-
-	[ ${#cmds[@]} -gt 0 ] && tmux "${cmds[@]}" 2>/dev/null
-	return 0
 }
 
 run_segment() {
@@ -422,9 +160,8 @@ run_segment() {
 	[ -d "$dir" ] || return 0
 	command -v jq >/dev/null 2>&1 || return 0
 
-	# Surviving a torn read matters more than the 20ms it costs: a status file
-	# caught mid-write aborts jq, and blanking the segment for one tick out of
-	# every few hundred reads as a flicker at a 1s refresh.
+	# Last good frame, replayed when a read fails so the segment holds its
+	# content rather than blanking for a tick.
 	local cache="${TMPDIR:-/tmp}/tmux-powerline-claude-sessions.${UID}.cache"
 
 	# Before anything else, and regardless of whether there are sessions: a
@@ -432,7 +169,6 @@ run_segment() {
 	__cc_ensure_globals
 
 	local blocked="${TMPDIR:-/tmp}/tmux-powerline-claude-blocked.${UID}.list"
-	__cc_refresh_blocked "$blocked"
 
 	local raw
 	raw=$(__cc_collect "$dir" "$blocked")
@@ -442,17 +178,34 @@ run_segment() {
 		return 0
 	fi
 
-	local -A desired=()
-	local waiting=0 busy=0 idle=0 kind window state
+	# A failed parse, not an empty directory. Show the last good frame and leave
+	# every window option exactly as it is: clearing @cc_state here would make
+	# the next tick read every waiting window as a fresh transition and notify
+	# on all of them. Skipping the sync delays a transition by a tick; clearing
+	# state would invent one.
+	if [ "$raw" = "TORN" ]; then
+		[ -s "$cache" ] && cat "$cache"
+		return 0
+	fi
+
+	# desired_pid maps window to the pid of the session that won it. Sync does
+	# not read it -- it is threaded through for the notification path, which
+	# needs a pid to resolve waitingFor for a transition.
+	local -A desired=() desired_pid=()
+	local -a transitions=()
+	# a b c are the read fields of the parse loop below. Undeclared they would
+	# leak into every sibling segment, same as any other name here.
+	local waiting=0 busy=0 idle=0 kind window state a b c
 
 	if [ "$raw" = "EMPTY" ]; then
 		# Genuinely no sessions — drop the stale frame rather than showing it
 		# forever, and strip every window icon.
 		rm -f "$cache"
-		__cc_sync_windows desired
+		__cc_sync_windows desired transitions
 		return 0
 	fi
 
+	local amb=""
 	while read -r kind a b c; do
 		case "$kind" in
 		COUNTS)
@@ -464,11 +217,36 @@ run_segment() {
 			window="$a"
 			state="$b"
 			desired["$window"]="$state"
+			desired_pid["$window"]="$c"
+			;;
+		AMB)
+			amb="${amb}${amb:+ }${a}"
 			;;
 		esac
 	done <<<"$raw"
 
-	__cc_sync_windows desired
+	# awk emits array keys in no particular order, so sort before comparing --
+	# an unsorted fingerprint would appear to change on its own and re-ask the
+	# binary for a set that had not actually moved. Guarded because an empty set
+	# is the steady state, and sorting nothing still costs a sort and a tr on
+	# every single tick.
+	if [ -n "$amb" ]; then
+		# Deliberately unquoted: the words are the set.
+		# shellcheck disable=SC2086
+		amb=$(printf '%s\n' $amb | sort -n | tr '\n' ' ')
+		amb="${amb% }"
+	fi
+
+	# Kicked after collect rather than before it: the trigger is derived from
+	# this tick's session files, and the answer lands for the next one.
+	__cc_refresh_blocked "$blocked" "$amb"
+
+	__cc_sync_windows desired transitions
+
+	# After the sync, never before: by this point @cc_state already reads
+	# waiting, so a concurrently running copy of the segment sees no transition
+	# and cannot deliver a duplicate.
+	__cc_notify "$dir" transitions desired_pid
 
 	local segfg="${TMUX_POWERLINE_CUR_SEGMENT_FG:-$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR}"
 	local wait_color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR"
