@@ -43,8 +43,16 @@ __cc_collect() {
 		# swallow it. No session record can collide: every one of them starts
 		# with a pid.
 		$1 == "J" { jqrc = $2; next }
-		mode == "P" { parent[$1] = $2; next }
-		mode == "W" { pane[$1] = $2; next }
+		# Both of these are counted, not just recorded. An input that comes
+		# back empty leaves its map empty, the pid walk then resolves nothing,
+		# and awk would print COUNTS with no WIN lines at all -- which the
+		# caller reads as "no window hosts a session" and responds to by
+		# stripping every window option, arming a notification burst on the
+		# next healthy tick. Counting the input is the only way to tell that
+		# apart from the legitimate no-WIN case, which is every live session
+		# being a background agent with no window of its own.
+		mode == "P" { parent[$1] = $2; nproc++; next }
+		mode == "W" { pane[$1] = $2; npane++; next }
 		mode == "B" { blocked[$1] = 1; next }
 		# Buffer the sessions rather than resolving inline: a background agent
 		# can be read before the interactive session that parked it.
@@ -89,6 +97,15 @@ __cc_collect() {
 				if (jqrc != 0) print "TORN"; else print "EMPTY"
 				exit
 			}
+
+			# The sessions input has a sentinel; these two never did. Gate on
+			# them being empty rather than on the WIN lines they would have
+			# produced -- see the counting rules above.
+			if (!nproc || !npane) {
+				print "TORN"
+				exit
+			}
+
 			printf "COUNTS %d %d %d\n", waiting + 0, busy + 0, idle + 0
 
 			for (s = 1; s <= n; s++) {

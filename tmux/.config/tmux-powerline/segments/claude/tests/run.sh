@@ -162,6 +162,48 @@ rm -f "$SESSIONS"/*.json
 printf '{"pid":null,"status":null}\n' >"${SESSIONS}/900013.json"
 raw="$(__cc_collect "$SESSIONS" "")"
 assert_eq "$raw" "EMPTY" "a session file with null pid and status yields EMPTY"
+
+# The other two inputs need a sentinel of their own. If `ps` or `tmux
+# list-panes` comes back empty for a tick, the pid walk resolves nothing and awk
+# would print COUNTS with no WIN lines at all -- which the caller reads as "no
+# window hosts a session", strips every window option, and so re-reads every
+# waiting window as a fresh transition on the next healthy tick. That is a burst
+# of up to one notification per waiting window.
+rm -f "$SESSIONS"/*.json
+session_file "$SESSIONS" "$pid_w1" waiting interactive
+
+STUBS="${WORK}/stubs"
+mkdir -p "$STUBS"
+printf '#!/bin/sh\nexit 0\n' >"${STUBS}/ps"
+printf '#!/bin/sh\nexit 0\n' >"${STUBS}/tmux"
+chmod +x "${STUBS}/ps" "${STUBS}/tmux"
+
+saved_path="$PATH"
+PATH="${STUBS}:${PATH}"
+# Only ps is stubbed here; the tmux shim is still reachable further down PATH.
+rm -f "${STUBS}/tmux"
+raw="$(__cc_collect "$SESSIONS" "")"
+PATH="$saved_path"
+assert_eq "$raw" "TORN" "an empty process table yields TORN, not a windowless COUNTS"
+
+PATH="${STUBS}:${PATH}"
+rm -f "${STUBS}/ps"
+printf '#!/bin/sh\nexit 0\n' >"${STUBS}/tmux"
+chmod +x "${STUBS}/tmux"
+raw="$(__cc_collect "$SESSIONS" "")"
+PATH="$saved_path"
+assert_eq "$raw" "TORN" "an empty pane list yields TORN, not a windowless COUNTS"
+rm -f "${STUBS}/tmux"
+
+# Gating on the inputs, not on the output: zero WIN lines is legitimate when
+# every live session is a background agent with no window of its own, and
+# calling that TORN would wedge the bar just as badly.
+rm -f "$SESSIONS"/*.json
+session_file "$SESSIONS" 900014 idle bg
+raw="$(__cc_collect "$SESSIONS" "")"
+assert_contains "$raw" "COUNTS 0 0 1" "a windowless bg session still reports counts"
+assert_not_contains "$raw" "WIN" "a windowless bg session produces no WIN line"
+assert_not_contains "$raw" "TORN" "no WIN lines from a healthy read is not TORN"
 rm -f "$SESSIONS"/*.json
 
 printf 'agent refresh triggering\n'
