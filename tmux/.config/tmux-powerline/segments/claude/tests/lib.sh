@@ -83,3 +83,20 @@ cc_load() {
 	# shellcheck disable=SC1090,SC1091
 	source "${CC_SEG_DIR}/claude_sessions.sh"
 }
+
+# The @cc_state of one window, empty when unset.
+#
+# show-options -wv errors on an option that has never been set, which is
+# precisely the case a cleared window is in, so read the listing instead --
+# that always succeeds.
+win_state() {
+	tmux list-windows -a -F '#{session_name}:#{window_index} #{@cc_state}' 2>/dev/null |
+		awk -v w="$1" '$1 == w { print $2 }'
+}
+
+# Copy a function under a second name, so a test can replace the original with a
+# spy that still calls through to the real behaviour. `declare -f` prints a
+# valid definition and only the name on its first line needs rewriting.
+cc_copy_function() {
+	eval "$(declare -f "$1" | sed "1s/^${1}/${2}/")"
+}

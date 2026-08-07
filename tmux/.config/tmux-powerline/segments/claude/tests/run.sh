@@ -468,6 +468,114 @@ export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD="$saved_notify_cmd"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL="$saved_notify_label"
 assert_eq "$(grep -A1 '^-title$' "$CC_TN_LOG" | tail -1)" "w1:0" "an empty notification label leaves the window name alone"
 
+printf 'run_segment wiring\n'
+# Everything above calls a helper directly, so run_segment itself -- the wiring
+# that decides which helper runs, and in what order -- has never been executed
+# by a test. That includes the invariant this whole branch hangs on: a torn read
+# must return before the sync. A regression moving that check below the sync
+# would have passed every assertion in this file.
+
+# run_segment derives its cache and blocked-list paths from TMPDIR, and the live
+# status bar uses those exact names. Redirect TMPDIR or the suite would clobber
+# the running segment's state on the developer's own machine.
+export TMPDIR="${WORK}/tmp"
+mkdir -p "$TMPDIR"
+CC_CACHE="${TMPDIR}/tmux-powerline-claude-sessions.${UID}.cache"
+
+cc_copy_function __cc_sync_windows __cc_real_sync_windows
+cc_copy_function __cc_notify __cc_real_notify
+
+CC_SYNC_CALLS=0
+CC_NOTIFY_CALLS=0
+CC_STATE_AT_NOTIFY=""
+
+__cc_sync_windows() {
+	CC_SYNC_CALLS=$((CC_SYNC_CALLS + 1))
+	__cc_real_sync_windows "$@"
+}
+
+__cc_notify() {
+	CC_NOTIFY_CALLS=$((CC_NOTIFY_CALLS + 1))
+	# Sampled here, not after run_segment returns: this is the only moment that
+	# can distinguish "the sync ran first" from "the sync ran at all".
+	CC_STATE_AT_NOTIFY="$(win_state w1:0)"
+	__cc_real_notify "$@"
+}
+
+# Not `$(run_segment)`: command substitution forks, and a counter incremented by
+# a spy in the fork would never be visible here. Same reasoning as cc_load.
+seg_run() {
+	run_segment >"${WORK}/seg.out"
+	# The notifier is deliberately detached so it can never stall a redraw, so
+	# any assertion about it has to wait for the fork first.
+	wait 2>/dev/null
+}
+
+# Re-read the pane pid rather than trusting one captured before the split above.
+pid_seg="$(test_window_pid w1:0)"
+
+# A healthy tick: state stamped, frame cached.
+rm -f "$SESSIONS"/*.json "$CC_CACHE" "$CC_NOTIFY_LOG"
+session_file "$SESSIONS" "$pid_seg" busy interactive
+CC_SYNC_CALLS=0
+seg_run
+good_frame="$(cat "${WORK}/seg.out")"
+assert_eq "$CC_SYNC_CALLS" "1" "a healthy read runs the window sync"
+assert_eq "$(win_state w1:0)" "busy" "a healthy read stamps the window state"
+assert_eq "$(cat "$CC_CACHE" 2>/dev/null)" "$good_frame" "a healthy read caches the frame it printed"
+
+# The invariant. TORN means the read cannot be trusted, so the sync must not run
+# at all and every window option must survive untouched -- clearing @cc_state
+# here is what would make the next tick read every waiting window as a fresh
+# transition and notify on all of them at once.
+printf '{"pid":900060,"status":"wait' >"${SESSIONS}/900060.json"
+CC_SYNC_CALLS=0
+CC_NOTIFY_CALLS=0
+seg_run
+assert_eq "$CC_SYNC_CALLS" "0" "a torn read never reaches the window sync"
+assert_eq "$CC_NOTIFY_CALLS" "0" "a torn read never reaches the notifier"
+assert_eq "$(win_state w1:0)" "busy" "a torn read leaves window state untouched"
+assert_eq "$(cat "${WORK}/seg.out")" "$good_frame" "a torn read replays the last good frame"
+
+# EMPTY is the opposite: a clean read of a directory with no sessions, so the
+# sync does run and strips everything.
+rm -f "$SESSIONS"/*.json
+CC_SYNC_CALLS=0
+seg_run
+assert_eq "$CC_SYNC_CALLS" "1" "an empty read runs the window sync"
+assert_eq "$(win_state w1:0)" "" "an empty read clears window state"
+assert_eq "$(cat "${WORK}/seg.out")" "" "an empty read prints nothing"
+[ -e "$CC_CACHE" ] && cache_state="present" || cache_state="dropped"
+assert_eq "$cache_state" "dropped" "an empty read drops the stale frame"
+
+# Settle at idle so the flip below is a genuine edge rather than a first sight.
+rm -f "$SESSIONS"/*.json "$CC_NOTIFY_LOG"
+session_file "$SESSIONS" "$pid_seg" idle interactive
+seg_run
+assert_eq "$(cat "$CC_NOTIFY_LOG" 2>/dev/null)" "" "settling at idle notifies nothing"
+
+# The whole path, end to end: a session file flipping to waiting, through
+# collect, through the sync that fills the transitions array, to the array the
+# notifier reads and the command it finally runs. The sync must land first --
+# by the time __cc_notify runs, @cc_state already reads waiting, which is what
+# stops a concurrently running copy of the segment delivering a duplicate.
+rm -f "$SESSIONS"/*.json "$CC_NOTIFY_LOG"
+session_file "$SESSIONS" "$pid_seg" waiting interactive "" "" "permission prompt"
+CC_NOTIFY_CALLS=0
+CC_STATE_AT_NOTIFY="not sampled"
+seg_run
+assert_eq "$CC_NOTIFY_CALLS" "1" "a flip to waiting reaches the notifier"
+assert_eq "$CC_STATE_AT_NOTIFY" "waiting" "the sync lands before the notify, not after"
+assert_eq "$(cat "$CC_NOTIFY_LOG" 2>/dev/null)" "$(printf 'w1:0\tpermission prompt')" "a session flipping to waiting notifies end to end"
+
+# Holding at waiting is not an edge, so the next tick must stay quiet.
+rm -f "$CC_NOTIFY_LOG"
+seg_run
+assert_eq "$(cat "$CC_NOTIFY_LOG" 2>/dev/null)" "" "holding at waiting does not re-notify"
+
+rm -f "$SESSIONS"/*.json
+seg_run
+
 printf 'notification click target\n'
 # goto.sh is what a clicked notification runs. Everything it touches is stubbed:
 # tmux here must never be the real binary, since the success path runs
