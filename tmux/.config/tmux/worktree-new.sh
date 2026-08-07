@@ -25,6 +25,16 @@ WORKTREE_DIR="$HOME/src/upngo/worktrees"
 HISTORY_FILE="$HOME/.config/tmux/.session-history"
 touch "$HISTORY_FILE"
 
+# Row styling, shared with the session picker so [new] reads the same in both.
+# Degrades to an unstyled list rather than failing to open; see sessionizer.sh.
+CC_HELPER="${BASH_SOURCE[0]%/*}/claude-status.sh"
+if [[ -r "$CC_HELPER" ]]; then
+    # shellcheck source=claude-status.sh
+    source "$CC_HELPER"
+else
+    cc_row() { printf '%s\t%s\n' "$1" "$1"; }
+fi
+
 current_session=""
 if [[ -n "$TMUX" ]]; then
     current_session=$(tmux display-message -p '#S')
@@ -37,12 +47,19 @@ selected=$(
         tail -r "$HISTORY_FILE" | awk '!seen[$0]++' | while IFS= read -r hist_name; do
             [[ "$hist_name" == "$current_session" ]] && continue
             dir="$WORKTREE_DIR/$hist_name"
-            [[ -d "$dir" ]] && tmux has-session -t="$hist_name" 2>/dev/null && echo "$dir"
+            [[ -d "$dir" ]] && tmux has-session -t="$hist_name" 2>/dev/null && cc_row "$dir" plain
         done
         # Then remaining worktree dirs
-        find "$WORKTREE_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null
-        echo "[new]"
-    } | awk '!seen[$0]++' | fzf --prompt="$PROMPT_PREFIX worktree> "
+        while IFS= read -r dir; do
+            cc_row "$dir" plain
+        done < <(find "$WORKTREE_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+
+        cc_row "[new]" new
+        # Dedup on the value, not the whole row: the styled columns differ even
+        # when the paths behind them are identical.
+    } | awk -F'\t' '!seen[$2]++' | fzf --ansi \
+        --delimiter='\t' --with-nth=1 --accept-nth=2 \
+        --prompt="$PROMPT_PREFIX worktree> "
 )
 
 [[ -z "$selected" ]] && exit 0
