@@ -3,9 +3,10 @@
 #
 # Prints waiting/busy/idle counts across every running Claude session, and as a
 # side effect stamps per-window options so window-status-format can show the
-# same state without spawning a process per window.
+# same state without spawning a process per window. A window entering the
+# waiting state also raises a macOS notification.
 #
-# Data comes from ~/.claude/sessions/<pid>.json — one file per live session,
+# Data comes from ~/.claude/sessions/<pid>.json -- one file per live session,
 # written by the CLI and removed when the session exits. Relevant fields:
 #
 #   {"pid":17928,"status":"idle","name":"dotfiles","kind":"interactive",
@@ -13,13 +14,27 @@
 #
 # status is one of idle | busy | waiting. `claude agents --json` reports the
 # same thing and is the supported interface, but it costs ~290ms of node
-# startup, which is far too slow for a 1s status-interval.
+# startup, which is far too slow for a 1s status-interval -- so it is asked
+# only when a background session sits in the one state its file cannot resolve.
+#
+# This file holds config and rendering. The work lives in claude/:
+#   collect.sh  read session files, resolve windows, emit sentinels
+#   windows.sh  push state into window options, detect transitions
+#   agents.sh   the blocked-agent cache
+#   notify.sh   macOS notification delivery
+#   goto.sh     notification click target
+#   tests/      run.sh, safe to run against the live server
 #
 # Window options set on each window owning a claude process:
 #   @cc_state  plain state name, used only to diff against the desired state
 #   @cc_icon   styled glyph for normal windows
 #   @cc_glyph  bare glyph for the current window, which renders inverted and
 #              supplies its own foreground colour
+#
+# Server options:
+#   @cc_primed  set once state has been populated, so a server restart does not
+#               report every waiting session as a fresh transition
+#   @cc_bg_amb  the ambiguous background set the blocked list was computed for
 
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR:-${HOME}/.claude/sessions}"
 # Nerd Font glyph. It is double-width, so it must be followed by whitespace --
