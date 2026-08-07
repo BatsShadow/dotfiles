@@ -34,12 +34,18 @@ TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_COLOR="${TMUX_POWERLINE_SEG_CLAUDE_SESSI
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_COLOR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_COLOR:-#acb6bf}"
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR:-#565b66}"
 
-# Full-size solids. These read clearly at a glance, which matters more than the
-# tighter fit of the smaller ⬥ / • -- if a count ends up touching its glyph,
-# widen TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP below rather than shrinking these.
-TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH:-◆}"
-TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH:-●}"
+# Sized to read at a glance rather than to pack tightly -- if a count ends up
+# touching its glyph, widen TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP below rather
+# than shrinking these.
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH:-󰫢}"
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH:-󰧞}"
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH:-·}"
+
+# Glyph marking an idle window in the window list, as opposed to the idle count
+# in the segment above. Empty: idle is the resting state of most windows, so
+# marking it is noise, and an empty value leaves the window label untouched.
+# Set it to the same value as IDLE_GLYPH to mark idle windows again.
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH-}"
 
 # Normal fill colour of the current-window bubble, and normal window-label
 # text colour. The theme exports its own values so these cannot drift apart.
@@ -72,6 +78,7 @@ export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR="${TMUX_POWERLINE_SEG_CLAUD
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH}"
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH}"
 # Spacing. Each is inserted verbatim, so a space means one cell.
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP}"
@@ -299,16 +306,22 @@ __cc_sync_windows() {
 			color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_COLOR"
 			;;
 		*)
-			glyph="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH"
+			glyph="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH"
 			color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR"
 			;;
 		esac
 
 		# The separator lives inside the option value so the window format
 		# needs no conditional: an unset option then contributes nothing at
-		# all, spacing included.
+		# all, spacing included. An empty glyph means the state is not worth
+		# marking, so the options are cleared rather than set to a style with
+		# nothing after it.
 		local wg="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_GAP"
-		local want_icon="#[fg=${color}]${wg}${glyph}"
+		local want_icon="" want_glyph=""
+		if [ -n "$glyph" ]; then
+			want_icon="#[fg=${color}]${wg}${glyph}"
+			want_glyph="${wg}${glyph}"
+		fi
 
 		# Diff on the rendered value, not on the state name. Diffing on state
 		# would leave every window holding a stale glyph or colour after a
@@ -317,8 +330,13 @@ __cc_sync_windows() {
 
 		[ $first -eq 1 ] && first=0 || cmds+=(";")
 		cmds+=(set-option -w -t "$window" @cc_state "$state" ";")
-		cmds+=(set-option -w -t "$window" @cc_glyph "${wg}${glyph}" ";")
-		cmds+=(set-option -w -t "$window" @cc_icon "$want_icon")
+		if [ -z "$want_icon" ]; then
+			cmds+=(set-option -w -t "$window" -u @cc_glyph ";")
+			cmds+=(set-option -w -t "$window" -u @cc_icon)
+		else
+			cmds+=(set-option -w -t "$window" @cc_glyph "$want_glyph" ";")
+			cmds+=(set-option -w -t "$window" @cc_icon "$want_icon")
+		fi
 	done
 
 	[ ${#cmds[@]} -gt 0 ] && tmux "${cmds[@]}" 2>/dev/null
