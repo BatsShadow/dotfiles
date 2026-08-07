@@ -468,5 +468,71 @@ export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD="$saved_notify_cmd"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_LABEL="$saved_notify_label"
 assert_eq "$(grep -A1 '^-title$' "$CC_TN_LOG" | tail -1)" "w1:0" "an empty notification label leaves the window name alone"
 
+printf 'notification click target\n'
+# goto.sh is what a clicked notification runs. Everything it touches is stubbed:
+# tmux here must never be the real binary, since the success path runs
+# switch-client and would yank the developer's own client to another session,
+# and `open` must never actually raise an application.
+GOTO="${CC_SEG_DIR}/claude/goto.sh"
+GOTO_BIN="${WORK}/gotobin"
+mkdir -p "$GOTO_BIN"
+cat >"${GOTO_BIN}/tmux" <<'EOS'
+#!/bin/sh
+printf 'tmux %s\n' "$*" >>"$CC_GOTO_LOG"
+[ "$1" = "list-clients" ] && printf '%s\n' "${CC_GOTO_CLIENT:-}"
+exit 0
+EOS
+cat >"${GOTO_BIN}/open" <<'EOS'
+#!/bin/sh
+printf 'open %s\n' "$*" >>"$CC_GOTO_LOG"
+exit 0
+EOS
+chmod +x "${GOTO_BIN}/tmux" "${GOTO_BIN}/open"
+export CC_GOTO_LOG="${WORK}/goto.log"
+
+# tmux on PATH: the ordinary case. Selecting the window is a separate step from
+# switching the session, or the click lands on whichever window that session
+# last had.
+: >"$CC_GOTO_LOG"
+CC_GOTO_CLIENT="/dev/ttys009" PATH="${GOTO_BIN}:${PATH}" "$GOTO" "w9:3" "TestApp"
+goto_log="$(cat "$CC_GOTO_LOG")"
+assert_contains "$goto_log" "tmux switch-client -c /dev/ttys009 -t w9" "the click switches to the target session"
+assert_contains "$goto_log" "tmux select-window -t w9:3" "the click selects the target window"
+
+# terminal-notifier runs -execute through /bin/sh -c with its own inherited
+# environment, which frequently does not carry /opt/homebrew/bin. Resolving tmux
+# from PATH alone meant it was simply not found: no client, no switch, and the
+# fall through to `open` raised the terminal on whatever window was last
+# current -- indistinguishable from the feature not working.
+#
+# A PATH with the system utilities but no tmux, which is what terminal-notifier
+# actually hands this script. The `open` stub goes first so nothing here can
+# raise a real application; head and bash come from /usr/bin and /bin. tmux is
+# only ever in /opt/homebrew/bin on this platform, so leaving that out is what
+# reproduces the failure.
+NOTMUX_BIN="${WORK}/notmuxbin"
+mkdir -p "$NOTMUX_BIN"
+cp "${GOTO_BIN}/open" "${NOTMUX_BIN}/open"
+NOTMUX_PATH="${NOTMUX_BIN}:/usr/bin:/bin"
+
+: >"$CC_GOTO_LOG"
+CC_GOTO_CLIENT="/dev/ttys009" CC_GOTO_TMUX_PATHS="${GOTO_BIN}/tmux" \
+	PATH="$NOTMUX_PATH" "$GOTO" "w9:3" "TestApp"
+goto_log="$(cat "$CC_GOTO_LOG")"
+assert_contains "$goto_log" "tmux select-window -t w9:3" "tmux missing from PATH still resolves and selects the window"
+
+# No tmux anywhere. The terminal still comes up, but the failure has to be
+# recoverable by a later debugger rather than silent, so it exits non-zero.
+: >"$CC_GOTO_LOG"
+CC_GOTO_TMUX_PATHS="${WORK}/no-such-tmux" PATH="$NOTMUX_PATH" "$GOTO" "w9:3" "TestApp" &&
+	goto_rc=0 || goto_rc=$?
+assert_eq "$goto_rc" "1" "an unresolvable tmux fails loudly rather than silently"
+assert_contains "$(cat "$CC_GOTO_LOG")" "open -a TestApp" "the terminal is still raised when tmux cannot be found"
+
+# An empty target is a no-op, not a switch to nothing.
+: >"$CC_GOTO_LOG"
+PATH="${GOTO_BIN}:${PATH}" "$GOTO" "" "TestApp"
+assert_eq "$(cat "$CC_GOTO_LOG")" "" "an empty target does nothing at all"
+
 printf '\n%d passed, %d failed\n' "$CC_PASS" "$CC_FAIL"
 [ "$CC_FAIL" -eq 0 ]
