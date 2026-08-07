@@ -54,6 +54,9 @@ alias cl=claude --enable-auto-mode
 # or grey when Claude had asked something. See claude/.claude/hooks/.
 alias ccwrong="~/.config/tmux/waiting-report.sh"
 alias ccwrongs="~/.config/tmux/waiting-report.sh --tally"
+# Catch up sessions that were already sitting on a question before the hook saw
+# them. Runs from install.zsh; here for after a settings change drops the hook.
+alias ccbackfill="~/.claude/hooks/claude-waiting-backfill.sh"
 
 alias kc='kubectl'
 alias kl='kubectl config get-contexts'

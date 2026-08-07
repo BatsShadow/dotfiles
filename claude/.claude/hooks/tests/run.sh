@@ -186,5 +186,118 @@ notify idle_prompt
 assert_eq "$(cut -f2- <"$M")" "Should I ship the loose rule?" \
 	"the marker carries the question text for the notification"
 
+printf 'backfill\n'
+
+BACKFILL="$(cd .. && pwd)/claude-waiting-backfill.sh"
+export CC_SESSIONS_DIR="${WORK}/sessions"
+export CC_PROJECTS_DIR="${WORK}/projects"
+# Fixtures are written milliseconds before they are read, so the real 60s idle
+# threshold would skip every one of them -- and every negative assertion below
+# would then pass for the wrong reason. Zero here so the tests exercise the
+# judgement rather than the clock; the threshold gets a test of its own.
+export CC_BACKFILL_IDLE_AFTER=0
+
+# A session as the CLI writes it, plus the transcript it would have left behind.
+# The transcript is what the backfill reads in place of Stop's payload, so the
+# fixture has to carry the same shape: assistant lines, mixed content blocks,
+# and the sidechain flag that separates subagent turns from the main thread.
+fixture() {
+	local pid="$1" status="$2" sid="$3" text="$4" sidechain="${5:-false}"
+	mkdir -p "$CC_SESSIONS_DIR" "${CC_PROJECTS_DIR}/proj"
+	jq -n --arg s "$status" --arg sid "$sid" --argjson p "$pid" \
+		'{pid:$p, status:$s, kind:"interactive", sessionId:$sid, waitingFor:null}' \
+		>"${CC_SESSIONS_DIR}/${pid}.json"
+	{
+		jq -c -n '{type:"user", isSidechain:false, message:{role:"user"}}'
+		jq -c -n --arg t "$text" --argjson sc "$sidechain" \
+			'{type:"assistant", isSidechain:$sc,
+			  message:{content:[{type:"thinking",thinking:"..."},{type:"text",text:$t}]}}'
+	} >"${CC_PROJECTS_DIR}/proj/${sid}.jsonl"
+}
+
+reset_bf() {
+	rm -rf "${WORK:?}/waiting" "${WORK:?}/review" "${WORK:?}/sessions" "${WORK:?}/projects"
+}
+
+reset_bf
+fixture 1001 idle sid-q "I found three options.
+
+Which should I use?"
+out=$("$BACKFILL" 2>&1)
+assert_file "${CC_WAITING_DIR}/sid-q" "an idle session with a question is backfilled"
+assert_eq "$(cut -f2- <"${CC_WAITING_DIR}/sid-q")" "Which should I use?" \
+	"the backfilled marker carries the question"
+
+# A backfilled call is logged like a live one, so it can be reported wrong
+# through waiting-report.sh and the rule comparison stays honest.
+assert_eq "$(jq -r '.backfill' "${CC_WAITING_REVIEW_DIR}/decisions.jsonl")" "true" \
+	"a backfilled decision is logged and flagged"
+
+reset_bf
+fixture 1002 idle sid-plain "All three tests pass now."
+"$BACKFILL" >/dev/null 2>&1
+assert_no_file "${CC_WAITING_DIR}/sid-plain" "an idle session with no question is not backfilled"
+
+# busy means Claude is working. Whatever it asked before, it is not parked on
+# the answer now.
+reset_bf
+fixture 1003 busy sid-busy "Which should I use?"
+"$BACKFILL" >/dev/null 2>&1
+assert_no_file "${CC_WAITING_DIR}/sid-busy" "a busy session is not backfilled"
+
+# The live path owns anything already in flight. A marker cleared by answering
+# must not be resurrected, and a pending one is mid-promotion.
+reset_bf
+fixture 1004 idle sid-live "Which should I use?"
+mkdir -p "$CC_WAITING_DIR"
+printf 'permission_prompt\toriginal\n' >"${CC_WAITING_DIR}/sid-live"
+"$BACKFILL" >/dev/null 2>&1
+assert_eq "$(cut -f2- <"${CC_WAITING_DIR}/sid-live")" "original" \
+	"an existing marker is left untouched"
+
+reset_bf
+fixture 1005 idle sid-pend "Which should I use?"
+mkdir -p "$CC_WAITING_DIR"
+printf 'question\tpending\n' >"${CC_WAITING_DIR}/sid-pend.pending"
+"$BACKFILL" >/dev/null 2>&1
+assert_no_file "${CC_WAITING_DIR}/sid-pend" "a session mid-promotion is not backfilled"
+
+# The live path waits 60s before believing nobody answered. So does this one,
+# or a question asked two seconds ago would go amber instantly.
+reset_bf
+fixture 1006 idle sid-fresh "Which should I use?"
+CC_BACKFILL_IDLE_AFTER=99999 "$BACKFILL" >/dev/null 2>&1
+assert_no_file "${CC_WAITING_DIR}/sid-fresh" "a session active too recently is not backfilled"
+
+# A subagent's question is answered by the agent that spawned it, not the user.
+reset_bf
+fixture 1007 idle sid-side "Which should I use?" true
+"$BACKFILL" >/dev/null 2>&1
+assert_no_file "${CC_WAITING_DIR}/sid-side" "a sidechain question does not mark the window"
+
+reset_bf
+fixture 1008 idle sid-notrans "Which should I use?"
+rm -rf "${CC_PROJECTS_DIR:?}"
+out=$("$BACKFILL" 2>&1)
+assert_no_file "${CC_WAITING_DIR}/sid-notrans" "a session with no transcript is not backfilled"
+assert_eq "$(printf '%s' "$out" | grep -c '1 unreadable')" "1" \
+	"a session with no transcript is counted unreadable"
+
+reset_bf
+fixture 1009 idle sid-dry "Which should I use?"
+"$BACKFILL" --dry-run >/dev/null 2>&1
+assert_no_file "${CC_WAITING_DIR}/sid-dry" "--dry-run writes no marker"
+assert_no_file "${CC_WAITING_REVIEW_DIR}/decisions.jsonl" "--dry-run writes no decision"
+
+# Running it twice must not undo an answer given between the two runs.
+reset_bf
+fixture 1010 idle sid-twice "Which should I use?"
+"$BACKFILL" >/dev/null 2>&1
+rm -f "${CC_WAITING_DIR}/sid-twice"
+"$BACKFILL" >/dev/null 2>&1
+assert_file "${CC_WAITING_DIR}/sid-twice" "a re-run re-marks a session whose marker was removed"
+
+reset_bf
+
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

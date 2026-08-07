@@ -27,7 +27,7 @@ The install script iterates all top-level directories, stows them, then installs
 - **lazyvim** — Neovim config based on LazyVim. Custom plugins in `lua/plugins/`. Uses Catppuccin theme.
 - **wezterm** — Terminal emulator config in `wezterm.lua`.
 - **aerospace** — Tiling window manager. Has two layout modes (tile-mode, workspace-mode) with helper scripts.
-- **claude** — Claude Code hooks. `claude-waiting.sh` marks a session as waiting on you when it has asked a question and gone unanswered, which no file Claude Code writes records; the tmux status bar reads those markers. `settings.json` is deliberately not stowed — Claude Code writes it itself — so `install-hooks.sh` merges the registration in, and `install.zsh` runs it. Tests: `claude/.claude/hooks/tests/run.sh`.
+- **claude** — Claude Code hooks. `claude-waiting.sh` marks a session as waiting on you when it has asked a question and gone unanswered, which no file Claude Code writes records; the tmux status bar reads those markers. `claude-waiting-backfill.sh` catches up sessions already parked on a question before the hook saw them — they emit no further turns, so nothing else would ever mark them. `settings.json` is deliberately not stowed — Claude Code writes it itself — so `install-hooks.sh` merges the registration in; `install.zsh` runs both. Tests: `claude/.claude/hooks/tests/run.sh`.
 - **brew** — `Brewfile` for Homebrew dependencies.
 - **karabiner** — Karabiner-Elements complex modifications (used alongside Kanata for virtual HID).
 
