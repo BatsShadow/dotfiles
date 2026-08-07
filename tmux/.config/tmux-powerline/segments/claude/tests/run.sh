@@ -74,5 +74,49 @@ rm -f "$SESSIONS"/*.json
 raw="$(__cc_collect "$SESSIONS" "")"
 assert_eq "$raw" "EMPTY" "an empty sessions directory yields EMPTY"
 
+printf 'collect: pid and ambiguous set\n'
+rm -f "$SESSIONS"/*.json
+
+# The WIN line carries the pid of the session that won the window, so a
+# notification can look up waitingFor lazily instead of threading it through awk.
+session_file "$SESSIONS" "$pid_w1" waiting interactive
+raw="$(__cc_collect "$SESSIONS" "")"
+assert_contains "$raw" "WIN w1:0 waiting ${pid_w1}" "WIN line carries the winning session pid"
+
+# A background session sitting at idle is ambiguous: the file cannot say whether
+# it is blocked on input, so only this state warrants asking the binary.
+rm -f "$SESSIONS"/*.json
+session_file "$SESSIONS" 900001 idle bg
+raw="$(__cc_collect "$SESSIONS" "")"
+assert_contains "$raw" "AMB 900001" "an idle bg session is ambiguous"
+
+# Busy and waiting are conclusive from the file alone.
+rm -f "$SESSIONS"/*.json
+session_file "$SESSIONS" 900002 busy bg
+raw="$(__cc_collect "$SESSIONS" "")"
+assert_not_contains "$raw" "AMB" "a busy bg session is not ambiguous"
+
+rm -f "$SESSIONS"/*.json
+session_file "$SESSIONS" 900003 waiting bg
+raw="$(__cc_collect "$SESSIONS" "")"
+assert_not_contains "$raw" "AMB" "a waiting bg session is not ambiguous"
+
+# Interactive sessions never warrant the binary.
+rm -f "$SESSIONS"/*.json
+session_file "$SESSIONS" "$pid_w1" idle interactive
+raw="$(__cc_collect "$SESSIONS" "")"
+assert_not_contains "$raw" "AMB" "an idle interactive session is not ambiguous"
+
+# The ambiguous set is built from the RAW file status. A bg session promoted to
+# waiting by the blocked list is still ambiguous, or the set would flip every
+# time the promotion took effect and re-trigger the binary forever.
+rm -f "$SESSIONS"/*.json
+session_file "$SESSIONS" 900004 idle bg
+printf '900004\n' >"${WORK}/blocked.list"
+raw="$(__cc_collect "$SESSIONS" "${WORK}/blocked.list")"
+assert_contains "$raw" "AMB 900004" "a promoted bg session stays in the ambiguous set"
+assert_contains "$raw" "COUNTS 1 0 0" "a promoted bg session counts as waiting"
+rm -f "${WORK}/blocked.list"
+
 printf '\n%d passed, %d failed\n' "$CC_PASS" "$CC_FAIL"
 [ "$CC_FAIL" -eq 0 ]

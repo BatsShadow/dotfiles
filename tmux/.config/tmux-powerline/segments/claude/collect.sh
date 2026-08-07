@@ -50,6 +50,14 @@ __cc_collect() {
 			spid[n] = $1; sstatus[n] = st; skind[n] = $3; sjob[n] = $4
 			if ($5 != "-") parked[$5] = $1
 
+			# Ambiguity is a property of the RAW file status, not the promoted
+			# one. A blocked background agent records itself as idle, so idle
+			# is the only bg state the file cannot resolve on its own. Using
+			# the promoted value here would drop the session out of the set the
+			# moment the promotion landed, and the binary would be asked again
+			# on the very next tick, forever.
+			if ($3 == "bg" && $2 == "idle") amb[$1] = 1
+
 			if (st == "waiting")   waiting++
 			else if (st == "busy") busy++
 			else                   idle++
@@ -83,14 +91,19 @@ __cc_collect() {
 						# A window can hold more than one session — including a
 						# parked one plus its background agent. Most demanding
 						# state wins.
-						if (rank > best[w]) { best[w] = rank; state[w] = sstatus[s] }
+						if (rank > best[w]) {
+							best[w] = rank
+							state[w] = sstatus[s]
+							bestpid[w] = spid[s]
+						}
 						break
 					}
 					p = parent[p]
 				}
 			}
 
-			for (w in state) printf "WIN %s %s\n", w, state[w]
+			for (w in state) printf "WIN %s %s %s\n", w, state[w], bestpid[w]
+			for (a in amb) printf "AMB %s\n", a
 		}
 	'
 }
