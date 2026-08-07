@@ -66,7 +66,10 @@ __cc_sync_windows() {
 		'#{session_name}:#{window_index}|#{@cc_state}|#{@cc_cur_bg}|#{@cc_fg}|#{@cc_icon}|#{window_active}|#{session_attached}' 2>/dev/null)
 
 	local -A have=() have_bg=() have_fg=() have_icon=() all=() focused=()
-	local active attached
+	# Every one of these is read into by the loop below and so must be declared:
+	# tmux-powerline unsets only run_segment between segments, and fg in
+	# particular is a name a sibling segment could plausibly be using.
+	local active attached fg icon
 	while IFS='|' read -r window state curbg fg icon active attached; do
 		[ -n "$window" ] || continue
 		all["$window"]=1

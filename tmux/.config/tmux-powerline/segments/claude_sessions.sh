@@ -182,7 +182,9 @@ run_segment() {
 	# needs a pid to resolve waitingFor for a transition.
 	local -A desired=() desired_pid=()
 	local -a transitions=()
-	local waiting=0 busy=0 idle=0 kind window state
+	# a b c are the read fields of the parse loop below. Undeclared they would
+	# leak into every sibling segment, same as any other name here.
+	local waiting=0 busy=0 idle=0 kind window state a b c
 
 	if [ "$raw" = "EMPTY" ]; then
 		# Genuinely no sessions — drop the stale frame rather than showing it
