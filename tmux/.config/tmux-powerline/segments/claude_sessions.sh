@@ -214,9 +214,15 @@ run_segment() {
 
 	# awk emits array keys in no particular order, so sort before comparing --
 	# an unsorted fingerprint would appear to change on its own and re-ask the
-	# binary for a set that had not actually moved.
-	amb=$(printf '%s\n' $amb | sort -n | tr '\n' ' ')
-	amb="${amb% }"
+	# binary for a set that had not actually moved. Guarded because an empty set
+	# is the steady state, and sorting nothing still costs a sort and a tr on
+	# every single tick.
+	if [ -n "$amb" ]; then
+		# Deliberately unquoted: the words are the set.
+		# shellcheck disable=SC2086
+		amb=$(printf '%s\n' $amb | sort -n | tr '\n' ' ')
+		amb="${amb% }"
+	fi
 
 	# Kicked after collect rather than before it: the trigger is derived from
 	# this tick's session files, and the answer lands for the next one.

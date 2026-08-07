@@ -23,9 +23,19 @@ __cc_refresh_blocked() {
 
 	# Nothing idle in the background means nothing can be blocked, so the list
 	# is empty by construction and the binary is never spawned at all.
+	#
+	# Both writes are gated on the cache actually holding something. This is the
+	# steady state -- it runs every status-interval, forever, on a machine with
+	# no idle background agents -- and an unconditional set-option here would
+	# make tmux redraw the status line once a second for nothing, which is the
+	# same reason every write in __cc_sync_windows is diff-gated. Clearing the
+	# stored fingerprint matters only when there is a cache to invalidate
+	# alongside it.
 	if [ -z "$amb_fp" ]; then
-		[ -s "$cache" ] && : >"$cache" 2>/dev/null
-		tmux set-option -g @cc_bg_amb "" 2>/dev/null
+		if [ -s "$cache" ]; then
+			: >"$cache" 2>/dev/null
+			tmux set-option -g @cc_bg_amb "" 2>/dev/null
+		fi
 		return 0
 	fi
 
