@@ -120,9 +120,8 @@ run_segment() {
 	[ -d "$dir" ] || return 0
 	command -v jq >/dev/null 2>&1 || return 0
 
-	# Surviving a torn read matters more than the 20ms it costs: a status file
-	# caught mid-write aborts jq, and blanking the segment for one tick out of
-	# every few hundred reads as a flicker at a 1s refresh.
+	# Last good frame, replayed when a read fails so the segment holds its
+	# content rather than blanking for a tick.
 	local cache="${TMPDIR:-/tmp}/tmux-powerline-claude-sessions.${UID}.cache"
 
 	# Before anything else, and regardless of whether there are sessions: a
@@ -136,6 +135,16 @@ run_segment() {
 	raw=$(__cc_collect "$dir" "$blocked")
 
 	if [ -z "$raw" ]; then
+		[ -s "$cache" ] && cat "$cache"
+		return 0
+	fi
+
+	# A failed parse, not an empty directory. Show the last good frame and leave
+	# every window option exactly as it is: clearing @cc_state here would make
+	# the next tick read every waiting window as a fresh transition and notify
+	# on all of them. Skipping the sync delays a transition by a tick; clearing
+	# state would invent one.
+	if [ "$raw" = "TORN" ]; then
 		[ -s "$cache" ] && cat "$cache"
 		return 0
 	fi

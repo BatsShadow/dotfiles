@@ -118,5 +118,28 @@ assert_contains "$raw" "AMB 900004" "a promoted bg session stays in the ambiguou
 assert_contains "$raw" "COUNTS 1 0 0" "a promoted bg session counts as waiting"
 rm -f "${WORK}/blocked.list"
 
+printf 'torn reads\n'
+rm -f "$SESSIONS"/*.json
+
+# A file caught mid-write aborts jq, which yields no records at all. That must
+# not be reported as an empty directory: the caller responds to EMPTY by
+# stripping every window option, which would make the following tick read every
+# waiting window as a brand new transition.
+printf '{"pid":900010,"status":"idl' >"${SESSIONS}/900010.json"
+raw="$(__cc_collect "$SESSIONS" "")"
+assert_eq "$raw" "TORN" "a truncated session file yields TORN"
+
+# jq parses the concatenated stream, so one bad file poisons the whole read.
+# Assert that rather than assume it.
+session_file "$SESSIONS" 900011 idle interactive
+raw="$(__cc_collect "$SESSIONS" "")"
+assert_eq "$raw" "TORN" "one truncated file among valid ones still yields TORN"
+
+# A genuinely empty directory is still EMPTY. The count-trimming design depends
+# on that meaning being unchanged.
+rm -f "$SESSIONS"/*.json
+raw="$(__cc_collect "$SESSIONS" "")"
+assert_eq "$raw" "EMPTY" "an empty directory is still EMPTY, not TORN"
+
 printf '\n%d passed, %d failed\n' "$CC_PASS" "$CC_FAIL"
 [ "$CC_FAIL" -eq 0 ]

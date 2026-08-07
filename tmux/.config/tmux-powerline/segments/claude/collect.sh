@@ -14,6 +14,14 @@ __cc_file_age() {
 # are currently two called fp-wallet-avs) and background agents have no window.
 __cc_collect() {
 	local dir="$1" blocked_cache="$2"
+
+	# Distinguishing a failed parse from an empty directory needs to know
+	# whether there was anything to parse. A glob with no matches expands to
+	# the pattern itself, so test each candidate rather than counting words.
+	local nfiles=0 f
+	for f in "$dir"/*.json; do
+		[ -e "$f" ] && nfiles=$((nfiles + 1))
+	done
 	{
 		echo "P"
 		ps -eo pid=,ppid=
@@ -29,7 +37,7 @@ __cc_collect() {
 			| [(.pid | tostring), .status, (.kind // "-"),
 			   (.jobId // "-"), (.parkedJobId // "-")]
 			| @tsv' 2>/dev/null
-	} | awk '
+	} | awk -v nfiles="$nfiles" '
 		$0 == "P" { mode = "P"; next }
 		$0 == "W" { mode = "W"; next }
 		$0 == "B" { mode = "B"; next }
@@ -63,7 +71,14 @@ __cc_collect() {
 			else                   idle++
 		}
 		END {
-			if (!n) { print "EMPTY"; exit }
+			# No records with files present means jq aborted on a file caught
+			# mid-write. That is not an empty directory, and the caller must not
+			# treat it as one -- EMPTY strips every window option, which would
+			# manufacture a fresh transition on the following tick.
+			if (!n) {
+				if (nfiles > 0) print "TORN"; else print "EMPTY"
+				exit
+			}
 			printf "COUNTS %d %d %d\n", waiting + 0, busy + 0, idle + 0
 
 			for (s = 1; s <= n; s++) {
