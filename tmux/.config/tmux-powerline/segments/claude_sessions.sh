@@ -151,6 +151,10 @@ run_segment() {
 		return 0
 	fi
 
+	# desired_pid maps window to the pid of the session that won it. Sync does
+	# not read it -- it is threaded through for the notification path, which
+	# needs a pid to resolve waitingFor for a transition.
+	# shellcheck disable=SC2034
 	local -A desired=() desired_pid=()
 	local waiting=0 busy=0 idle=0 kind window state
 
