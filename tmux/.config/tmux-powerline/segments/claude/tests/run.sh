@@ -243,7 +243,16 @@ printf 'focus suppression\n'
 # session_attached 0 for everything, which would make every window look
 # unfocused and leave the suppression path silently untested. script(1) gives
 # the client a pty without this test needing a terminal of its own.
-script -q /dev/null tmux attach -t w1 >/dev/null 2>&1 &
+#
+# A fresh session of its own, and the client attaches before the second
+# window even exists. A window that is current when the first client ever
+# attaches to its session survives; a window that has been sitting current
+# and unattended for a while does not -- the pane behind it gets torn down
+# by the time the client registers. Attaching first, and only creating the
+# second window afterwards, keeps every window's pane alive for the rest of
+# the case.
+tmux new-session -d -s w2
+script -q /dev/null tmux attach -t w2 >/dev/null 2>&1 &
 CC_CLIENT_PID=$!
 i=0
 while [ $i -lt 100 ]; do
@@ -251,15 +260,16 @@ while [ $i -lt 100 ]; do
 	i=$((i + 1))
 	sleep 0.05
 done
-assert_contains "$(tmux list-windows -a -F '#{session_attached}')" "1" "the test client attached"
+assert_contains "$(tmux list-windows -t w2 -F '#{session_attached}')" "1" "the test client attached"
 
-tmux select-window -t w1:0
-sync_case "w1:0=idle w1:1=idle"
+tmux new-window -t w2
+tmux select-window -t w2:0
+sync_case "w2:0=idle w2:1=idle"
 
 # Both windows enter waiting together. Only the unfocused one is reported,
 # which asserts suppression and non-suppression in a single comparison.
-sync_case "w1:0=waiting w1:1=waiting"
-assert_eq "${CC_TRANS[*]}" "w1:1" "the focused window is suppressed, the unfocused one is not"
+sync_case "w2:0=waiting w2:1=waiting"
+assert_eq "${CC_TRANS[*]}" "w2:1" "the focused window is suppressed, the unfocused one is not"
 
 kill "$CC_CLIENT_PID" 2>/dev/null
 
