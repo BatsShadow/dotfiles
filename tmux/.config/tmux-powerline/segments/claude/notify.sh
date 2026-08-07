@@ -55,6 +55,20 @@ __cc_notify_one() {
 
 	if command -v terminal-notifier >/dev/null 2>&1; then
 		local goto="${BASH_SOURCE[0]%/*}/goto.sh"
+
+		# terminal-notifier runs -execute through a shell when the notification
+		# is clicked, and every value below is quoted with plain single quotes
+		# in that argument. window is #{session_name}:#{window_index} straight
+		# off tmux -- session names are user-controlled, so an apostrophe in
+		# one is entirely plausible -- and goto is a filesystem path, never
+		# provably free of one either. Inside a single-quoted string a literal
+		# ' cannot be escaped in place; it has to close the quote, contribute
+		# an escaped quote, then reopen: '\''. Skipping this for any one of
+		# the three turns a stray apostrophe into arbitrary shell source.
+		local shquote_window="${window//\'/\'\\\'\'}"
+		local shquote_goto="${goto//\'/\'\\\'\'}"
+		local shquote_app="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TERM_APP//\'/\'\\\'\'}"
+
 		# -group keyed on the window so a repeat replaces its predecessor
 		# rather than stacking another card for the same session.
 		(
@@ -62,14 +76,22 @@ __cc_notify_one() {
 				-title "${label} ${window}" \
 				-message "$subtitle" \
 				-group "cc-${window}" \
-				-execute "'${goto}' '${window}' '${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TERM_APP}'"
+				-execute "'${shquote_goto}' '${shquote_window}' '${shquote_app}'"
 		) >/dev/null 2>&1 &
 		return 0
 	fi
 
 	# Quote-safe: both values reach osascript as AppleScript string literals,
 	# so any embedded double quote would otherwise end the literal early.
+	# Backslashes must be escaped first, before double quotes: escaping the
+	# quotes first would plant fresh backslashes that the backslash pass would
+	# then double-escape. waitingFor echoes tool and shell text, so a
+	# backslash landing right before the closing quote -- which would escape
+	# that quote and run the literal on into the surrounding script -- is a
+	# realistic case, not just a theoretical one.
 	local t="${label} ${window}" m="$subtitle"
+	t="${t//\\/\\\\}"
+	m="${m//\\/\\\\}"
 	t="${t//\"/\\\"}"
 	m="${m//\"/\\\"}"
 	( osascript -e "display notification \"${m}\" with title \"${t}\"" ) >/dev/null 2>&1 &

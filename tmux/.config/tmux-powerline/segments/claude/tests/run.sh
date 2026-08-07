@@ -317,5 +317,34 @@ notify_case "w1:0 w1:1" "w1:0=900022 w1:1=900023"
 wait 2>/dev/null
 assert_eq "$(wc -l <"$CC_NOTIFY_LOG" | tr -d ' ')" "2" "two transitions deliver two notifications"
 
+# Every case above goes through NOTIFY_CMD, which never touches the shell
+# escaping in the terminal-notifier branch. session names are user-controlled
+# and can contain a single quote, and terminal-notifier runs -execute through
+# a shell when clicked, so that branch needs its own coverage with NOTIFY_CMD
+# unset. tests/bin/terminal-notifier stands in for the real binary -- it is
+# first on PATH for the whole suite, so this is also the only way any test
+# here could reach it.
+export CC_TN_LOG="${WORK}/terminal-notifier.log"
+saved_notify_cmd="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD"
+# set -u is active for this whole runner, so notify.sh's direct reference to
+# this var needs it bound-but-empty here, not unset -- an unset reference
+# would abort the suite rather than take the fallback branch under test.
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD=""
+
+rm -f "$CC_TN_LOG" "$SESSIONS"/*.json
+session_file "$SESSIONS" 900030 waiting interactive
+notify_case "o'brien:0" "o'brien:0=900030"
+# Detached, same as every NOTIFY_CMD case above.
+wait 2>/dev/null
+
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD="$saved_notify_cmd"
+
+# The line after the literal -execute argument is the shell command string
+# terminal-notifier would run on click. A correctly escaped apostrophe reads
+# as '\'' inside it; an unescaped one would instead have closed the quoted
+# argument early and spilled the rest as shell source.
+execute_arg=$(grep -A1 '^-execute$' "$CC_TN_LOG" | tail -1)
+assert_contains "$execute_arg" "o'\''brien:0" "a single quote in the session name is escaped for -execute, not left to close the argument early"
+
 printf '\n%d passed, %d failed\n' "$CC_PASS" "$CC_FAIL"
 [ "$CC_FAIL" -eq 0 ]
