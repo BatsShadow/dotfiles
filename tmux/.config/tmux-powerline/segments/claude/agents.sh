@@ -55,6 +55,21 @@ __cc_refresh_blocked() {
 	# Directory create is atomic, so only one refresh can be in flight even
 	# though a new copy of this script runs every status-interval.
 	local lock="${cache}.lock"
+
+	# The lock is released by an EXIT trap, which never runs if the shell
+	# holding it is SIGKILLed, and the `claude` call below is only run under
+	# `timeout` when timeout happens to be installed. Either way a lock can be
+	# left behind for good -- and once it is, every later call returns here,
+	# the blocked list never refreshes again, and a background agent blocked on
+	# input reads as idle forever with nothing to say why. A lock older than
+	# several TTLs cannot belong to a refresh that is still going anywhere.
+	local lock_age
+	lock_age=$(__cc_file_age "$lock")
+	if [ -n "$lock_age" ] &&
+		[ "$lock_age" -gt $((TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL * 5)) ]; then
+		rmdir "$lock" 2>/dev/null
+	fi
+
 	mkdir "$lock" 2>/dev/null || return 0
 
 	# The subshell MUST have its stdout redirected. tmux reads a #() command
@@ -74,10 +89,22 @@ __cc_refresh_blocked() {
 			# process cannot be attributed to a window, and several of those
 			# are weeks old -- permanently amber entries would just train the
 			# eye to ignore the colour.
-			printf '%s' "$out" |
+			#
+			# jq is tested rather than assumed. The redirect creates the temp
+			# file before jq ever runs, so a jq failure -- an output shape that
+			# changed under us, most likely -- leaves an empty file behind, and
+			# installing that as the cache would turn the whole feature off
+			# with no signal at all. On failure keep whatever the cache already
+			# holds; a stale answer beats a silently empty one.
+			if printf '%s' "$out" |
 				jq -r '.[]? | select(.kind == "background" and .state == "blocked" and .pid != null) | .pid' \
-					2>/dev/null >"${cache}.$$"
-			mv -f "${cache}.$$" "$cache" 2>/dev/null || rm -f "${cache}.$$"
+					2>/dev/null >"${cache}.$$"; then
+				mv -f "${cache}.$$" "$cache" 2>/dev/null || rm -f "${cache}.$$"
+			else
+				rm -f "${cache}.$$"
+				# Same throttle reset as the no-output branch below.
+				touch "$cache" 2>/dev/null
+			fi
 		else
 			# Reset the throttle even on failure, so a broken CLI cannot turn
 			# into a refresh attempt every single status-interval.

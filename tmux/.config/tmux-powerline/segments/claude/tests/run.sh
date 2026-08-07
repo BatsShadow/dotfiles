@@ -258,6 +258,44 @@ refresh_case "900007"
 assert_eq "$(cat "$BLOCKED" 2>/dev/null)" "900007" "only blocked agents with a pid reach the list"
 export CC_FAKE_CLAUDE_JSON='[]'
 
+# The lock is released by an EXIT trap, which SIGKILL does not run, and the
+# `claude` call is only wrapped in `timeout` when timeout is installed. A lock
+# left behind used to be permanent: every later call returned early, the list
+# never refreshed, and a blocked background agent read as idle forever.
+rm -f "$BLOCKED" "$CC_FAKE_CLAUDE_LOG"
+tmux set-option -gu @cc_bg_amb 2>/dev/null
+mkdir -p "${BLOCKED}.lock"
+__cc_refresh_blocked "$BLOCKED" "900008"
+wait 2>/dev/null
+assert_eq "$(calls)" "0" "a fresh lock keeps a second refresh out"
+
+# Backdated well past the staleness threshold, which is several TTLs.
+touch -t 200001010000 "${BLOCKED}.lock"
+rm -f "$CC_FAKE_CLAUDE_LOG"
+tmux set-option -gu @cc_bg_amb 2>/dev/null
+__cc_refresh_blocked "$BLOCKED" "900008"
+wait 2>/dev/null
+assert_eq "$(calls)" "1" "a stale lock is cleared instead of disabling refreshes for good"
+rmdir "${BLOCKED}.lock" 2>/dev/null
+
+# A response jq cannot parse must not install an empty cache over a good one:
+# the redirect creates the temp file before jq runs, so an unchecked failure
+# turned the whole feature off with nothing to say so. jq still exits 0 when it
+# simply finds nothing blocked, so the legitimately-empty answer is unaffected
+# -- which the "emptying the ambiguous set" case above already covers.
+export CC_FAKE_CLAUDE_JSON='[{"kind":"background","state":"blocked","pid":900009}]'
+refresh_case "900009"
+assert_eq "$(cat "$BLOCKED" 2>/dev/null)" "900009" "a well-formed response populates the blocked list"
+
+export CC_FAKE_CLAUDE_JSON='not json at all'
+rm -f "$CC_FAKE_CLAUDE_LOG"
+tmux set-option -gu @cc_bg_amb 2>/dev/null
+__cc_refresh_blocked "$BLOCKED" "900009"
+wait 2>/dev/null
+assert_eq "$(calls)" "1" "a malformed response is still an invocation"
+assert_eq "$(cat "$BLOCKED" 2>/dev/null)" "900009" "a malformed response leaves the existing blocked list intact"
+export CC_FAKE_CLAUDE_JSON='[]'
+
 printf 'transition detection\n'
 
 # Each case rebuilds window state from scratch.
