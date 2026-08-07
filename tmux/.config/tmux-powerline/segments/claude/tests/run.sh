@@ -43,23 +43,31 @@ raw="$(__cc_collect "$SESSIONS" "")"
 assert_contains "$raw" "COUNTS 0 0 1" "one idle session counts as idle"
 assert_contains "$raw" "WIN w1:0 idle" "idle session attributed to its window"
 
-# A busy session in the same window outranks the idle one.
-pid_w1b="$(tmux list-panes -t w1:0 -F '#{pane_pid}' | head -1)"
-session_file "$SESSIONS" "$((pid_w1b + 100000))" busy interactive
+# Most demanding state wins when two sessions share one window. This needs
+# two real panes: __cc_collect attributes a session by walking its pid (via
+# the parent[] map built from real `ps` output) up to an entry in the pane[]
+# map built from real `tmux list-panes` output. A fabricated pid that was
+# never an actual process has no parent[] entry, so the walk breaks
+# immediately and such a fixture never attributes to any window -- it would
+# only inflate the global counters, never exercise the rank comparison.
+tmux split-window -t w1:0
+pids_w1=()
+while IFS= read -r p; do pids_w1+=("$p"); done < <(tmux list-panes -t w1:0 -F '#{pane_pid}')
+pid_a="${pids_w1[0]}"
+pid_b="${pids_w1[1]}"
+
+rm -f "$SESSIONS"/*.json
+session_file "$SESSIONS" "$pid_a" idle interactive
+session_file "$SESSIONS" "$pid_b" busy interactive
 raw="$(__cc_collect "$SESSIONS" "")"
 assert_contains "$raw" "COUNTS 0 1 1" "busy and idle counted separately"
+assert_contains "$raw" "WIN w1:0 busy" "busy outranks idle in the same window"
 
 rm -f "$SESSIONS"/*.json
-
-# Most demanding state wins when two sessions share one window.
-session_file "$SESSIONS" "$pid_w1" busy interactive
+session_file "$SESSIONS" "$pid_a" waiting interactive
+session_file "$SESSIONS" "$pid_b" busy interactive
 raw="$(__cc_collect "$SESSIONS" "")"
-assert_contains "$raw" "WIN w1:0 busy" "busy wins over nothing"
-
-rm -f "$SESSIONS"/*.json
-session_file "$SESSIONS" "$pid_w1" waiting interactive
-raw="$(__cc_collect "$SESSIONS" "")"
-assert_contains "$raw" "WIN w1:0 waiting" "waiting is reported"
+assert_contains "$raw" "WIN w1:0 waiting" "waiting outranks busy in the same window"
 
 printf 'empty\n'
 rm -f "$SESSIONS"/*.json
