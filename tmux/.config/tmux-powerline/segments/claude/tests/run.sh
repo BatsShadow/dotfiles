@@ -141,6 +141,29 @@ rm -f "$SESSIONS"/*.json
 raw="$(__cc_collect "$SESSIONS" "")"
 assert_eq "$raw" "EMPTY" "an empty directory is still EMPTY, not TORN"
 
+# A Claude process SIGKILLed mid-write leaves a 0-byte file behind, and nothing
+# ever cleans it up -- that is the job of the exiting process. jq reads no input
+# from it and exits 0, so this is a clean read of a directory with no sessions.
+#
+# Deciding TORN by "were there files present" instead froze the segment
+# permanently: once every real session had exited, the stray file was the only
+# one left, no records parsed, and every tick from then on returned TORN. The
+# bar held a stale frame, every window kept a stale @cc_state, and notifications
+# stopped -- with nothing on screen to say so.
+rm -f "$SESSIONS"/*.json
+: >"${SESSIONS}/900012.json"
+raw="$(__cc_collect "$SESSIONS" "")"
+assert_eq "$raw" "EMPTY" "a stray 0-byte session file yields EMPTY, not TORN"
+
+# Same reasoning one step along: a well-formed file whose pid or status is null
+# parses cleanly and is simply dropped by the select. No records, but no failure
+# either.
+rm -f "$SESSIONS"/*.json
+printf '{"pid":null,"status":null}\n' >"${SESSIONS}/900013.json"
+raw="$(__cc_collect "$SESSIONS" "")"
+assert_eq "$raw" "EMPTY" "a session file with null pid and status yields EMPTY"
+rm -f "$SESSIONS"/*.json
+
 printf 'agent refresh triggering\n'
 BLOCKED="${WORK}/blocked.list"
 

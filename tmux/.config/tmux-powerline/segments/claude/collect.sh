@@ -15,13 +15,6 @@ __cc_file_age() {
 __cc_collect() {
 	local dir="$1" blocked_cache="$2"
 
-	# Distinguishing a failed parse from an empty directory needs to know
-	# whether there was anything to parse. A glob with no matches expands to
-	# the pattern itself, so test each candidate rather than counting words.
-	local nfiles=0 f
-	for f in "$dir"/*.json; do
-		[ -e "$f" ] && nfiles=$((nfiles + 1))
-	done
 	{
 		echo "P"
 		ps -eo pid=,ppid=
@@ -37,11 +30,19 @@ __cc_collect() {
 			| [(.pid | tostring), .status, (.kind // "-"),
 			   (.jobId // "-"), (.parkedJobId // "-")]
 			| @tsv' 2>/dev/null
-	} | awk -v nfiles="$nfiles" '
+		# Whether the read can be trusted is jq's answer to give, not
+		# something to infer from how many records came back. Immediately
+		# after the pipeline above, PIPESTATUS[1] is jq's exit code.
+		echo "J ${PIPESTATUS[1]}"
+	} | awk '
 		$0 == "P" { mode = "P"; next }
 		$0 == "W" { mode = "W"; next }
 		$0 == "B" { mode = "B"; next }
 		$0 == "S" { mode = "S"; next }
+		# Sits with the mode markers so the mode == "S" rule below cannot
+		# swallow it. No session record can collide: every one of them starts
+		# with a pid.
+		$1 == "J" { jqrc = $2; next }
 		mode == "P" { parent[$1] = $2; next }
 		mode == "W" { pane[$1] = $2; next }
 		mode == "B" { blocked[$1] = 1; next }
@@ -71,12 +72,21 @@ __cc_collect() {
 			else                   idle++
 		}
 		END {
-			# No records with files present means jq aborted on a file caught
-			# mid-write. That is not an empty directory, and the caller must not
-			# treat it as one -- EMPTY strips every window option, which would
+			# TORN means the read cannot be trusted; EMPTY means a clean read
+			# of a directory with no sessions. The caller responds to EMPTY by
+			# stripping every window option, so calling a bad read empty would
 			# manufacture a fresh transition on the following tick.
+			#
+			# jq failing is the whole of the first test. Asking instead whether
+			# any file was present froze the segment permanently: a process
+			# SIGKILLed mid-write leaves a 0-byte file that nothing ever cleans
+			# up -- cleanup is the job of the exiting process -- so once every
+			# real session had exited, the directory held one unparseable file,
+			# no records came back, and every tick from then on returned TORN.
+			# jq reads no input from a 0-byte file and exits 0, which is the
+			# truth: there really are no sessions.
 			if (!n) {
-				if (nfiles > 0) print "TORN"; else print "EMPTY"
+				if (jqrc != 0) print "TORN"; else print "EMPTY"
 				exit
 			}
 			printf "COUNTS %d %d %d\n", waiting + 0, busy + 0, idle + 0
