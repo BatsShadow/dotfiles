@@ -50,10 +50,12 @@ TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_S
 # A background agent blocked on input is recorded as "idle" in its session
 # file -- the file's status vocabulary has no value for it. The only place
 # that condition appears is `claude agents --json`, which costs ~290ms and so
-# cannot sit on the status-interval path. Refresh it on a throttle instead,
-# in the background, and read the cached result.
+# cannot sit on the status-interval path. It is asked only when a background
+# session enters the ambiguous idle state; see claude/agents.sh.
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD:-claude}"
-TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL:-10}"
+# Backstop only, not the primary trigger: the longest an answer may stand
+# before being asked again, and only while something is actually ambiguous.
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL:-60}"
 
 # Normal fill colour of the current-window bubble, and normal window-label
 # text colour. The theme exports its own values so these cannot drift apart.
@@ -104,7 +106,8 @@ export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH="${TMUX_POWERLINE_SEG_CLAUD
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH}"
-# Blocked background agents: how to ask, and how stale that answer may get.
+# Blocked background agents: how to ask, and the backstop interval that bounds
+# how stale an answer may get while something is ambiguous.
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL}"
 # Spacing. Each is inserted verbatim, so a space means one cell.
@@ -129,7 +132,6 @@ run_segment() {
 	__cc_ensure_globals
 
 	local blocked="${TMPDIR:-/tmp}/tmux-powerline-claude-blocked.${UID}.list"
-	__cc_refresh_blocked "$blocked"
 
 	local raw
 	raw=$(__cc_collect "$dir" "$blocked")
@@ -149,7 +151,7 @@ run_segment() {
 		return 0
 	fi
 
-	local -A desired=()
+	local -A desired=() desired_pid=()
 	local waiting=0 busy=0 idle=0 kind window state
 
 	if [ "$raw" = "EMPTY" ]; then
@@ -160,6 +162,7 @@ run_segment() {
 		return 0
 	fi
 
+	local amb=""
 	while read -r kind a b c; do
 		case "$kind" in
 		COUNTS)
@@ -171,9 +174,23 @@ run_segment() {
 			window="$a"
 			state="$b"
 			desired["$window"]="$state"
+			desired_pid["$window"]="$c"
+			;;
+		AMB)
+			amb="${amb}${amb:+ }${a}"
 			;;
 		esac
 	done <<<"$raw"
+
+	# awk emits array keys in no particular order, so sort before comparing --
+	# an unsorted fingerprint would appear to change on its own and re-ask the
+	# binary for a set that had not actually moved.
+	amb=$(printf '%s\n' $amb | sort -n | tr '\n' ' ')
+	amb="${amb% }"
+
+	# Kicked after collect rather than before it: the trigger is derived from
+	# this tick's session files, and the answer lands for the next one.
+	__cc_refresh_blocked "$blocked" "$amb"
 
 	__cc_sync_windows desired
 

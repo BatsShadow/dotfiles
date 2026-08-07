@@ -141,5 +141,57 @@ rm -f "$SESSIONS"/*.json
 raw="$(__cc_collect "$SESSIONS" "")"
 assert_eq "$raw" "EMPTY" "an empty directory is still EMPTY, not TORN"
 
+printf 'agent refresh triggering\n'
+BLOCKED="${WORK}/blocked.list"
+
+# Each case starts from a clean cache and a clean invocation log.
+refresh_case() {
+	rm -f "$BLOCKED" "$CC_FAKE_CLAUDE_LOG"
+	tmux set-option -gu @cc_bg_amb 2>/dev/null
+	__cc_refresh_blocked "$BLOCKED" "$1"
+	# The refresh is deliberately detached so it can never stall the status
+	# bar. It is a direct child of this shell, so wait for it here rather than
+	# spinning on the files it writes.
+	wait 2>/dev/null
+}
+
+calls() { [ -f "$CC_FAKE_CLAUDE_LOG" ] && wc -l <"$CC_FAKE_CLAUDE_LOG" | tr -d ' ' || echo 0; }
+
+# An empty ambiguous set must never spawn the binary. This is the steady state
+# on a machine with no idle background agents, and it should cost nothing.
+refresh_case ""
+assert_eq "$(calls)" "0" "an empty ambiguous set never invokes the binary"
+
+# A non-empty set with no stored fingerprint is a first look: ask.
+refresh_case "900001"
+assert_eq "$(calls)" "1" "a new ambiguous set invokes the binary once"
+
+# The same set, already answered, must not ask again.
+rm -f "$CC_FAKE_CLAUDE_LOG"
+__cc_refresh_blocked "$BLOCKED" "900001"
+assert_eq "$(calls)" "0" "an unchanged ambiguous set does not re-invoke"
+
+# A changed set must ask again. Same detached-child reasoning as refresh_case:
+# wait for it here so the check below lands after the binary actually runs,
+# rather than racing tmux/jq startup latency.
+rm -f "$CC_FAKE_CLAUDE_LOG"
+__cc_refresh_blocked "$BLOCKED" "900001 900002"
+wait 2>/dev/null
+assert_eq "$(calls)" "1" "a changed ambiguous set invokes the binary"
+
+# Emptying the set clears the cache without asking: a bg session that is not
+# idle cannot be blocked, so there is nothing to disambiguate.
+rm -f "$CC_FAKE_CLAUDE_LOG"
+__cc_refresh_blocked "$BLOCKED" ""
+assert_eq "$(calls)" "0" "emptying the ambiguous set does not invoke the binary"
+assert_eq "$(cat "$BLOCKED" 2>/dev/null)" "" "emptying the ambiguous set clears the blocked list"
+
+# Only agents carrying a pid are usable. The others are parked conversations
+# with no process, which cannot be attributed to a window.
+export CC_FAKE_CLAUDE_JSON='[{"kind":"background","state":"blocked","name":"no-pid"},{"kind":"background","state":"blocked","pid":900007,"name":"has-pid"}]'
+refresh_case "900007"
+assert_eq "$(cat "$BLOCKED" 2>/dev/null)" "900007" "only blocked agents with a pid reach the list"
+export CC_FAKE_CLAUDE_JSON='[]'
+
 printf '\n%d passed, %d failed\n' "$CC_PASS" "$CC_FAIL"
 [ "$CC_FAIL" -eq 0 ]
