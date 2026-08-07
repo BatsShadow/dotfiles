@@ -193,5 +193,75 @@ refresh_case "900007"
 assert_eq "$(cat "$BLOCKED" 2>/dev/null)" "900007" "only blocked agents with a pid reach the list"
 export CC_FAKE_CLAUDE_JSON='[]'
 
+printf 'transition detection\n'
+
+# Each case rebuilds window state from scratch.
+sync_case() {
+	local -A d=()
+	local w
+	for w in $1; do d["${w%%=*}"]="${w##*=}"; done
+	CC_TRANS=()
+	__cc_sync_windows d CC_TRANS
+}
+
+tmux set-option -gu @cc_primed 2>/dev/null
+tmux list-windows -a -F '#{session_name}:#{window_index}' | while read -r w; do
+	tmux set-option -w -t "$w" -u @cc_state 2>/dev/null
+done
+
+# First run after a server start has no @cc_state anywhere, so every waiting
+# session would read as a fresh transition. Priming must swallow that burst.
+sync_case "w1:0=waiting w1:1=waiting"
+assert_eq "${#CC_TRANS[@]}" "0" "the first sync primes state and notifies nothing"
+
+# With state primed, a genuine transition is reported.
+sync_case "w1:0=idle w1:1=idle"
+sync_case "w1:0=waiting w1:1=idle"
+assert_eq "${CC_TRANS[*]}" "w1:0" "entering waiting is reported once"
+
+# Holding at waiting is not a transition.
+sync_case "w1:0=waiting w1:1=idle"
+assert_eq "${#CC_TRANS[@]}" "0" "staying in waiting reports nothing"
+
+# Leaving and re-entering is a new transition.
+sync_case "w1:0=busy w1:1=idle"
+sync_case "w1:0=waiting w1:1=idle"
+assert_eq "${CC_TRANS[*]}" "w1:0" "re-entering waiting is reported again"
+
+# A transition that straddles a skipped sync is delayed, not lost: the previous
+# state lives in the window option, so the next sync still sees the edge.
+sync_case "w1:0=idle w1:1=idle"
+# (no sync at all here, standing in for a torn tick)
+sync_case "w1:0=waiting w1:1=idle"
+assert_eq "${CC_TRANS[*]}" "w1:0" "a transition across a skipped tick still reports"
+
+printf 'focus suppression\n'
+# The window the user is looking at needs no notification: the amber bubble is
+# already on screen.
+#
+# This needs a genuinely attached client. A detached server reports
+# session_attached 0 for everything, which would make every window look
+# unfocused and leave the suppression path silently untested. script(1) gives
+# the client a pty without this test needing a terminal of its own.
+script -q /dev/null tmux attach -t w1 >/dev/null 2>&1 &
+CC_CLIENT_PID=$!
+i=0
+while [ $i -lt 100 ]; do
+	[ -n "$(tmux list-clients -F '#{client_name}' 2>/dev/null)" ] && break
+	i=$((i + 1))
+	sleep 0.05
+done
+assert_contains "$(tmux list-windows -a -F '#{session_attached}')" "1" "the test client attached"
+
+tmux select-window -t w1:0
+sync_case "w1:0=idle w1:1=idle"
+
+# Both windows enter waiting together. Only the unfocused one is reported,
+# which asserts suppression and non-suppression in a single comparison.
+sync_case "w1:0=waiting w1:1=waiting"
+assert_eq "${CC_TRANS[*]}" "w1:1" "the focused window is suppressed, the unfocused one is not"
+
+kill "$CC_CLIENT_PID" 2>/dev/null
+
 printf '\n%d passed, %d failed\n' "$CC_PASS" "$CC_FAIL"
 [ "$CC_FAIL" -eq 0 ]

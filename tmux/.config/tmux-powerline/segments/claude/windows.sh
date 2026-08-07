@@ -49,6 +49,7 @@ __cc_sync_windows() {
 	# Prefixed to avoid a circular nameref if the caller's variable shares the
 	# name, which silently resolves the map to empty.
 	local -n __cc_desired=$1
+	local -n __cc_transitions=$2
 	local current window state curbg cmds=() first=1
 
 	# Every window, not just the Claude ones: the current-window bubble colour
@@ -62,17 +63,29 @@ __cc_sync_windows() {
 	# changed and rewrites the lot every second. A control byte is no good
 	# either: tmux escapes 0x1f into a literal backslash-zero-three-seven.
 	current=$(tmux list-windows -a -F \
-		'#{session_name}:#{window_index}|#{@cc_state}|#{@cc_cur_bg}|#{@cc_fg}|#{@cc_icon}' 2>/dev/null)
+		'#{session_name}:#{window_index}|#{@cc_state}|#{@cc_cur_bg}|#{@cc_fg}|#{@cc_icon}|#{window_active}|#{session_attached}' 2>/dev/null)
 
-	local -A have=() have_bg=() have_fg=() have_icon=() all=()
-	while IFS='|' read -r window state curbg fg icon; do
+	local -A have=() have_bg=() have_fg=() have_icon=() all=() focused=()
+	local active attached
+	while IFS='|' read -r window state curbg fg icon active attached; do
 		[ -n "$window" ] || continue
 		all["$window"]=1
 		[ -n "$state" ] && have["$window"]="$state"
 		have_bg["$window"]="$curbg"
 		have_fg["$window"]="$fg"
 		have_icon["$window"]="$icon"
+		# Focused means the current window of a client that is actually
+		# attached. A current window in a detached session is not on anyone's
+		# screen and still deserves a notification.
+		[ "$active" = "1" ] && [ -n "$attached" ] && [ "$attached" -gt 0 ] 2>/dev/null &&
+			focused["$window"]=1
 	done <<<"$current"
+
+	# After a server restart no window carries @cc_state, so every waiting
+	# session would read as a fresh transition and produce a burst. The first
+	# sync populates state silently.
+	local primed
+	primed=$(tmux show-options -gv @cc_primed 2>/dev/null)
 
 	for window in "${!all[@]}"; do
 		# tmux rejects an over-long command sequence outright with "command too
@@ -86,6 +99,14 @@ __cc_sync_windows() {
 		fi
 
 		state="${__cc_desired[$window]-}"
+
+		# The edge this whole feature hangs on. Recorded here, delivered by the
+		# caller after the batch flushes -- by then @cc_state already reads
+		# waiting, so an overlapping run sees no transition and stays quiet.
+		if [ "$state" = "waiting" ] && [ "${have[$window]-}" != "waiting" ] &&
+			[ -n "$primed" ] && [ -z "${focused[$window]-}" ]; then
+			__cc_transitions+=("$window")
+		fi
 
 		# The current window renders as a filled bubble, and amber text on that
 		# cyan fill is near-invisible since both are light. Recolouring the
@@ -176,5 +197,8 @@ __cc_sync_windows() {
 	done
 
 	[ ${#cmds[@]} -gt 0 ] && tmux "${cmds[@]}" 2>/dev/null
+
+	[ -n "$primed" ] || tmux set-option -g @cc_primed 1 2>/dev/null
+
 	return 0
 }

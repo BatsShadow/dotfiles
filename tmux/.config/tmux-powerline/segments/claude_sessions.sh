@@ -156,13 +156,14 @@ run_segment() {
 	# needs a pid to resolve waitingFor for a transition.
 	# shellcheck disable=SC2034
 	local -A desired=() desired_pid=()
+	local -a transitions=()
 	local waiting=0 busy=0 idle=0 kind window state
 
 	if [ "$raw" = "EMPTY" ]; then
 		# Genuinely no sessions — drop the stale frame rather than showing it
 		# forever, and strip every window icon.
 		rm -f "$cache"
-		__cc_sync_windows desired
+		__cc_sync_windows desired transitions
 		return 0
 	fi
 
@@ -196,7 +197,7 @@ run_segment() {
 	# this tick's session files, and the answer lands for the next one.
 	__cc_refresh_blocked "$blocked" "$amb"
 
-	__cc_sync_windows desired
+	__cc_sync_windows desired transitions
 
 	local segfg="${TMUX_POWERLINE_CUR_SEGMENT_FG:-$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR}"
 	local wait_color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR"
