@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Test shim. Redirects every tmux call the segment makes onto a throwaway
+# server so the live status bar is never touched. CC_REAL_TMUX is resolved by
+# the runner before this directory goes on PATH, which is what stops this
+# execing itself.
+#
+# -f /dev/null skips the developer's own tmux.conf. Without it the throwaway
+# server still inherits settings like `base-index 1`, which silently renumbers
+# every window the fixtures create and breaks any test that names one (e.g.
+# w1:0). The flag only has an effect on whichever call actually starts the
+# server, but it is harmless to pass on every call.
+exec "${CC_REAL_TMUX:?CC_REAL_TMUX not set}" -f /dev/null -L "${CC_TMUX_SOCKET:-cctest}" "$@"

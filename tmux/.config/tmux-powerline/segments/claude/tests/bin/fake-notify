@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Stub for TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD. Records one
+# tab-separated line per notification: window, then the waitingFor text.
+printf '%s\t%s\n' "$1" "$2" >>"${CC_NOTIFY_LOG:-/dev/null}"
+exit 0
