@@ -8,6 +8,18 @@ HISTORY_FILE="$HOME/.config/tmux/.session-history"
 SESSION_DIRS_FILE="$HOME/.config/tmux/.session-dirs"
 touch "$HISTORY_FILE" "$SESSION_DIRS_FILE"
 
+# Claude state annotation. A partial stow can leave this behind, and a picker
+# that refuses to open is far worse than one that opens without colour, so the
+# fallback degrades to the plain list this script produced before.
+CC_HELPER="${BASH_SOURCE[0]%/*}/claude-status.sh"
+if [[ -r "$CC_HELPER" ]]; then
+    # shellcheck source=claude-status.sh
+    source "$CC_HELPER"
+else
+    cc_load() { :; }
+    cc_row() { printf '%s\t%s\n' "$1" "$1"; }
+fi
+
 TAB=$(printf '\t')
 
 # Look up the saved directory for a session name
@@ -31,12 +43,17 @@ fi
 if [[ -n "$1" ]]; then
     selected="$1"
 else
-    # Build list: recent sessions first (excluding current), then directories for new sessions
+    # Build list: existing sessions, most recent first, excluding the current one.
+    #
+    # Every row is `display<TAB>value`. The display column carries the Claude
+    # state glyph and the colour; the value is the bare session name or path the
+    # rest of this script already expects, so nothing below the picker changes.
+    cc_load
     selected=$(
         {
             # Existing tmux sessions sorted by recency, excluding current
             while IFS= read -r name; do
-                [[ "$name" != "$current_session" ]] && echo "$name"
+                [[ "$name" != "$current_session" ]] && cc_row "$name" session
             done < <(
                 # Read history in reverse (most recent last → most recent first after tac)
                 tail -r "$HISTORY_FILE" | awk '!seen[$0]++' | while IFS= read -r hist_name; do
@@ -48,12 +65,17 @@ else
                 done
             )
 
-            # Directories for creating new sessions
-            find ~/src -mindepth 1 -maxdepth 1 -type d 2>/dev/null
-            find ~/src/upngo/worktrees -mindepth 1 -maxdepth 1 -type d 2>/dev/null
-            echo "$HOME/dotfiles"
-            echo "[new]"
-        } | awk '!seen[$0]++' | fzf --prompt="session> "
+            # No directories: this picker lists sessions only. A session is
+            # created either from the current directory via [new], or by
+            # worktree-new.sh, which does its own directory selection and then
+            # hands the path to this script as $1.
+            cc_row "[new]" new
+            # Dedup on the value, not the whole row: two rows for the same
+            # session would otherwise survive as soon as their glyphs differed.
+        } | awk -F'\t' '!seen[$2]++' | fzf --ansi \
+            --delimiter='\t' --with-nth=1 --accept-nth=2 \
+            --ghost="session" \
+            --prompt="session> "
     )
 fi
 
@@ -86,9 +108,15 @@ fi
 
 session_name=$(basename "$selected" | tr './:' '-')
 
-# Resolve the working directory:
+# Resolve the working directory.
+#
+# A directory no longer reaches this point from the picker -- that lists only
+# sessions -- but it is still the normal case for the two callers that pass $1:
+# worktree-new.sh hands over the worktree it created, and .zshrc replays
+# .last-session at shell startup. Removing this branch would break both.
+#
 # If selected is a directory path, use it directly and save the mapping.
-# If selected is a session name (from the existing sessions list), look up the saved dir.
+# If selected is a session name, look up the saved dir.
 if [[ -d "$selected" ]]; then
     session_dir="$selected"
     save_session_dir "$session_name" "$session_dir"
