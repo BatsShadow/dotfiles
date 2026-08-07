@@ -290,18 +290,23 @@ rm -f "$SESSIONS"/*.json
 
 # No transitions, no notification, no process spawned.
 notify_case "" ""
+wait 2>/dev/null
 assert_eq "$(cat "$CC_NOTIFY_LOG" 2>/dev/null)" "" "no transitions delivers nothing"
 
 # The window is the headline. waitingFor is looked up from the session file of
 # the pid that won the window, and only when a notification actually fires.
 session_file "$SESSIONS" 900020 waiting interactive "" "" "permission prompt"
 notify_case "w1:0" "w1:0=900020"
+# The delivery itself is detached (never blocks a redraw), so the assertion
+# below would otherwise race the fork -- same fix as Task 5's refresh_case.
+wait 2>/dev/null
 assert_eq "$(cat "$CC_NOTIFY_LOG" 2>/dev/null)" "$(printf 'w1:0\tpermission prompt')" "the window and waitingFor are delivered"
 
 # waitingFor is frequently null. The notification must still fire.
 rm -f "$SESSIONS"/*.json
 session_file "$SESSIONS" 900021 waiting interactive
 notify_case "w1:0" "w1:0=900021"
+wait 2>/dev/null
 assert_contains "$(cat "$CC_NOTIFY_LOG" 2>/dev/null)" "w1:0" "a missing waitingFor still notifies"
 
 # Several windows going waiting at once each get their own notification.
@@ -309,6 +314,7 @@ rm -f "$SESSIONS"/*.json
 session_file "$SESSIONS" 900022 waiting interactive
 session_file "$SESSIONS" 900023 waiting interactive
 notify_case "w1:0 w1:1" "w1:0=900022 w1:1=900023"
+wait 2>/dev/null
 assert_eq "$(wc -l <"$CC_NOTIFY_LOG" | tr -d ' ')" "2" "two transitions deliver two notifications"
 
 printf '\n%d passed, %d failed\n' "$CC_PASS" "$CC_FAIL"

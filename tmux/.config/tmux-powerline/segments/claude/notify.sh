@@ -40,8 +40,16 @@ __cc_notify_one() {
 	local window="$1" subtitle="$2"
 	local label="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL"
 
+	# Every branch below forks and returns immediately rather than waiting on
+	# the notifier: this runs on the status-interval path, and terminal-notifier
+	# alone measures ~0.5s just to start, which is most of a redraw's budget.
+	# The subshell's stdout/stderr MUST be redirected before the fork, exactly
+	# as __cc_refresh_blocked does in agents.sh -- tmux reads a #() command
+	# until EOF, so a detached child still holding the inherited pipe would
+	# stall the status bar as badly as running synchronously, only more
+	# confusingly.
 	if [ -n "$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD" ]; then
-		"$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD" "$window" "$subtitle" >/dev/null 2>&1
+		( "$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD" "$window" "$subtitle" ) >/dev/null 2>&1 &
 		return 0
 	fi
 
@@ -49,12 +57,13 @@ __cc_notify_one() {
 		local goto="${BASH_SOURCE[0]%/*}/goto.sh"
 		# -group keyed on the window so a repeat replaces its predecessor
 		# rather than stacking another card for the same session.
-		terminal-notifier \
-			-title "${label} ${window}" \
-			-message "$subtitle" \
-			-group "cc-${window}" \
-			-execute "'${goto}' '${window}' '${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TERM_APP}'" \
-			>/dev/null 2>&1
+		(
+			terminal-notifier \
+				-title "${label} ${window}" \
+				-message "$subtitle" \
+				-group "cc-${window}" \
+				-execute "'${goto}' '${window}' '${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TERM_APP}'"
+		) >/dev/null 2>&1 &
 		return 0
 	fi
 
@@ -63,6 +72,6 @@ __cc_notify_one() {
 	local t="${label} ${window}" m="$subtitle"
 	t="${t//\"/\\\"}"
 	m="${m//\"/\\\"}"
-	osascript -e "display notification \"${m}\" with title \"${t}\"" >/dev/null 2>&1
+	( osascript -e "display notification \"${m}\" with title \"${t}\"" ) >/dev/null 2>&1 &
 	return 0
 }
