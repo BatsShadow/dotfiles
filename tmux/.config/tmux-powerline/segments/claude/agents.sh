@@ -24,16 +24,21 @@ __cc_refresh_blocked() {
 	# Nothing idle in the background means nothing can be blocked, so the list
 	# is empty by construction and the binary is never spawned at all.
 	#
-	# Both writes are gated on the cache actually holding something. This is the
-	# steady state -- it runs every status-interval, forever, on a machine with
-	# no idle background agents -- and an unconditional set-option here would
-	# make tmux redraw the status line once a second for nothing, which is the
-	# same reason every write in __cc_sync_windows is diff-gated. Clearing the
-	# stored fingerprint matters only when there is a cache to invalidate
-	# alongside it.
+	# Both writes are gated on the cache existing. This is the steady state -- it
+	# runs every status-interval, forever, on a machine with no idle background
+	# agents -- and an unconditional set-option here would make tmux redraw the
+	# status line once a second for nothing, which is the same reason every write
+	# in __cc_sync_windows is diff-gated.
+	#
+	# The cache is removed rather than truncated. An answer of "nothing blocked"
+	# is a legitimately empty file, so gating on size would leave the stored
+	# fingerprint behind and let the settled-answer check below suppress the next
+	# refresh for a whole TTL -- a background agent that became blocked in the
+	# meantime would read as plain idle. With the file gone, __cc_file_age yields
+	# nothing and the refresh is forced the moment the set comes back.
 	if [ -z "$amb_fp" ]; then
-		if [ -s "$cache" ]; then
-			: >"$cache" 2>/dev/null
+		if [ -e "$cache" ]; then
+			rm -f "$cache" 2>/dev/null
 			tmux set-option -g @cc_bg_amb "" 2>/dev/null
 		fi
 		return 0
