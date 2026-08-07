@@ -47,6 +47,14 @@ TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSI
 # Set it to the same value as IDLE_GLYPH to mark idle windows again.
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH-}"
 
+# A background agent blocked on input is recorded as "idle" in its session
+# file -- the file's status vocabulary has no value for it. The only place
+# that condition appears is `claude agents --json`, which costs ~290ms and so
+# cannot sit on the status-interval path. Refresh it on a throttle instead,
+# in the background, and read the cached result.
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD:-claude}"
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL:-10}"
+
 # Normal fill colour of the current-window bubble, and normal window-label
 # text colour. The theme exports its own values so these cannot drift apart.
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_CUR_BG="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_CUR_BG:-#59c2ff}"
@@ -79,6 +87,9 @@ export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH="${TMUX_POWERLINE_SEG_CLAUD
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH}"
+# Blocked background agents: how to ask, and how stale that answer may get.
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD}"
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL}"
 # Spacing. Each is inserted verbatim, so a space means one cell.
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP}"
@@ -133,13 +144,68 @@ __cc_ensure_globals() {
 # session is attributed to the window that actually owns it. Matching on the
 # session `name` instead would be wrong: two sessions can share a name (there
 # are currently two called fp-wallet-avs) and background agents have no window.
+# Seconds since a file was last modified, or nothing if it does not exist.
+__cc_file_age() {
+	local m
+	m=$(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null) || return 1
+	[ -n "$m" ] || return 1
+	echo $(( $(date +%s) - m ))
+}
+
+# Kick a background refresh of the blocked-agent list if the cache has aged
+# out. Never blocks: the caller uses whatever the cache already holds, so the
+# blocked state can lag by up to TTL seconds while everything sourced from the
+# session files stays current.
+#
+# The subshell MUST have its stdout redirected. tmux reads a #() command until
+# EOF, so a child still holding the inherited pipe would stall the status bar.
+__cc_refresh_blocked() {
+	local cache="$1" age
+	age=$(__cc_file_age "$cache")
+	[ -n "$age" ] && [ "$age" -lt "$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL" ] && return 0
+
+	# Directory create is atomic, so only one refresh can be in flight even
+	# though a new copy of this script runs every status-interval.
+	local lock="${cache}.lock"
+	mkdir "$lock" 2>/dev/null || return 0
+
+	(
+		trap 'rmdir "$lock" 2>/dev/null' EXIT
+		local out=""
+		if command -v timeout >/dev/null 2>&1; then
+			out=$(timeout 10 "$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD" agents --json 2>/dev/null)
+		else
+			out=$("$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD" agents --json 2>/dev/null)
+		fi
+
+		if [ -n "$out" ]; then
+			# Only agents that still have a pid. A parked conversation with no
+			# process cannot be attributed to a window, and several of those
+			# are weeks old -- permanently amber entries would just train the
+			# eye to ignore the colour.
+			printf '%s' "$out" \
+				| jq -r '.[]? | select(.kind == "background" and .state == "blocked" and .pid != null) | .pid' \
+					2>/dev/null > "${cache}.$$"
+			mv -f "${cache}.$$" "$cache" 2>/dev/null || rm -f "${cache}.$$"
+		else
+			# Reset the throttle even on failure, so a broken CLI cannot turn
+			# into a refresh attempt every single status-interval.
+			touch "$cache" 2>/dev/null
+		fi
+	) >/dev/null 2>&1 &
+
+	return 0
+}
+
 __cc_collect() {
-	local dir="$1"
+	local dir="$1" blocked_cache="$2"
 	{
 		echo "P"
 		ps -eo pid=,ppid=
 		echo "W"
 		tmux list-panes -a -F '#{pane_pid} #{session_name}:#{window_index}'
+		echo "B"
+		[ -n "$blocked_cache" ] && cat "$blocked_cache" 2>/dev/null
 		echo "S"
 		cat "$dir"/*.json 2>/dev/null | jq -r -n '
 			[inputs]
@@ -151,18 +217,26 @@ __cc_collect() {
 	} | awk '
 		$0 == "P" { mode = "P"; next }
 		$0 == "W" { mode = "W"; next }
+		$0 == "B" { mode = "B"; next }
 		$0 == "S" { mode = "S"; next }
 		mode == "P" { parent[$1] = $2; next }
 		mode == "W" { pane[$1] = $2; next }
+		mode == "B" { blocked[$1] = 1; next }
 		# Buffer the sessions rather than resolving inline: a background agent
 		# can be read before the interactive session that parked it.
 		mode == "S" {
+			# A background agent blocked on input records itself as idle, so
+			# the blocked list is the only thing that can promote it. Trust it
+			# over the file.
+			st = $2
+			if ($1 in blocked) st = "waiting"
+
 			n++
-			spid[n] = $1; sstatus[n] = $2; skind[n] = $3; sjob[n] = $4
+			spid[n] = $1; sstatus[n] = st; skind[n] = $3; sjob[n] = $4
 			if ($5 != "-") parked[$5] = $1
 
-			if ($2 == "waiting")   waiting++
-			else if ($2 == "busy") busy++
+			if (st == "waiting")   waiting++
+			else if (st == "busy") busy++
 			else                   idle++
 		}
 		END {
@@ -357,8 +431,11 @@ run_segment() {
 	# window with no colours is a rendering bug, not a missing status.
 	__cc_ensure_globals
 
+	local blocked="${TMPDIR:-/tmp}/tmux-powerline-claude-blocked.${UID}.list"
+	__cc_refresh_blocked "$blocked"
+
 	local raw
-	raw=$(__cc_collect "$dir")
+	raw=$(__cc_collect "$dir" "$blocked")
 
 	if [ -z "$raw" ]; then
 		[ -s "$cache" ] && cat "$cache"
