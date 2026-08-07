@@ -486,6 +486,16 @@ run_segment() {
 	local busy_color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR"
 	[ "$busy" -gt 0 ] && busy_color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_COLOR"
 
+	# The label carries the most demanding state present, so the segment reads
+	# at a glance without parsing the numbers: amber means something is waiting
+	# on you, whatever the counts say. Grey only when everything is idle.
+	local label_color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR"
+	if [ "$waiting" -gt 0 ]; then
+		label_color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_COLOR"
+	elif [ "$busy" -gt 0 ]; then
+		label_color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_COLOR"
+	fi
+
 	local gap="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP"
 
 	local out=""
@@ -493,7 +503,7 @@ run_segment() {
 	# character -- so one space is enough to keep it from reading as part of
 	# the first number.
 	local lgap="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP"
-	out+="#[fg=${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR}]${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL}${lgap}"
+	out+="#[fg=${label_color}]${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL}${lgap}"
 	# All three counts are spaced identically -- the glyphs do the separating,
 	# so the gap is empty and the groups stay visually even.
 	out+="#[fg=${wait_color}${wait_attr}]${waiting}${gap}${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH}"
