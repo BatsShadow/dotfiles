@@ -65,7 +65,10 @@ rm -f "$SESSIONS"/*.json
 session_file "$SESSIONS" "$pid_a" idle interactive
 session_file "$SESSIONS" "$pid_b" busy interactive
 raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
-assert_contains "$raw" "COUNTS 0 1 1" "busy and idle counted separately"
+# One window, therefore one count -- the idle session sharing it adds nothing.
+# The count answers "how many places need me", and both of these sessions are
+# reached by going to the same place.
+assert_contains "$raw" "COUNTS 0 1 0" "two sessions in one window count once"
 assert_contains "$raw" "WIN w1:0 busy" "busy outranks idle in the same window"
 
 rm -f "$SESSIONS"/*.json
@@ -294,14 +297,16 @@ PATH="$saved_path"
 assert_eq "$raw" "TORN" "an empty pane list yields TORN, not a windowless COUNTS"
 rm -f "${STUBS}/tmux"
 
-# Gating on the inputs, not on the output: zero WIN lines is legitimate when
-# every live session is a background agent with no window of its own, and
-# calling that TORN would wedge the bar just as badly.
+# Gating on the inputs, not on the output: zero WIN lines is legitimate when no
+# live session owns a window, and calling that TORN would wedge the bar just as
+# badly. The counts go to zero with them, which is the point of counting windows
+# -- a session with no window is one there is no way to go and answer.
 rm -f "$SESSIONS"/*.json
 session_file "$SESSIONS" 900014 idle bg
 raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
-assert_contains "$raw" "COUNTS 0 0 1" "a windowless bg session still reports counts"
-assert_not_contains "$raw" "WIN" "a windowless bg session produces no WIN line"
+assert_contains "$raw" "COUNTS 0 0 0" "a windowless session counts as nothing"
+assert_not_contains "$raw" "WIN" "a windowless session produces no WIN line"
+assert_not_contains "$raw" "TORN" "a windowless session is not a torn read"
 assert_not_contains "$raw" "TORN" "no WIN lines from a healthy read is not TORN"
 rm -f "$SESSIONS"/*.json
 
@@ -588,16 +593,44 @@ printf 'count trimming\n'
 # from the highest-priority non-zero state rightwards, and idle alone when
 # nothing is non-zero.
 
-# The counts come straight from the session records; whether a record resolves
-# to a window is a separate question the pid walk answers. So a state can be
-# driven with pids that own no pane, which is the only way to set the three
-# counts independently of the one window this suite owns.
+# The counts are per window, so driving them means driving windows. Fabricated
+# pids no longer work for this -- one that owns no pane resolves to no window
+# and now contributes to nothing -- so each case builds a throwaway tmux session
+# with one real window per count and pins a session file to each window's pane.
 counts_case() {
-	local w="$1" b="$2" i="$3" n=0
+	local w="$1" b="$2" i="$3" n=0 idx=0
+	# Its own statement: the arithmetic is expanded before `local` runs, so
+	# folding it into the line above would read w/b/i from the caller's scope,
+	# where they are unset -- which under set -u aborts the suite.
+	local total=$((w + b + i))
 	rm -f "$SESSIONS"/*.json
-	for ((n = 0; n < w; n++)); do session_file "$SESSIONS" "$((910000 + n))" waiting interactive; done
-	for ((n = 0; n < b; n++)); do session_file "$SESSIONS" "$((920000 + n))" busy interactive; done
-	for ((n = 0; n < i; n++)); do session_file "$SESSIONS" "$((930000 + n))" idle interactive; done
+	tmux kill-session -t counts 2>/dev/null
+
+	if [ "$total" -gt 0 ]; then
+		tmux new-session -d -s counts -x 80 -y 24
+		while [ "$(tmux list-windows -t counts 2>/dev/null | wc -l)" -lt "$total" ]; do
+			tmux new-window -t counts
+		done
+
+		local -a wpids=()
+		while IFS= read -r p; do wpids+=("$p"); done < <(
+			tmux list-panes -s -t counts -F '#{pane_pid}'
+		)
+
+		for ((n = 0; n < w; n++)); do
+			session_file "$SESSIONS" "${wpids[idx]}" waiting interactive
+			idx=$((idx + 1))
+		done
+		for ((n = 0; n < b; n++)); do
+			session_file "$SESSIONS" "${wpids[idx]}" busy interactive
+			idx=$((idx + 1))
+		done
+		for ((n = 0; n < i; n++)); do
+			session_file "$SESSIONS" "${wpids[idx]}" idle interactive
+			idx=$((idx + 1))
+		done
+	fi
+
 	seg_run
 }
 
@@ -651,6 +684,7 @@ counts_case 0 3 5
 assert_not_contains "$(cat "${WORK}/seg.out")" ",bold]" "nothing is bold when nothing is waiting"
 
 rm -f "$SESSIONS"/*.json
+tmux kill-session -t counts 2>/dev/null
 seg_run
 
 printf 'notification click target\n'

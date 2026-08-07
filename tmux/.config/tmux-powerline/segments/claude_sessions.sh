@@ -1,10 +1,19 @@
 # shellcheck shell=bash
 # Claude Code session status.
 #
-# Prints waiting/busy/idle counts across every running Claude session, and as a
+# Prints waiting/busy/idle counts over every window running Claude, and as a
 # side effect stamps per-window options so window-status-format can show the
 # same state without spawning a process per window. A window entering the
 # waiting state also raises a macOS notification.
+#
+# Windows, not sessions. The number answers "how many places need me", so a
+# window holding two Claudes -- or a parked session and a blocked agent under
+# it -- counts once, because it is one place to go. Counting sessions instead
+# made the total disagree with the picker, the window glyphs and the
+# notifications, all of which have always been per window, and a count that
+# cannot be reconciled with the list beside it is a count nobody trusts. A
+# session owning no window is not counted at all: there is nowhere to go and
+# answer it.
 #
 # Counts are shown from the highest-priority non-zero state rightwards, so the
 # label sits against a number that means something rather than behind a run of

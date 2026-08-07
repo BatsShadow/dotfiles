@@ -127,10 +127,6 @@ __cc_collect() {
 
 			n++
 			spid[n] = $1; sstatus[n] = st
-
-			if (st == "waiting")   waiting++
-			else if (st == "busy") busy++
-			else                   idle++
 		}
 		END {
 			# A jobs read that failed leaves the blocked set unknowable. Saying
@@ -169,8 +165,6 @@ __cc_collect() {
 				exit
 			}
 
-			printf "COUNTS %d %d %d\n", waiting + 0, busy + 0, idle + 0
-
 			for (s = 1; s <= n; s++) {
 				p = spid[s]
 
@@ -194,6 +188,22 @@ __cc_collect() {
 					p = parent[p]
 				}
 			}
+
+			# Counted per window, not per session, and deliberately so. The
+			# number answers "how many places need me", which is the only
+			# question it is ever read to answer -- a window holding a parked
+			# session and a blocked agent is still one place to go, and
+			# counting it twice would make the total disagree with the picker,
+			# the window glyphs and the notifications, all of which are already
+			# per window. It also drops sessions that resolve to no window at
+			# all, which is right: those cannot be navigated to.
+			for (w in state) {
+				if (state[w] == "waiting")   waiting++
+				else if (state[w] == "busy") busy++
+				else                         idle++
+			}
+
+			printf "COUNTS %d %d %d\n", waiting + 0, busy + 0, idle + 0
 
 			for (w in state) printf "WIN %s %s %s\n", w, state[w], bestpid[w]
 		}
