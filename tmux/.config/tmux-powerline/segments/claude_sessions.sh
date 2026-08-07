@@ -13,21 +13,39 @@
 # leads the right-hand status, so a vanishing one would shift everything after
 # it, and a stated zero cannot be mistaken for the feature being broken.
 #
-# Data comes from ~/.claude/sessions/<pid>.json -- one file per live session,
+# Data comes from three directories, describing three different things.
+#
+# ~/.claude/sessions/<pid>.json -- one file per live INTERACTIVE session,
 # written by the CLI and removed when the session exits. Relevant fields:
 #
 #   {"pid":17928,"status":"idle","name":"dotfiles","kind":"interactive",
-#    "waitingFor":"permission prompt", ...}
+#    "sessionId":"7505ed4c-...","waitingFor":"permission prompt", ...}
 #
-# status is one of idle | busy | waiting. `claude agents --json` reports the
-# same thing and is the supported interface, but it costs ~290ms of node
-# startup, which is far too slow for a 1s status-interval -- so it is asked
-# only when a background session sits in the one state its file cannot resolve.
+# status is one of idle | busy | waiting.
+#
+# ~/.claude/jobs/<id>/state.json -- one directory per background agent, written
+# by the daemon. An agent has no pid and no session file of its own, so it is
+# attributed to a window through the sessionId of the interactive session that
+# owns it. Relevant fields:
+#
+#   {"state":"blocked","sessionId":"7505ed4c-...","name":"user-edit-changes"}
+#
+# `claude agents --json` reports the same thing and is the supported interface,
+# but it is derived from these files and costs ~290ms of node startup, which is
+# far too slow for a 1s status-interval.
+#
+# ~/.claude/waiting/<sessionId> -- one file per session a hook has judged to be
+# waiting on the user, written by claude/.claude/hooks/claude-waiting.sh in the
+# dotfiles repo. It exists because neither directory above can express the most
+# common way a session waits: having asked an open-ended question. Claude Code
+# records that as plain "idle" with waitingFor null, identically to a session
+# that simply finished -- probing every hook payload confirmed the notification
+# stream cannot tell them apart either. Only the text of the last message can,
+# and only a hook ever sees it.
 #
 # This file holds config and rendering. The work lives in claude/:
-#   collect.sh  read session files, resolve windows, emit sentinels
+#   collect.sh  read both directories, resolve windows, emit sentinels
 #   windows.sh  push state into window options, detect transitions
-#   agents.sh   the blocked-agent cache
 #   notify.sh   macOS notification delivery
 #   goto.sh     notification click target
 #   tests/      run.sh, safe to run against the live server
@@ -41,7 +59,6 @@
 # Server options:
 #   @cc_primed  set once state has been populated, so a server restart does not
 #               report every waiting session as a fresh transition
-#   @cc_bg_amb  the ambiguous background set the blocked list was computed for
 
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR:-${HOME}/.claude/sessions}"
 # Nerd Font glyph. It is double-width, so it must be followed by whitespace --
@@ -77,15 +94,20 @@ TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSI
 # Set it to the same value as IDLE_GLYPH to mark idle windows again.
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH-}"
 
-# A background agent blocked on input is recorded as "idle" in its session
-# file -- the file's status vocabulary has no value for it. The only place
-# that condition appears is `claude agents --json`, which costs ~290ms and so
-# cannot sit on the status-interval path. It is asked only when a background
-# session enters the ambiguous idle state; see claude/agents.sh.
-TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD:-claude}"
-# Backstop only, not the primary trigger: the longest an answer may stand
-# before being asked again, and only while something is actually ambiguous.
-TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL:-60}"
+# Directory holding one subdirectory per background agent, each with a
+# state.json. This is where a blocked agent is discovered; see claude/collect.sh
+# for how one is attributed to a window. `claude agents --json` reports the same
+# thing and is the supported interface, but it is derived from these same files
+# and costs ~290ms of node startup, which is far too slow for a 1s
+# status-interval.
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_JOBS_DIR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_JOBS_DIR:-${HOME}/.claude/jobs}"
+
+# Directory holding one file per session a hook has judged to be waiting on the
+# user, named for its sessionId. Written by claude/.claude/hooks/claude-waiting.sh
+# and read here through the same sessionId link as a blocked agent. This is the
+# only source for the case neither directory above can express: a session that
+# asked an open-ended question, which Claude Code records as plain "idle".
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_MARKS_DIR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_MARKS_DIR:-${HOME}/.claude/waiting}"
 
 # Normal fill colour of the current-window bubble, and normal window-label
 # text colour. The theme exports its own values so these cannot drift apart.
@@ -120,7 +142,7 @@ TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TERM_APP="${TMUX_POWERLINE_SEG_CLAUDE_SESSION
 # A missing helper degrades to a quiet segment rather than an error in the
 # status bar, which is why each source is guarded rather than assumed.
 __cc_helpers="${BASH_SOURCE[0]%/*}/claude"
-for __cc_helper in collect windows agents notify; do
+for __cc_helper in collect windows notify; do
 	if [ -r "${__cc_helpers}/${__cc_helper}.sh" ]; then
 		# shellcheck disable=SC1090
 		source "${__cc_helpers}/${__cc_helper}.sh"
@@ -130,8 +152,13 @@ unset __cc_helper __cc_helpers
 
 generate_segmentrc() {
 	read -r -d '' rccontents <<EORC
-# Directory holding one JSON status file per live Claude session.
+# Directory holding one JSON status file per live interactive Claude session.
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR}"
+# Directory holding one subdirectory per background agent, each with a
+# state.json. Blocked agents are found here.
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_JOBS_DIR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_JOBS_DIR}"
+# Directory of hook-written waiting markers, one per sessionId.
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_MARKS_DIR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_MARKS_DIR}"
 # Label shown before the counts.
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL}"
 # Label heading a notification. Plain text, not the glyph above: Notification
@@ -146,10 +173,6 @@ export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH="${TMUX_POWERLINE_SEG_CLAUD
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_IDLE_GLYPH}"
-# Blocked background agents: how to ask, and the backstop interval that bounds
-# how stale an answer may get while something is ambiguous.
-export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD}"
-export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL}"
 # Spacing. Each is inserted verbatim, so a space means one cell.
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP}"
@@ -175,10 +198,10 @@ run_segment() {
 	# window with no colours is a rendering bug, not a missing status.
 	__cc_ensure_globals
 
-	local blocked="${TMPDIR:-/tmp}/tmux-powerline-claude-blocked.${UID}.list"
-
 	local raw
-	raw=$(__cc_collect "$dir" "$blocked")
+	raw=$(__cc_collect "$dir" \
+		"$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_JOBS_DIR" \
+		"$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_MARKS_DIR")
 
 	if [ -z "$raw" ]; then
 		[ -s "$cache" ] && cat "$cache"
@@ -209,7 +232,6 @@ run_segment() {
 	# through untouched, and an empty `desired` is what makes the sync strip
 	# every window icon. The render block then states the zero rather than
 	# blanking the segment, and tee overwrites the stale frame in the cache.
-	local amb=""
 	while read -r kind a b c; do
 		case "$kind" in
 		COUNTS)
@@ -223,34 +245,16 @@ run_segment() {
 			desired["$window"]="$state"
 			desired_pid["$window"]="$c"
 			;;
-		AMB)
-			amb="${amb}${amb:+ }${a}"
-			;;
 		esac
 	done <<<"$raw"
-
-	# awk emits array keys in no particular order, so sort before comparing --
-	# an unsorted fingerprint would appear to change on its own and re-ask the
-	# binary for a set that had not actually moved. Guarded because an empty set
-	# is the steady state, and sorting nothing still costs a sort and a tr on
-	# every single tick.
-	if [ -n "$amb" ]; then
-		# Deliberately unquoted: the words are the set.
-		# shellcheck disable=SC2086
-		amb=$(printf '%s\n' $amb | sort -n | tr '\n' ' ')
-		amb="${amb% }"
-	fi
-
-	# Kicked after collect rather than before it: the trigger is derived from
-	# this tick's session files, and the answer lands for the next one.
-	__cc_refresh_blocked "$blocked" "$amb"
 
 	__cc_sync_windows desired transitions
 
 	# After the sync, never before: by this point @cc_state already reads
 	# waiting, so a concurrently running copy of the segment sees no transition
 	# and cannot deliver a duplicate.
-	__cc_notify "$dir" transitions desired_pid
+	__cc_notify "$dir" transitions desired_pid \
+		"$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_MARKS_DIR"
 
 	local segfg="${TMUX_POWERLINE_CUR_SEGMENT_FG:-$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR}"
 	local wait_color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR"

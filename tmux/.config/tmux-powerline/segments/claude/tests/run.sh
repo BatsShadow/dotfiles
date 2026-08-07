@@ -18,12 +18,17 @@ trap 'test_tmux_stop; rm -rf "$WORK"' EXIT
 test_tmux_start
 
 SESSIONS="${WORK}/sessions"
-mkdir -p "$SESSIONS"
+JOBS="${WORK}/jobs"
+MARKS="${WORK}/waiting"
+mkdir -p "$SESSIONS" "$JOBS" "$MARKS"
 
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_DIR="$SESSIONS"
-export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD="${CC_TESTS_DIR}/bin/fake-claude"
-export CC_FAKE_CLAUDE_LOG="${WORK}/claude.log"
-export CC_FAKE_CLAUDE_JSON='[]'
+# Both must be exported before any run_segment test: left unset the segment
+# would fall back to the real ~/.claude/jobs and ~/.claude/waiting, and the
+# suite would report on whatever agents happen to be blocked, and whatever
+# sessions happen to be waiting, on this machine.
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_JOBS_DIR="$JOBS"
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_MARKS_DIR="$MARKS"
 
 printf 'sourcing\n'
 # Not `out="$(cc_load)"`: command substitution forks a subshell, and the
@@ -39,7 +44,7 @@ printf 'collect\n'
 # One idle interactive session, attributed to the window that owns it.
 pid_w1="$(test_window_pid w1:0)"
 session_file "$SESSIONS" "$pid_w1" idle interactive
-raw="$(__cc_collect "$SESSIONS" "")"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
 assert_contains "$raw" "COUNTS 0 0 1" "one idle session counts as idle"
 assert_contains "$raw" "WIN w1:0 idle" "idle session attributed to its window"
 
@@ -59,19 +64,19 @@ pid_b="${pids_w1[1]}"
 rm -f "$SESSIONS"/*.json
 session_file "$SESSIONS" "$pid_a" idle interactive
 session_file "$SESSIONS" "$pid_b" busy interactive
-raw="$(__cc_collect "$SESSIONS" "")"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
 assert_contains "$raw" "COUNTS 0 1 1" "busy and idle counted separately"
 assert_contains "$raw" "WIN w1:0 busy" "busy outranks idle in the same window"
 
 rm -f "$SESSIONS"/*.json
 session_file "$SESSIONS" "$pid_a" waiting interactive
 session_file "$SESSIONS" "$pid_b" busy interactive
-raw="$(__cc_collect "$SESSIONS" "")"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
 assert_contains "$raw" "WIN w1:0 waiting" "waiting outranks busy in the same window"
 
 printf 'empty\n'
 rm -f "$SESSIONS"/*.json
-raw="$(__cc_collect "$SESSIONS" "")"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
 assert_eq "$raw" "EMPTY" "an empty sessions directory yields EMPTY"
 
 printf 'collect: pid and ambiguous set\n'
@@ -80,43 +85,137 @@ rm -f "$SESSIONS"/*.json
 # The WIN line carries the pid of the session that won the window, so a
 # notification can look up waitingFor lazily instead of threading it through awk.
 session_file "$SESSIONS" "$pid_w1" waiting interactive
-raw="$(__cc_collect "$SESSIONS" "")"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
 assert_contains "$raw" "WIN w1:0 waiting ${pid_w1}" "WIN line carries the winning session pid"
 
-# A background session sitting at idle is ambiguous: the file cannot say whether
-# it is blocked on input, so only this state warrants asking the binary.
-rm -f "$SESSIONS"/*.json
-session_file "$SESSIONS" 900001 idle bg
-raw="$(__cc_collect "$SESSIONS" "")"
-assert_contains "$raw" "AMB 900001" "an idle bg session is ambiguous"
+printf 'collect: blocked background agents\n'
 
-# Busy and waiting are conclusive from the file alone.
+# The case this whole path exists for. A background agent has no pid and no
+# session file of its own; the only trace it leaves is a job state directory.
+# Its sessionId names the interactive session that owns it, and that session
+# does have a pid, which resolves to the window the user is looking at.
 rm -f "$SESSIONS"/*.json
-session_file "$SESSIONS" 900002 busy bg
-raw="$(__cc_collect "$SESSIONS" "")"
-assert_not_contains "$raw" "AMB" "a busy bg session is not ambiguous"
+rm -rf "${JOBS:?}"/*
+session_file "$SESSIONS" "$pid_w1" idle interactive "sid-aaa"
+job_file "$JOBS" job1 blocked "sid-aaa"
+raw="$(__cc_collect "$SESSIONS" "$JOBS" "$MARKS")"
+assert_contains "$raw" "WIN w1:0 waiting" "a blocked agent marks its owning window waiting"
+assert_contains "$raw" "COUNTS 1 0 0" "a blocked agent counts as waiting"
 
-rm -f "$SESSIONS"/*.json
-session_file "$SESSIONS" 900003 waiting bg
-raw="$(__cc_collect "$SESSIONS" "")"
-assert_not_contains "$raw" "AMB" "a waiting bg session is not ambiguous"
+# An agent that is not blocked says nothing about its owner.
+rm -rf "${JOBS:?}"/*
+job_file "$JOBS" job1 running "sid-aaa"
+raw="$(__cc_collect "$SESSIONS" "$JOBS" "$MARKS")"
+assert_contains "$raw" "WIN w1:0 idle" "a running agent leaves its owner idle"
+assert_contains "$raw" "COUNTS 0 0 1" "a running agent does not count as waiting"
 
-# Interactive sessions never warrant the binary.
-rm -f "$SESSIONS"/*.json
-session_file "$SESSIONS" "$pid_w1" idle interactive
-raw="$(__cc_collect "$SESSIONS" "")"
-assert_not_contains "$raw" "AMB" "an idle interactive session is not ambiguous"
+# Stale agents are the common case: three of the four blocked jobs on a real
+# machine were weeks old, parked against sessions that had long since exited.
+# Matching on sessionId drops them for free -- no live session, no window.
+rm -rf "${JOBS:?}"/*
+job_file "$JOBS" old1 blocked "sid-long-gone"
+raw="$(__cc_collect "$SESSIONS" "$JOBS" "$MARKS")"
+assert_contains "$raw" "WIN w1:0 idle" "a blocked agent with no live owner marks nothing"
+assert_contains "$raw" "COUNTS 0 0 1" "a stale blocked agent does not count as waiting"
 
-# The ambiguous set is built from the RAW file status. A bg session promoted to
-# waiting by the blocked list is still ambiguous, or the set would flip every
-# time the promotion took effect and re-trigger the binary forever.
+# Several agents can be blocked under one session. The window is waiting once.
+rm -rf "${JOBS:?}"/*
+job_file "$JOBS" job1 blocked "sid-aaa"
+job_file "$JOBS" job2 blocked "sid-aaa"
+raw="$(__cc_collect "$SESSIONS" "$JOBS" "$MARKS")"
+assert_contains "$raw" "WIN w1:0 waiting" "two blocked agents under one session still mark it waiting"
+
+# A blocked agent outranks its owner's own busy state, same as any waiting.
 rm -f "$SESSIONS"/*.json
-session_file "$SESSIONS" 900004 idle bg
-printf '900004\n' >"${WORK}/blocked.list"
-raw="$(__cc_collect "$SESSIONS" "${WORK}/blocked.list")"
-assert_contains "$raw" "AMB 900004" "a promoted bg session stays in the ambiguous set"
-assert_contains "$raw" "COUNTS 1 0 0" "a promoted bg session counts as waiting"
-rm -f "${WORK}/blocked.list"
+rm -rf "${JOBS:?}"/*
+session_file "$SESSIONS" "$pid_w1" busy interactive "sid-aaa"
+job_file "$JOBS" job1 blocked "sid-aaa"
+raw="$(__cc_collect "$SESSIONS" "$JOBS" "$MARKS")"
+assert_contains "$raw" "WIN w1:0 waiting" "a blocked agent outranks its owner's busy state"
+
+# A job directory holding no state.json is a leftover temp dir -- two of the six
+# on a real machine were exactly that. It must read as "nothing blocked", not as
+# a failed read.
+rm -f "$SESSIONS"/*.json
+rm -rf "${JOBS:?}"/*
+session_file "$SESSIONS" "$pid_w1" idle interactive "sid-aaa"
+mkdir -p "${JOBS}/leftover/tmp"
+raw="$(__cc_collect "$SESSIONS" "$JOBS" "$MARKS")"
+assert_contains "$raw" "COUNTS 0 0 1" "a job dir with no state.json is not blocked"
+assert_not_contains "$raw" "TORN" "a job dir with no state.json is not a torn read"
+
+# A jobs directory that does not exist at all is the machine that has never run
+# a background agent. Also not a failure.
+rm -rf "${JOBS:?}"/*
+raw="$(__cc_collect "$SESSIONS" "${WORK}/no-such-jobs-dir" "$MARKS")"
+assert_contains "$raw" "COUNTS 0 0 1" "a missing jobs directory is not blocked"
+assert_not_contains "$raw" "TORN" "a missing jobs directory is not a torn read"
+
+# But a state.json caught mid-write is a torn read. Guessing "nothing blocked"
+# would drop every window out of waiting for a tick and then put them back,
+# which is a notification burst on the recovery tick.
+mkdir -p "${JOBS}/torn"
+printf '{"state":"bloc' >"${JOBS}/torn/state.json"
+raw="$(__cc_collect "$SESSIONS" "$JOBS" "$MARKS")"
+assert_eq "$raw" "TORN" "a truncated job state file yields TORN"
+rm -rf "${JOBS:?}"/*
+
+printf 'collect: hook waiting markers\n'
+
+# The case no file Claude Code writes can express. The session file says idle
+# and means it -- Claude really is doing nothing -- but it is doing nothing
+# because it asked a question nobody has answered. Only the hook saw the text.
+rm -f "$SESSIONS"/*.json
+rm -f "${MARKS:?}"/*
+session_file "$SESSIONS" "$pid_w1" idle interactive "sid-aaa"
+mark_file "$MARKS" "sid-aaa"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
+assert_contains "$raw" "WIN w1:0 waiting" "a hook marker marks its session's window waiting"
+assert_contains "$raw" "COUNTS 1 0 0" "a marked session counts as waiting"
+
+# A pending marker is not a marker. Claude has asked, but the 60s idle_prompt
+# that confirms nobody answered has not fired -- promoting here would light up
+# every window the instant a turn ended, which is the whole thing the two-stage
+# design exists to avoid.
+rm -f "${MARKS:?}"/*
+mark_file "$MARKS" "sid-aaa" question "any more?" pending
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
+assert_contains "$raw" "WIN w1:0 idle" "a pending marker does not mark a window waiting"
+assert_contains "$raw" "COUNTS 0 0 1" "a pending marker does not count as waiting"
+
+# Same staleness dividend as blocked agents: a marker whose session has exited
+# resolves to no pid and so to no window, with no age heuristic needed.
+rm -f "${MARKS:?}"/*
+mark_file "$MARKS" "sid-long-gone"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
+assert_contains "$raw" "COUNTS 0 0 1" "a marker with no live session marks nothing"
+
+# Busy beats a marker, and only a marker. The marker says Claude asked and was
+# not answered as of a minute ago; a session now working is evidence that has
+# expired however it got cleared.
+rm -f "$SESSIONS"/*.json
+rm -f "${MARKS:?}"/*
+session_file "$SESSIONS" "$pid_w1" busy interactive "sid-aaa"
+mark_file "$MARKS" "sid-aaa"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
+assert_contains "$raw" "WIN w1:0 busy" "a busy session outranks a stale hook marker"
+
+# But a blocked agent still outranks busy, because it is parked right now and
+# its owner working on something else does not unpark it.
+rm -rf "${JOBS:?}"/*
+job_file "$JOBS" job1 blocked "sid-aaa"
+raw="$(__cc_collect "$SESSIONS" "$JOBS" "$MARKS")"
+assert_contains "$raw" "WIN w1:0 waiting" "a blocked agent still outranks busy alongside a marker"
+rm -rf "${JOBS:?}"/*
+
+# A marker directory that does not exist is the machine where the hook has
+# never fired. Not a failure, and not a reason to blank the bar.
+rm -f "$SESSIONS"/*.json
+rm -f "${MARKS:?}"/*
+session_file "$SESSIONS" "$pid_w1" idle interactive "sid-aaa"
+raw="$(__cc_collect "$SESSIONS" "" "${WORK}/no-such-marks-dir")"
+assert_contains "$raw" "COUNTS 0 0 1" "a missing marker directory is not waiting"
+assert_not_contains "$raw" "TORN" "a missing marker directory is not a torn read"
 
 printf 'torn reads\n'
 rm -f "$SESSIONS"/*.json
@@ -126,19 +225,19 @@ rm -f "$SESSIONS"/*.json
 # stripping every window option, which would make the following tick read every
 # waiting window as a brand new transition.
 printf '{"pid":900010,"status":"idl' >"${SESSIONS}/900010.json"
-raw="$(__cc_collect "$SESSIONS" "")"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
 assert_eq "$raw" "TORN" "a truncated session file yields TORN"
 
 # jq parses the concatenated stream, so one bad file poisons the whole read.
 # Assert that rather than assume it.
 session_file "$SESSIONS" 900011 idle interactive
-raw="$(__cc_collect "$SESSIONS" "")"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
 assert_eq "$raw" "TORN" "one truncated file among valid ones still yields TORN"
 
 # A genuinely empty directory is still EMPTY. The count-trimming design depends
 # on that meaning being unchanged.
 rm -f "$SESSIONS"/*.json
-raw="$(__cc_collect "$SESSIONS" "")"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
 assert_eq "$raw" "EMPTY" "an empty directory is still EMPTY, not TORN"
 
 # A Claude process SIGKILLed mid-write leaves a 0-byte file behind, and nothing
@@ -152,7 +251,7 @@ assert_eq "$raw" "EMPTY" "an empty directory is still EMPTY, not TORN"
 # stopped -- with nothing on screen to say so.
 rm -f "$SESSIONS"/*.json
 : >"${SESSIONS}/900012.json"
-raw="$(__cc_collect "$SESSIONS" "")"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
 assert_eq "$raw" "EMPTY" "a stray 0-byte session file yields EMPTY, not TORN"
 
 # Same reasoning one step along: a well-formed file whose pid or status is null
@@ -160,7 +259,7 @@ assert_eq "$raw" "EMPTY" "a stray 0-byte session file yields EMPTY, not TORN"
 # either.
 rm -f "$SESSIONS"/*.json
 printf '{"pid":null,"status":null}\n' >"${SESSIONS}/900013.json"
-raw="$(__cc_collect "$SESSIONS" "")"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
 assert_eq "$raw" "EMPTY" "a session file with null pid and status yields EMPTY"
 
 # The other two inputs need a sentinel of their own. If `ps` or `tmux
@@ -182,7 +281,7 @@ saved_path="$PATH"
 PATH="${STUBS}:${PATH}"
 # Only ps is stubbed here; the tmux shim is still reachable further down PATH.
 rm -f "${STUBS}/tmux"
-raw="$(__cc_collect "$SESSIONS" "")"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
 PATH="$saved_path"
 assert_eq "$raw" "TORN" "an empty process table yields TORN, not a windowless COUNTS"
 
@@ -190,7 +289,7 @@ PATH="${STUBS}:${PATH}"
 rm -f "${STUBS}/ps"
 printf '#!/bin/sh\nexit 0\n' >"${STUBS}/tmux"
 chmod +x "${STUBS}/tmux"
-raw="$(__cc_collect "$SESSIONS" "")"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
 PATH="$saved_path"
 assert_eq "$raw" "TORN" "an empty pane list yields TORN, not a windowless COUNTS"
 rm -f "${STUBS}/tmux"
@@ -200,101 +299,11 @@ rm -f "${STUBS}/tmux"
 # calling that TORN would wedge the bar just as badly.
 rm -f "$SESSIONS"/*.json
 session_file "$SESSIONS" 900014 idle bg
-raw="$(__cc_collect "$SESSIONS" "")"
+raw="$(__cc_collect "$SESSIONS" "" "$MARKS")"
 assert_contains "$raw" "COUNTS 0 0 1" "a windowless bg session still reports counts"
 assert_not_contains "$raw" "WIN" "a windowless bg session produces no WIN line"
 assert_not_contains "$raw" "TORN" "no WIN lines from a healthy read is not TORN"
 rm -f "$SESSIONS"/*.json
-
-printf 'agent refresh triggering\n'
-BLOCKED="${WORK}/blocked.list"
-
-# Each case starts from a clean cache and a clean invocation log.
-refresh_case() {
-	rm -f "$BLOCKED" "$CC_FAKE_CLAUDE_LOG"
-	tmux set-option -gu @cc_bg_amb 2>/dev/null
-	__cc_refresh_blocked "$BLOCKED" "$1"
-	# The refresh is deliberately detached so it can never stall the status
-	# bar. It is a direct child of this shell, so wait for it here rather than
-	# spinning on the files it writes.
-	wait 2>/dev/null
-}
-
-calls() { [ -f "$CC_FAKE_CLAUDE_LOG" ] && wc -l <"$CC_FAKE_CLAUDE_LOG" | tr -d ' ' || echo 0; }
-
-# An empty ambiguous set must never spawn the binary. This is the steady state
-# on a machine with no idle background agents, and it should cost nothing.
-refresh_case ""
-assert_eq "$(calls)" "0" "an empty ambiguous set never invokes the binary"
-
-# A non-empty set with no stored fingerprint is a first look: ask.
-refresh_case "900001"
-assert_eq "$(calls)" "1" "a new ambiguous set invokes the binary once"
-
-# The same set, already answered, must not ask again.
-rm -f "$CC_FAKE_CLAUDE_LOG"
-__cc_refresh_blocked "$BLOCKED" "900001"
-assert_eq "$(calls)" "0" "an unchanged ambiguous set does not re-invoke"
-
-# A changed set must ask again. Same detached-child reasoning as refresh_case:
-# wait for it here so the check below lands after the binary actually runs,
-# rather than racing tmux/jq startup latency.
-rm -f "$CC_FAKE_CLAUDE_LOG"
-__cc_refresh_blocked "$BLOCKED" "900001 900002"
-wait 2>/dev/null
-assert_eq "$(calls)" "1" "a changed ambiguous set invokes the binary"
-
-# Emptying the set clears the cache without asking: a bg session that is not
-# idle cannot be blocked, so there is nothing to disambiguate.
-rm -f "$CC_FAKE_CLAUDE_LOG"
-__cc_refresh_blocked "$BLOCKED" ""
-assert_eq "$(calls)" "0" "emptying the ambiguous set does not invoke the binary"
-assert_eq "$(cat "$BLOCKED" 2>/dev/null)" "" "emptying the ambiguous set clears the blocked list"
-
-# Only agents carrying a pid are usable. The others are parked conversations
-# with no process, which cannot be attributed to a window.
-export CC_FAKE_CLAUDE_JSON='[{"kind":"background","state":"blocked","name":"no-pid"},{"kind":"background","state":"blocked","pid":900007,"name":"has-pid"}]'
-refresh_case "900007"
-assert_eq "$(cat "$BLOCKED" 2>/dev/null)" "900007" "only blocked agents with a pid reach the list"
-export CC_FAKE_CLAUDE_JSON='[]'
-
-# The lock is released by an EXIT trap, which SIGKILL does not run, and the
-# `claude` call is only wrapped in `timeout` when timeout is installed. A lock
-# left behind used to be permanent: every later call returned early, the list
-# never refreshed, and a blocked background agent read as idle forever.
-rm -f "$BLOCKED" "$CC_FAKE_CLAUDE_LOG"
-tmux set-option -gu @cc_bg_amb 2>/dev/null
-mkdir -p "${BLOCKED}.lock"
-__cc_refresh_blocked "$BLOCKED" "900008"
-wait 2>/dev/null
-assert_eq "$(calls)" "0" "a fresh lock keeps a second refresh out"
-
-# Backdated well past the staleness threshold, which is several TTLs.
-touch -t 200001010000 "${BLOCKED}.lock"
-rm -f "$CC_FAKE_CLAUDE_LOG"
-tmux set-option -gu @cc_bg_amb 2>/dev/null
-__cc_refresh_blocked "$BLOCKED" "900008"
-wait 2>/dev/null
-assert_eq "$(calls)" "1" "a stale lock is cleared instead of disabling refreshes for good"
-rmdir "${BLOCKED}.lock" 2>/dev/null
-
-# A response jq cannot parse must not install an empty cache over a good one:
-# the redirect creates the temp file before jq runs, so an unchecked failure
-# turned the whole feature off with nothing to say so. jq still exits 0 when it
-# simply finds nothing blocked, so the legitimately-empty answer is unaffected
-# -- which the "emptying the ambiguous set" case above already covers.
-export CC_FAKE_CLAUDE_JSON='[{"kind":"background","state":"blocked","pid":900009}]'
-refresh_case "900009"
-assert_eq "$(cat "$BLOCKED" 2>/dev/null)" "900009" "a well-formed response populates the blocked list"
-
-export CC_FAKE_CLAUDE_JSON='not json at all'
-rm -f "$CC_FAKE_CLAUDE_LOG"
-tmux set-option -gu @cc_bg_amb 2>/dev/null
-__cc_refresh_blocked "$BLOCKED" "900009"
-wait 2>/dev/null
-assert_eq "$(calls)" "1" "a malformed response is still an invocation"
-assert_eq "$(cat "$BLOCKED" 2>/dev/null)" "900009" "a malformed response leaves the existing blocked list intact"
-export CC_FAKE_CLAUDE_JSON='[]'
 
 printf 'transition detection\n'
 
@@ -398,7 +407,7 @@ assert_eq "$(cat "$CC_NOTIFY_LOG" 2>/dev/null)" "" "no transitions delivers noth
 
 # The window is the headline. waitingFor is looked up from the session file of
 # the pid that won the window, and only when a notification actually fires.
-session_file "$SESSIONS" 900020 waiting interactive "" "" "permission prompt"
+session_file "$SESSIONS" 900020 waiting interactive "" "permission prompt"
 notify_case "w1:0" "w1:0=900020"
 # The delivery itself is detached (never blocks a redraw), so the assertion
 # below would otherwise race the fork -- same fix as Task 5's refresh_case.
@@ -557,7 +566,7 @@ assert_eq "$(cat "$CC_NOTIFY_LOG" 2>/dev/null)" "" "settling at idle notifies no
 # by the time __cc_notify runs, @cc_state already reads waiting, which is what
 # stops a concurrently running copy of the segment delivering a duplicate.
 rm -f "$SESSIONS"/*.json "$CC_NOTIFY_LOG"
-session_file "$SESSIONS" "$pid_seg" waiting interactive "" "" "permission prompt"
+session_file "$SESSIONS" "$pid_seg" waiting interactive "" "permission prompt"
 CC_NOTIFY_CALLS=0
 CC_STATE_AT_NOTIFY="not sampled"
 seg_run

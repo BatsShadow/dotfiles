@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-# Stub for TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_CMD. Appends one line per
-# invocation so a test can assert on how many times the real binary would have
-# been spawned, then prints whatever JSON the test staged.
-printf '%s\n' "$*" >>"${CC_FAKE_CLAUDE_LOG:-/dev/null}"
-[ -n "$CC_FAKE_CLAUDE_JSON" ] && printf '%s' "$CC_FAKE_CLAUDE_JSON"
-exit 0

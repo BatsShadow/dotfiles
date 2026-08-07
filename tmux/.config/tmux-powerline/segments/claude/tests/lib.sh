@@ -42,16 +42,42 @@ assert_not_contains() {
 	esac
 }
 
-# Write one session status file. Mirrors the real shape written by the CLI.
-# Usage: session_file <dir> <pid> <status> <kind> [jobId] [parkedJobId] [waitingFor]
+# Write one session status file. Mirrors the real shape written by the CLI:
+# every live session file is an interactive one, carrying a sessionId that a
+# background agent's job state refers back to.
+# Usage: session_file <dir> <pid> <status> <kind> [sessionId] [waitingFor]
 session_file() {
 	local dir="$1" pid="$2" status="$3" kind="$4"
-	local job="${5:-}" parked="${6:-}" waiting="${7:-}"
+	local sid="${5:-}" waiting="${6:-}"
 	local json="{\"pid\":${pid},\"status\":\"${status}\",\"kind\":\"${kind}\""
-	[ -n "$job" ] && json="${json},\"jobId\":\"${job}\""
-	[ -n "$parked" ] && json="${json},\"parkedJobId\":\"${parked}\""
+	[ -n "$sid" ] && json="${json},\"sessionId\":\"${sid}\""
 	[ -n "$waiting" ] && json="${json},\"waitingFor\":\"${waiting}\""
 	printf '%s}\n' "$json" >"${dir}/${pid}.json"
+}
+
+# Write one background-agent job state file, as the daemon writes it under
+# ~/.claude/jobs/<id>/state.json. sessionId is the link back to the interactive
+# session that owns the agent -- there is no pid here, and no session file
+# either, which is the whole reason the old jobId/parkedJobId path never fired.
+# Usage: job_file <jobs_dir> <id> <state> <sessionId>
+job_file() {
+	local dir="$1" id="$2" state="$3" sid="$4"
+	mkdir -p "${dir}/${id}"
+	printf '{"state":"%s","sessionId":"%s","name":"%s"}\n' "$state" "$sid" "$id" \
+		>"${dir}/${id}/state.json"
+}
+
+# Write one hook waiting marker, as claude-waiting.sh writes it. Named for the
+# sessionId, exactly like a job's sessionId link -- there is no pid here either.
+# A `.pending` suffix is the half-state: Claude asked, but idle_prompt has not
+# yet confirmed nobody answered, and collect.sh must ignore those.
+# Usage: mark_file <marks_dir> <sessionId> [reason] [text] [pending]
+mark_file() {
+	local dir="$1" sid="$2" reason="${3:-question}" text="${4:-any more?}"
+	local suffix=""
+	[ "${5:-}" = "pending" ] && suffix=".pending"
+	mkdir -p "$dir"
+	printf '%s\t%s\n' "$reason" "$text" >"${dir}/${sid}${suffix}"
 }
 
 # Start a throwaway tmux server. Every tmux call made by the code under test

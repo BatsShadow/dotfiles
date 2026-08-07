@@ -15,19 +15,35 @@ __cc_notify() {
 	local dir="$1"
 	local -n __cc_notify_windows=$2
 	local -n __cc_notify_pids=$3
+	local marks="${4-}"
 
 	[ "${#__cc_notify_windows[@]}" -gt 0 ] || return 0
 
-	local window pid subtitle
+	local window pid subtitle sid
 	for window in "${__cc_notify_windows[@]}"; do
 		# Read waitingFor lazily, from the session that won this window. It is
 		# only ever needed when a notification actually fires, so it stays off
 		# the status-interval path entirely.
 		subtitle=""
+		sid=""
 		pid="${__cc_notify_pids[$window]-}"
 		if [ -n "$pid" ] && [ -r "${dir}/${pid}.json" ]; then
-			subtitle=$(jq -r '.waitingFor // empty' "${dir}/${pid}.json" 2>/dev/null)
+			IFS=$'\t' read -r subtitle sid < <(
+				jq -r '[(.waitingFor // ""), (.sessionId // "")] | @tsv' \
+					"${dir}/${pid}.json" 2>/dev/null
+			)
 		fi
+
+		# waitingFor is null for both of the states this file cannot see from
+		# the session file -- a blocked agent and a hook marker -- so those
+		# notifications used to arrive with no subtitle at all. The marker holds
+		# the question that was actually asked, which is the single most useful
+		# thing the card can say.
+		if [ -z "$subtitle" ] && [ -n "$marks" ] && [ -n "$sid" ] &&
+			[ -r "${marks}/${sid}" ]; then
+			subtitle=$(cut -f2- <"${marks}/${sid}" 2>/dev/null | head -1)
+		fi
+
 		[ -n "$subtitle" ] || subtitle="waiting on you"
 
 		__cc_notify_one "$window" "$subtitle"

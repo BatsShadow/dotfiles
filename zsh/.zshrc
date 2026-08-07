@@ -50,6 +50,11 @@ alias cdw="cd ~/src/upngo/worktrees"
 
 alias cl=claude --enable-auto-mode
 
+# Report a window the status bar called wrong -- amber when nothing was waiting,
+# or grey when Claude had asked something. See claude/.claude/hooks/.
+alias ccwrong="~/.config/tmux/waiting-report.sh"
+alias ccwrongs="~/.config/tmux/waiting-report.sh --tally"
+
 alias kc='kubectl'
 alias kl='kubectl config get-contexts'
 alias ku='kubectl config use-context'
