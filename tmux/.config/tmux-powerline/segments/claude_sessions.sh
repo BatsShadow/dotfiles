@@ -74,6 +74,13 @@ TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIO
 # inside the option value so the window format needs no conditional.
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_GAP-}"
 
+# Notification delivery. Empty means auto-detect: terminal-notifier if it is
+# installed, otherwise osascript. Set it to a command to override, which is how
+# the test suite captures notifications.
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD-}"
+# Application raised when a notification is clicked.
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TERM_APP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TERM_APP:-WezTerm}"
+
 # Helpers live in a subdirectory rather than beside this file. tmux-powerline
 # sources every *.sh in its own segments directory when generating a default
 # config (lib/config_file.sh) and resolves segments by bare name
@@ -83,7 +90,7 @@ TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS
 # A missing helper degrades to a quiet segment rather than an error in the
 # status bar, which is why each source is guarded rather than assumed.
 __cc_helpers="${BASH_SOURCE[0]%/*}/claude"
-for __cc_helper in collect windows agents; do
+for __cc_helper in collect windows agents notify; do
 	if [ -r "${__cc_helpers}/${__cc_helper}.sh" ]; then
 		# shellcheck disable=SC1090
 		source "${__cc_helpers}/${__cc_helper}.sh"
@@ -114,6 +121,10 @@ export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_AGENTS_TTL="${TMUX_POWERLINE_SEG_CLAUD
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_LABEL_GAP}"
 export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_GAP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WIN_GAP}"
+# Notification delivery. Empty auto-detects terminal-notifier, then osascript.
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_NOTIFY_CMD}"
+# Application raised when a notification is clicked.
+export TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TERM_APP="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_TERM_APP}"
 EORC
 	echo "$rccontents"
 }
@@ -154,7 +165,6 @@ run_segment() {
 	# desired_pid maps window to the pid of the session that won it. Sync does
 	# not read it -- it is threaded through for the notification path, which
 	# needs a pid to resolve waitingFor for a transition.
-	# shellcheck disable=SC2034
 	local -A desired=() desired_pid=()
 	local -a transitions=()
 	local waiting=0 busy=0 idle=0 kind window state
@@ -198,6 +208,11 @@ run_segment() {
 	__cc_refresh_blocked "$blocked" "$amb"
 
 	__cc_sync_windows desired transitions
+
+	# After the sync, never before: by this point @cc_state already reads
+	# waiting, so a concurrently running copy of the segment sees no transition
+	# and cannot deliver a duplicate.
+	__cc_notify "$dir" transitions desired_pid
 
 	local segfg="${TMUX_POWERLINE_CUR_SEGMENT_FG:-$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR}"
 	local wait_color="$TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR"
