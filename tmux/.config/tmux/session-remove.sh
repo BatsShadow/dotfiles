@@ -12,11 +12,15 @@
 # unmarked row means "nothing worth mentioning"; here it has to mean "no Claude
 # at all", because the question being asked is whether anything is still running
 # inside before it gets killed.
+#
+# Branch state is deliberately absent. This kills a session and touches nothing
+# on disk, so whether the work landed cannot bear on the decision -- showing it
+# would only compete with the one signal that does.
 
 export PATH="/opt/homebrew/bin:$PATH"
 
-# Idle Claudes are marked here specifically. See above.
-export CC_SHOW_IDLE=1
+# Idle Claudes fill the glyph column here specifically. See above.
+export CC_FALLBACK=idle
 
 CC_HELPER="${BASH_SOURCE[0]%/*}/claude-status.sh"
 if [[ -r "$CC_HELPER" ]]; then
@@ -24,12 +28,11 @@ if [[ -r "$CC_HELPER" ]]; then
 	source "$CC_HELPER"
 else
 	cc_load() { :; }
-	cc_merged_load() { :; }
 	cc_row() { printf '%s\t%s\n' "$1" "$1"; }
 fi
 
+# No cc_merged_load: nothing in this list is about branches.
 cc_load
-cc_merged_load
 
 current=""
 [[ -n "${TMUX:-}" ]] && current=$(tmux display-message -p '#S')

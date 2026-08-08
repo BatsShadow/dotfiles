@@ -35,19 +35,30 @@ CC_C_OFF=$'\033[0m'
 CC_G_WAIT="${CC_G_WAIT-󰫢}"
 CC_G_BUSY="${CC_G_BUSY-󰧞}"
 
-# Idle is unmarked by default: it is the resting state of nearly every session,
-# so marking it would put a mark on almost every row and the column would stop
-# carrying information. The removal pickers set CC_SHOW_IDLE, where the question
-# is the opposite one -- "is anything still running in here" -- and an unmarked
-# row there has to mean no Claude at all, not merely a quiet one.
+# There is one glyph column, and a waiting or busy Claude always owns it. Those
+# are the only facts that are ever urgent, so they must never be crowded out by
+# something merely useful. A second column tried to show both at once and just
+# made every row noisier without making any row clearer.
+#
+# What fills the column when no Claude is demanding anything is the caller's
+# choice, because the useful answer depends on what the popup does -- see
+# CC_FALLBACK below.
 CC_G_IDLE="${CC_G_IDLE-·}"
-
-# A worktree whose branch has already landed. Achromatic on purpose: the palette
-# rule this file shares with the status bar is that colour means "this needs
-# you", and finished work is the exact opposite of that. The name is left alone
-# too -- brightness there already carries the live/latent split, and overloading
-# it would make two different facts fight for one channel.
 CC_G_MERGED="${CC_G_MERGED-✓}"
+
+# Which of those the fallback shows: `idle`, `merged`, or unset for neither.
+#
+#   unset    navigation pickers. Idle is the resting state of nearly every
+#            session, so marking it would mark almost every row; merged is not
+#            what you are asking when you are choosing where to go.
+#   idle     `x`, which kills a tmux session and touches nothing on disk. Branch
+#            state cannot matter to that. The only question is whether something
+#            is still running in there, so an unmarked row must mean no Claude at
+#            all rather than a quiet one.
+#   merged   `X`, which deletes work from disk. Whether a Claude sitting there is
+#            idle barely signifies, since any Claude at all already holds the row
+#            back; whether the work landed is the whole decision.
+CC_FALLBACK="${CC_FALLBACK-}"
 
 # Width of the glyph column, in cells. The glyphs are Nerd Font private-use
 # codepoints and single-width under Monaspace NF, so glyph-plus-space matches a
@@ -58,17 +69,19 @@ CC_BLANK="${CC_BLANK-  }"
 declare -gA CC_RANK=()
 declare -gA CC_MERGED=()
 
-# Which branches have already landed, as computed by merged-branches.sh. Reading
-# is a single cat of a cache file; the 5s that answer actually costs is paid by
-# a background refresh the picker never waits on. A missing cache leaves the map
-# empty, which loses the marks and nothing else.
+# Branch state per worktree, as computed by merged-branches.sh: `merged` for
+# work that has landed on upstream/main, `empty` for a branch with no commits of
+# its own, absent for outstanding work. Reading is a single cat of a cache file;
+# the 5s that answer actually costs is paid by a background refresh the picker
+# never waits on. A missing cache leaves the map empty, which loses the marks
+# and nothing else.
 cc_merged_load() {
 	CC_MERGED=()
-	local helper="${BASH_SOURCE[0]%/*}/merged-branches.sh" branch
+	local helper="${BASH_SOURCE[0]%/*}/merged-branches.sh" state branch
 	[ -x "$helper" ] || return 0
 
-	while IFS= read -r branch; do
-		[ -n "$branch" ] && CC_MERGED["$branch"]=1
+	while IFS=$'\t' read -r state branch; do
+		[ -n "$branch" ] && CC_MERGED["$branch"]="$state"
 	done < <("$helper" 2>/dev/null)
 
 	return 0
@@ -117,7 +130,7 @@ cc_load() {
 #            still buys the alignment that lets a [new] row sit among them.
 cc_row() {
 	local value="$1" kind="$2" suffix="${3:-}"
-	local glyph="$CC_BLANK" color="" merged="$CC_BLANK"
+	local glyph="$CC_BLANK" color="" gcolor=""
 
 	# Sessions are named for their worktree, so one lookup key serves both: a
 	# bare session name is its own basename, and a directory path reduces to the
@@ -136,9 +149,6 @@ cc_row() {
 			glyph="${CC_G_BUSY} "
 			color="$CC_C_BUSY"
 			;;
-		1)
-			[ -n "${CC_SHOW_IDLE:-}" ] && glyph="${CC_G_IDLE} "
-			;;
 		esac
 		;;
 	new)
@@ -151,17 +161,36 @@ cc_row() {
 		;;
 	esac
 
-	[ -n "${CC_MERGED[$key]:-}" ] && merged="${CC_G_MERGED} "
+	# Only reached when nothing above claimed the column, which is the whole of
+	# the precedence rule: urgent first, useful second, never both.
+	if [ "$glyph" = "$CC_BLANK" ]; then
+		case "$CC_FALLBACK" in
+		idle)
+			if [ "${CC_RANK[$value]:-0}" = 1 ]; then
+				glyph="${CC_G_IDLE} "
+			fi
+			;;
+		merged)
+			# Only `merged`. An `empty` branch is not finished work and must not
+			# borrow the mark for it -- that mistake showed 30 untouched
+			# worktrees here as landed, main among them.
+			if [ "${CC_MERGED[$key]:-}" = merged ]; then
+				glyph="${CC_G_MERGED} "
+				# Achromatic on purpose. Colour in this palette means "needs
+				# you", and finished work is the exact opposite of that.
+				gcolor="$CC_C_DIM"
+			fi
+			;;
+		esac
+	fi
 
-	# The state glyph takes the row's colour so a waiting row is amber all the
-	# way across; the merged tick is always dim, because it describes the branch
-	# rather than anything demanding attention.
+	# The glyph takes the row's colour unless it overrode it, so a waiting row is
+	# amber all the way across.
 	# suffix trails the name in dim -- how long a session has been quiet, why a
-	# worktree is unsafe to remove. It is display only and never reaches the
-	# selection, which is the same guarantee the glyph columns have.
-	printf '%s%s%s%s%s%s%s%s%s%s%s%s\t%s\n' \
-		"$color" "$glyph" "$CC_C_OFF" \
-		"$CC_C_DIM" "$merged" "$CC_C_OFF" \
+	# worktree has no tick. It is display only and never reaches the selection,
+	# which is the same guarantee the glyph column has.
+	printf '%s%s%s%s%s%s%s%s%s\t%s\n' \
+		"${gcolor:-$color}" "$glyph" "$CC_C_OFF" \
 		"$color" "$value" "$CC_C_OFF" \
 		"${suffix:+  }" "${suffix:+$CC_C_DIM$suffix}" "${suffix:+$CC_C_OFF}" \
 		"$value"
