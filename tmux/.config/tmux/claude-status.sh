@@ -68,20 +68,28 @@ CC_BLANK="${CC_BLANK-  }"
 
 declare -gA CC_RANK=()
 declare -gA CC_MERGED=()
+declare -gA CC_DIRTY_AT=()
 
 # Branch state per worktree, as computed by merged-branches.sh: `merged` for
 # work that has landed on upstream/main, `empty` for a branch with no commits of
 # its own, absent for outstanding work. Reading is a single cat of a cache file;
 # the 5s that answer actually costs is paid by a background refresh the picker
-# never waits on. A missing cache leaves the map empty, which loses the marks
+# never waits on. A missing cache leaves the maps empty, which loses the marks
 # and nothing else.
+#
+# CC_DIRTY_AT carries the unix time the uncommitted work in a tree was last
+# written, and is populated for `dirty` rows only -- the sweep that finds them
+# has the changed paths in hand, and nothing else here does.
 cc_merged_load() {
 	CC_MERGED=()
-	local helper="${BASH_SOURCE[0]%/*}/merged-branches.sh" state branch
+	CC_DIRTY_AT=()
+	local helper="${BASH_SOURCE[0]%/*}/merged-branches.sh" state branch when
 	[ -x "$helper" ] || return 0
 
-	while IFS=$'\t' read -r state branch; do
-		[ -n "$branch" ] && CC_MERGED["$branch"]="$state"
+	while IFS=$'\t' read -r state branch when; do
+		[ -n "$branch" ] || continue
+		CC_MERGED["$branch"]="$state"
+		[ -n "$when" ] && CC_DIRTY_AT["$branch"]="$when"
 	done < <("$helper" 2>/dev/null)
 
 	return 0

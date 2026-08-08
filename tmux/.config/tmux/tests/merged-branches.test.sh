@@ -35,13 +35,16 @@ fail() {
 	for l in "$@"; do printf '         %s\n' "$l"; done
 }
 
-# The output is `<state>\t<branch>`, and a branch with no line is outstanding
-# work. Asserting on the pair rather than on the branch alone is the point:
-# every bug this file exists for was a branch appearing under the wrong state,
-# not a branch going missing.
+# The output is `<state>\t<branch>\t<mtime>`, and a branch with no line is
+# outstanding work. Asserting on the pair rather than on the branch alone is the
+# point: every bug this file exists for was a branch appearing under the wrong
+# state, not a branch going missing.
 state_of() {
 	awk -F'\t' -v b="$1" '$2 == b { print $1; found = 1 }
 		END { if (!found) print "-" }' <<<"$OUT"
+}
+mtime_of() {
+	awk -F'\t' -v b="$1" '$2 == b { print $3 }' <<<"$OUT"
 }
 assert_state() {
 	local got
@@ -177,6 +180,34 @@ assert_state squashed dirty "a merged branch with local edits is dirty, not merg
 assert_state fresh dirty "an empty branch with an untracked file is dirty, not empty"
 assert_state live - "a clean branch is unaffected by another's dirt"
 
+# The whole point of taking the time from the sweep rather than from the commit:
+# a tree edited seconds ago has a branch tip that may be months old, and the row
+# has to say the former. Both files were written by the lines above.
+edited_at=$(mtime_of squashed)
+if [[ "$edited_at" =~ ^[0-9]+$ ]] && [ "$(($(date +%s) - edited_at))" -lt 120 ]; then
+	pass "a dirty row carries when its working tree was last written"
+else
+	fail "a dirty row carries when its working tree was last written" \
+		"got '${edited_at}'"
+fi
+
+# Untracked files too, and not merely as a side effect of the state: `fresh` has
+# no tracked change at all, so its time can only have come from the new file.
+if [[ "$(mtime_of fresh)" =~ ^[0-9]+$ ]]; then
+	pass "an untracked file alone still yields a time"
+else
+	fail "an untracked file alone still yields a time" "got '$(mtime_of fresh)'"
+fi
+
+# A clean row has no working-tree time to report, and must leave the field empty
+# rather than borrowing the commit date -- the caller falls back to that itself,
+# and a value here would be indistinguishable from a real uncommitted edit.
+if [ -z "$(mtime_of live)" ]; then
+	pass "a clean row leaves the time empty"
+else
+	fail "a clean row leaves the time empty" "got '$(mtime_of live)'"
+fi
+
 # Untracked files specifically, because `git worktree remove` refuses over them
 # too -- ignoring them would put rows in the list that cannot be removed.
 rm -f "${TREES}/squashed/a.txt.orig"
@@ -214,11 +245,13 @@ else
 	pass "an empty dirty cache marks nothing dirty"
 fi
 
-# Same input, second failure mode: the corrupted rows carried three fields.
-if awk -F'\t' 'NF != 2 { bad = 1 } END { exit !bad }' <<<"$OUT"; then
-	fail "every joined row has exactly two fields" "got: $(head -1 <<<"$OUT")"
+# Same input, second failure mode: the corrupted rows carried a field too many.
+# Now that the time makes three legitimate, the count still has to be exact --
+# a row short of the trailing tab reads as dirty-with-no-time to the caller.
+if awk -F'\t' 'NF != 3 { bad = 1 } END { exit !bad }' <<<"$OUT"; then
+	fail "every joined row has exactly three fields" "got: $(head -1 <<<"$OUT")"
 else
-	pass "every joined row has exactly two fields"
+	pass "every joined row has exactly three fields"
 fi
 
 # The base moving is what changes the answer, so the stamp records it and a
@@ -234,6 +267,14 @@ fi
 rm -f "${CC_MERGED_CACHE_DIR}/merged-branches.dirty"
 OUT=$("$SCRIPT" 2>/dev/null)
 assert_state squashed merged "the branch cache is served alone when no dirty sweep exists"
+
+# That path bypasses the join, so it is the one place the row width could drift.
+# Readers must never meet two shapes.
+if awk -F'\t' 'NF != 3 { bad = 1 } END { exit !bad }' <<<"$OUT"; then
+	fail "the unjoined cache is padded to the full width" "got: $(head -1 <<<"$OUT")"
+else
+	pass "the unjoined cache is padded to the full width"
+fi
 "$SCRIPT" --refresh-dirty >/dev/null
 
 printf 'robustness\n'

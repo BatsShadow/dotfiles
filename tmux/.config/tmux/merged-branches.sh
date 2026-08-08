@@ -43,8 +43,15 @@
 # row a delete list can contain: nothing committed, so it looks untouched, and
 # everything in it unsaved.
 #
-# Output is one `<state>\t<branch>` line per worktree branch that is not simply
-# outstanding work, where state is `dirty`, `merged` or `empty`.
+# Output is one `<state>\t<branch>\t<mtime>` line per worktree branch that is
+# not simply outstanding work, where state is `dirty`, `merged` or `empty`.
+#
+# mtime is when the uncommitted work in that tree was last written, and is set
+# only on `dirty` rows -- it is a by-product of the sweep that found them, which
+# had to name the changed files anyway. Nothing here reports when a branch was
+# last committed to: `git for-each-ref` answers that for every branch at once in
+# a single call, so a caller that wants it is better off asking directly than
+# waiting on a cache built for a question that costs seconds.
 #
 # Two caches, because the two questions decay at completely different rates.
 # Whether a branch landed changes when someone merges a PR and a worktree you
@@ -137,11 +144,29 @@ __mb_compute() {
 	return 0
 }
 
-# Every worktree with anything uncommitted in it, one branch name per line.
+# Every worktree with anything uncommitted in it, as `<branch>\t<mtime>`, where
+# mtime is when the most recently written of those changes was last touched.
 # Untracked files count: `git worktree remove` refuses over them too, so leaving
 # them out would put rows in the list that cannot actually be removed.
+#
+# The time comes from here rather than from the caller because this is the only
+# pass that knows which files are dirty. Having paid for `git status` already,
+# stat-ing the paths it named is the whole cost -- the alternative, walking the
+# worktree for its newest file, would have to be told what git already knows
+# about ignores.
 __mb_compute_dirty() {
 	[ -d "$WORKTREE_DIR" ] || return 1
+
+	# GNU and BSD stat spell "modified time" with different flags and reject each
+	# other's. Settled once, here, rather than per worktree -- and it cannot be
+	# settled by falling back inside the pipeline, because the first stat would
+	# have drained the path list before the second ever ran.
+	if stat -f %m . >/dev/null 2>&1; then
+		MB_STAT="-f%m"
+	else
+		MB_STAT="-c%Y"
+	fi
+	export MB_STAT
 
 	# `if` rather than `&&` so the child always exits 0. Under `&&` a clean
 	# worktree is a non-zero exit, and enough of those make xargs give up and
@@ -149,8 +174,20 @@ __mb_compute_dirty() {
 	# and discard a complete, correct result.
 	find "$WORKTREE_DIR" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null |
 		xargs -0 -P "$DIRTY_JOBS" -n1 sh -c '
-			if [ -n "$(git -C "$1" status --porcelain 2>/dev/null)" ]; then
-				basename "$1"
+			st=$(git -C "$1" status --porcelain 2>/dev/null)
+			if [ -n "$st" ]; then
+				# Strip the two status columns, keep the destination of a
+				# rename, and unwrap the quoting git puts round an awkward
+				# name. A path that survives none of that stats as nothing
+				# and drops out of the max, costing at worst a slightly old
+				# time on a row that is dirty either way.
+				when=$(printf "%s\n" "$st" |
+					sed -e "s/^...//" -e "s/.* -> //" \
+						-e "s/^\"//" -e "s/\"$//" |
+					tr "\n" "\0" |
+					(cd "$1" && xargs -0 stat $MB_STAT 2>/dev/null) |
+					sort -rn | head -1)
+				printf "%s\t%s\n" "$(basename "$1")" "$when"
 			fi
 		' _
 }
@@ -220,8 +257,9 @@ __mb_join() {
 	# No dirty pass yet -- serve the branch states alone rather than nothing.
 	# Marks then risk being optimistic for one refresh cycle, which is the same
 	# risk the TTL already carries and is caught by `git worktree remove`.
+	# Padded to the full width so readers never have to handle two shapes.
 	if [ ! -f "$DIRTY" ]; then
-		cat "$CACHE"
+		awk '{ print $0 "\t" }' "$CACHE"
 		return 0
 	fi
 
@@ -232,12 +270,13 @@ __mb_join() {
 	# back out marked dirty. It misfires only when the sweep found nothing,
 	# which is the healthy state and the one nobody would think to check.
 	awk -F'\t' -v dirtyfile="$DIRTY" '
-		FILENAME == dirtyfile { dirty[$0] = 1; next }
+		FILENAME == dirtyfile { dirty[$1] = 1; when[$1] = $2; next }
 		{
 			seen[$2] = 1
-			print ($2 in dirty ? "dirty" : $1) "\t" $2
+			if ($2 in dirty) print "dirty\t" $2 "\t" when[$2]
+			else print $1 "\t" $2 "\t"
 		}
-		END { for (b in dirty) if (!(b in seen)) print "dirty\t" b }
+		END { for (b in dirty) if (!(b in seen)) print "dirty\t" b "\t" when[b] }
 	' "$DIRTY" "$CACHE" 2>/dev/null
 }
 

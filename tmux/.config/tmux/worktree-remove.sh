@@ -13,6 +13,9 @@
 # branch gets the tick; an empty one gets no mark and says "no unmerged commits"
 # instead, because the reason it is safe to remove is that there is nothing in
 # it -- which is also a fair description of work you started ten minutes ago.
+# That ambiguity is what the age on every row is for: "no unmerged commits, 5min
+# ago" and "no unmerged commits, 37d ago" are the same state and opposite
+# decisions, and nothing else on the row separates them.
 #
 # Merged-ness is not `git branch --merged`; main is squash-merged, and that test
 # cannot see a squashed branch at all. See merged-branches.sh, which also
@@ -42,6 +45,15 @@ if [[ -r "$CC_HELPER" ]]; then
 	# shellcheck source=claude-status.sh
 	source "$CC_HELPER"
 else
+	# The arrays have to be declared even though nothing will fill them. An
+	# undeclared name subscripted with a string is an INDEXED array to bash, so
+	# `${CC_RANK[$name]:-0}` evaluates the branch name as an arithmetic
+	# expression -- and a name like `device-name-fixes` recurses until bash
+	# gives up, once per row. Degrading is supposed to cost the marks, not the
+	# listing.
+	declare -A CC_RANK=()
+	declare -A CC_MERGED=()
+	declare -A CC_DIRTY_AT=()
 	cc_load() { :; }
 	cc_merged_load() { :; }
 	cc_row() { printf '%s\t%s\n' "$1" "$1"; }
@@ -49,6 +61,32 @@ fi
 
 current_session=""
 [[ -n "${TMUX:-}" ]] && current_session=$(tmux display-message -p '#S')
+
+# When each worktree was last touched: the newest uncommitted change if it has
+# one, otherwise the tip of its branch. Two sources because the two facts cost
+# wildly different amounts. Commit times come out of one `for-each-ref` over the
+# whole repo -- 525 branches in 29ms, cheaper than caching would be -- while the
+# working-tree side needs a stat per changed file and so rides along with the
+# dirty sweep, which already knows which files those are.
+#
+# Uncommitted wins for the same reason it wins the state column: a tree edited
+# five minutes ago is not thirty-seven days old just because nobody committed.
+now=$(date +%s)
+
+age_of() {
+	local then="$1" secs
+	[[ -n "$then" ]] || return 0
+	secs=$((now - then))
+	((secs < 0)) && secs=0
+
+	# One significant figure and never two units. This sits in front of the
+	# reason a row was held back, and the row is being scanned rather than read.
+	if ((secs < 60)); then printf 'just now'
+	elif ((secs < 3600)); then printf '%dmin ago' "$((secs / 60))"
+	elif ((secs < 86400)); then printf '%dh ago' "$((secs / 3600))"
+	else printf '%dd ago' "$((secs / 86400))"
+	fi
+}
 
 # Re-entered by fzf's reload binding, which is why listing is a mode of this
 # script rather than a function the main path calls.
@@ -58,6 +96,15 @@ if [[ "${1:-}" == "--list" ]]; then
 
 	show_all=0
 	[[ "${2:-}" == "all" ]] && show_all=1
+
+	# Every branch in the repo, not just the ones with worktrees. Filtering would
+	# cost more than the surplus entries do -- this is one process either way.
+	declare -A tip_at=()
+	while IFS=$'\t' read -r ref when; do
+		[[ -n "$ref" ]] && tip_at["$ref"]="$when"
+	done < <(git -C "$REPO_DIR" for-each-ref \
+		--format='%(refname:short)%09%(committerdate:unix)' \
+		refs/heads/ 2>/dev/null)
 
 	for dir in "$WORKTREE_DIR"/*/; do
 		[[ -d "$dir" ]] || continue
@@ -90,6 +137,25 @@ if [[ "${1:-}" == "--list" ]]; then
 			reason="${reason:+${reason}, }claude active"
 		fi
 
+		# Age leads, because it is the one thing every row has and the only
+		# part of the suffix with a constant shape -- the eye can run down the
+		# column even though the names in front of it are ragged.
+		when="${CC_DIRTY_AT[$name]:-}"
+		if [[ -z "$when" ]]; then
+			when="${tip_at[$name]:-}"
+
+			# Not every worktree here belongs to REPO_DIR. The android repo
+			# keeps its worktrees in the same directory, and a detached HEAD
+			# has no branch to be listed under at all -- neither appears in the
+			# bulk map. Ask those directly: it is one git call each and there
+			# were four of them against 103 rows, which is still two orders of
+			# magnitude cheaper than asking every worktree individually.
+			[[ -n "$when" ]] || when=$(git -C "$dir" log -1 --format=%ct 2>/dev/null)
+		fi
+		detail="$(age_of "$when")"
+		[[ -n "$note" ]] && detail="${detail:+${detail}, }${note}"
+		[[ -n "$reason" ]] && detail="${detail:+${detail}, }${reason}"
+
 		# The branch name, not the path: it is what the row is about, what the
 		# tmux session is called, and short enough to read at a glance. The
 		# path is rebuilt from it below -- every one of these lives directly
@@ -98,9 +164,9 @@ if [[ "${1:-}" == "--list" ]]; then
 			# Held back rows appear only in the wide view, and carry why. A
 			# hidden row with no explanation is indistinguishable from a bug.
 			((show_all)) || continue
-			cc_row "$name" dir "${note:+${note}, }${reason}"
+			cc_row "$name" dir "$detail"
 		else
-			cc_row "$name" session "$note"
+			cc_row "$name" session "$detail"
 		fi
 	done
 	exit 0
