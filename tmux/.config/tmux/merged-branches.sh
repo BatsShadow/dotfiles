@@ -275,14 +275,24 @@ case "${1:-}" in
 	# on; a recompute in front of it would be felt every single time.
 	__mb_join
 
-	# Detached with their streams closed, exactly as notify.sh must be: a child
-	# still holding the inherited pipe keeps the caller's command substitution
-	# open, and the popup hangs waiting for EOF.
+	# Detached with every stream closed, exactly as notify.sh must be: a child
+	# still holding the inherited pipe keeps the caller's read open, and the
+	# popup blocks for as long as the refresh takes.
 	#
-	# Separately, because they expire an order of magnitude apart -- the dirty
-	# sweep going stale every minute must not drag the ~5s branch pass along
-	# with it.
-	__mb_stale && ("$0" --refresh) >/dev/null 2>&1 &
-	__mb_dirty_stale && ("$0" --refresh-dirty) >/dev/null 2>&1 &
+	# The staleness test has to sit outside the backgrounded job, not in front of
+	# it as `__mb_stale && (...) &`. That form backgrounds the whole AND-list,
+	# and the shell running the list holds the inherited stdout for the duration
+	# -- the redirection binds to the subshell only. It reads as equivalent and
+	# costs 2.3s a popup.
+	#
+	# Two tests rather than one, because the caches expire an order of magnitude
+	# apart: the dirty sweep going stale every minute must not drag the ~5s
+	# branch pass along behind it.
+	if __mb_stale; then
+		("$0" --refresh) >/dev/null 2>&1 </dev/null &
+	fi
+	if __mb_dirty_stale; then
+		("$0" --refresh-dirty) >/dev/null 2>&1 </dev/null &
+	fi
 	;;
 esac

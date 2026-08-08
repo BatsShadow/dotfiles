@@ -17,6 +17,7 @@ if [[ -r "$CC_HELPER" ]]; then
     source "$CC_HELPER"
 else
     cc_load() { :; }
+    cc_merged_load() { :; }
     cc_row() { printf '%s\t%s\n' "$1" "$1"; }
 fi
 
