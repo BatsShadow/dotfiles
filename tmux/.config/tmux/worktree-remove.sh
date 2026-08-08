@@ -160,15 +160,45 @@ if [[ "${1:-}" == "--list" ]]; then
 		# tmux session is called, and short enough to read at a glance. The
 		# path is rebuilt from it below -- every one of these lives directly
 		# under WORKTREE_DIR by construction.
+		# Held back rows appear only in the wide view, and carry why. A hidden
+		# row with no explanation is indistinguishable from a bug. Decided
+		# before anything is printed, so a skipped row cannot leave a sort key
+		# behind for the next one to inherit.
+		if [[ -n "$reason" ]] && ((!show_all)); then
+			continue
+		fi
+
+		# Sort key, stripped again below. It has to travel with the row rather
+		# than be re-derived, because by this point the age has been rounded to
+		# a word and half the rows would tie on "94d ago".
+		#
+		# A row whose age could not be established sorts as though it were
+		# ancient, which under the order below puts it last. That is the same
+		# placement it had when the list ran oldest-first and the key defaulted
+		# the other way: unknown belongs at the bottom whichever end is the
+		# interesting one, because it is the row you can say least about.
+		printf '%s\t' "${when:-0}"
+
+		# The branch name, not the path: it is what the row is about, what the
+		# tmux session is called, and short enough to read at a glance. The
+		# path is rebuilt from it below -- every one of these lives directly
+		# under WORKTREE_DIR by construction.
 		if [[ -n "$reason" ]]; then
-			# Held back rows appear only in the wide view, and carry why. A
-			# hidden row with no explanation is indistinguishable from a bug.
-			((show_all)) || continue
 			cc_row "$name" dir "$detail"
 		else
 			cc_row "$name" session "$detail"
 		fi
-	done
+		# Newest first, which is the opposite of `x` and deliberately so. The
+		# two lists are read differently: a stale tmux session is safe because
+		# it is stale, and nothing else about it needs recalling, so oldest at
+		# the top is exactly right there. Deleting a worktree is a judgement,
+		# and judgement needs context -- you can still say what you were doing
+		# in the branch you touched last week, while a name from four months
+		# ago tells you nothing and the row cannot supply the rest.
+		#
+		# Age is still the first thing on every row, so the old end remains
+		# easy to find. It is just no longer where the list starts.
+	done | sort -t$'\t' -k1,1nr | cut -f2-
 	exit 0
 fi
 
