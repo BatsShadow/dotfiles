@@ -89,6 +89,21 @@ Stop)
 
 	IFS=$'\t' read -r strict para tail2 ask text <<<"$verdicts"
 
+	# A finished turn retires any standing marker before this one is judged.
+	#
+	# permission_prompt and the elicitation types mark immediately, and until
+	# now only UserPromptSubmit cleared them -- but approving a permission
+	# dialog is not a prompt submission, so the marker outlived the block and
+	# sat there until the next time you typed. It stayed invisible while Claude
+	# worked, because collect.sh will not downgrade a busy window to waiting,
+	# and then surfaced as amber the moment the session went idle. Reaching Stop
+	# is proof the block is over: Claude cannot finish a turn it is parked in.
+	#
+	# This costs nothing for genuinely blocked background agents. Those are read
+	# from ~/.claude/jobs/*/state.json, not from here, and that signal outranks
+	# busy on its own.
+	rm -f "${WAIT_DIR}/${sid}"
+
 	if [ "$para" = "true" ] || [ "$ask" = "true" ]; then
 		printf 'question\t%s\n' "$text" >"${WAIT_DIR}/${sid}.pending"
 	else

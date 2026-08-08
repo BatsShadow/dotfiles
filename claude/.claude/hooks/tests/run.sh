@@ -224,6 +224,33 @@ stop "Which of these should I use?"
 assert_eq "$(cut -f2- <"$P")" "Which of these should I use?" \
 	"a single-sentence paragraph is unchanged"
 
+printf 'retiring a stale marker\n'
+
+# Approving a permission dialog is not a prompt submission, so nothing used to
+# clear the marker it wrote. It survived until the next time the user typed --
+# hidden while Claude worked, because a busy window is never downgraded to
+# waiting, then amber the moment the session went idle. Reaching Stop proves the
+# block is over: a turn cannot finish while it is parked.
+reset
+notify permission_prompt
+assert_file "$M" "permission_prompt marks immediately"
+stop "Done -- all three tests pass."
+assert_no_file "$M" "a finished turn retires the permission marker"
+assert_no_file "$P" "and does not leave a pending behind either"
+
+# Retired, then re-judged on this turn's own merits rather than inheriting the
+# previous claim. The session goes back to waiting only after the 60s promotion,
+# which is the whole point of the pending stage.
+reset
+notify permission_prompt
+stop "I stopped short of the migration.
+
+Should I run it now?"
+assert_no_file "$M" "the marker is retired even when the new turn also asks"
+assert_file "$P" "the new turn pends on its own"
+notify idle_prompt
+assert_file "$M" "and reaches waiting through promotion, not inheritance"
+
 printf 'promotion\n'
 
 reset
