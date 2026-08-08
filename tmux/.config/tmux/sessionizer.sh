@@ -17,6 +17,7 @@ if [[ -r "$CC_HELPER" ]]; then
     source "$CC_HELPER"
 else
     cc_load() { :; }
+    cc_merged_load() { :; }
     cc_row() { printf '%s\t%s\n' "$1" "$1"; }
 fi
 
@@ -49,6 +50,7 @@ else
     # state glyph and the colour; the value is the bare session name or path the
     # rest of this script already expects, so nothing below the picker changes.
     cc_load
+    cc_merged_load
     selected=$(
         {
             # Existing tmux sessions sorted by recency, excluding current

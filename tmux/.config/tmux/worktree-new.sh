@@ -33,7 +33,12 @@ if [[ -r "$CC_HELPER" ]]; then
     source "$CC_HELPER"
 else
     cc_row() { printf '%s\t%s\n' "$1" "$1"; }
+    cc_merged_load() { :; }
 fi
+
+# Marks branches that have already landed, so a finished worktree is visibly
+# finished in the list you pick from as well as the one you clean up in.
+cc_merged_load
 
 current_session=""
 if [[ -n "$TMUX" ]]; then

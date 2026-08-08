@@ -31,10 +31,23 @@ CC_C_NEW="${CC_C_NEW-$'\033[38;2;89;194;255m'}"     # #59c2ff
 CC_C_OFF=$'\033[0m'
 
 # Same glyphs the status bar uses, so a session reads identically in the picker
-# and on the bar. Idle has no glyph: it is the resting state of nearly every
-# session, and marking it would put a mark on almost every row.
+# and on the bar.
 CC_G_WAIT="${CC_G_WAIT-󰫢}"
 CC_G_BUSY="${CC_G_BUSY-󰧞}"
+
+# Idle is unmarked by default: it is the resting state of nearly every session,
+# so marking it would put a mark on almost every row and the column would stop
+# carrying information. The removal pickers set CC_SHOW_IDLE, where the question
+# is the opposite one -- "is anything still running in here" -- and an unmarked
+# row there has to mean no Claude at all, not merely a quiet one.
+CC_G_IDLE="${CC_G_IDLE-·}"
+
+# A worktree whose branch has already landed. Achromatic on purpose: the palette
+# rule this file shares with the status bar is that colour means "this needs
+# you", and finished work is the exact opposite of that. The name is left alone
+# too -- brightness there already carries the live/latent split, and overloading
+# it would make two different facts fight for one channel.
+CC_G_MERGED="${CC_G_MERGED-✓}"
 
 # Width of the glyph column, in cells. The glyphs are Nerd Font private-use
 # codepoints and single-width under Monaspace NF, so glyph-plus-space matches a
@@ -43,6 +56,23 @@ CC_G_BUSY="${CC_G_BUSY-󰧞}"
 CC_BLANK="${CC_BLANK-  }"
 
 declare -gA CC_RANK=()
+declare -gA CC_MERGED=()
+
+# Which branches have already landed, as computed by merged-branches.sh. Reading
+# is a single cat of a cache file; the 5s that answer actually costs is paid by
+# a background refresh the picker never waits on. A missing cache leaves the map
+# empty, which loses the marks and nothing else.
+cc_merged_load() {
+	CC_MERGED=()
+	local helper="${BASH_SOURCE[0]%/*}/merged-branches.sh" branch
+	[ -x "$helper" ] || return 0
+
+	while IFS= read -r branch; do
+		[ -n "$branch" ] && CC_MERGED["$branch"]=1
+	done < <("$helper" 2>/dev/null)
+
+	return 0
+}
 
 # Read every window's Claude state and reduce it to one rank per session.
 cc_load() {
@@ -86,8 +116,13 @@ cc_load() {
 #            same kind, where dimming every row would say nothing; the blank
 #            still buys the alignment that lets a [new] row sit among them.
 cc_row() {
-	local value="$1" kind="$2"
-	local glyph="$CC_BLANK" color=""
+	local value="$1" kind="$2" suffix="${3:-}"
+	local glyph="$CC_BLANK" color="" merged="$CC_BLANK"
+
+	# Sessions are named for their worktree, so one lookup key serves both: a
+	# bare session name is its own basename, and a directory path reduces to the
+	# branch that owns it.
+	local key="${value##*/}"
 
 	case "$kind" in
 	session)
@@ -101,6 +136,9 @@ cc_row() {
 			glyph="${CC_G_BUSY} "
 			color="$CC_C_BUSY"
 			;;
+		1)
+			[ -n "${CC_SHOW_IDLE:-}" ] && glyph="${CC_G_IDLE} "
+			;;
 		esac
 		;;
 	new)
@@ -113,5 +151,18 @@ cc_row() {
 		;;
 	esac
 
-	printf '%s%s%s%s\t%s\n' "$glyph" "$color" "$value" "$CC_C_OFF" "$value"
+	[ -n "${CC_MERGED[$key]:-}" ] && merged="${CC_G_MERGED} "
+
+	# The state glyph takes the row's colour so a waiting row is amber all the
+	# way across; the merged tick is always dim, because it describes the branch
+	# rather than anything demanding attention.
+	# suffix trails the name in dim -- how long a session has been quiet, why a
+	# worktree is unsafe to remove. It is display only and never reaches the
+	# selection, which is the same guarantee the glyph columns have.
+	printf '%s%s%s%s%s%s%s%s%s%s%s%s\t%s\n' \
+		"$color" "$glyph" "$CC_C_OFF" \
+		"$CC_C_DIM" "$merged" "$CC_C_OFF" \
+		"$color" "$value" "$CC_C_OFF" \
+		"${suffix:+  }" "${suffix:+$CC_C_DIM$suffix}" "${suffix:+$CC_C_OFF}" \
+		"$value"
 }
