@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# Jump to a window running Claude, showing what each one is waiting on.
+#
+# The status bar says how many need you; the notification says which one, once,
+# and only if you saw it. Neither gets you there, and neither survives being
+# away for an hour. This does: every Claude across every session, most demanding
+# first, with the actual question beside the row.
+#
+# The question comes from the marker file the hook wrote -- see
+# claude/.claude/hooks/claude-waiting.sh. That text is the entire reason to list
+# these rather than just count them: knowing that two sessions want you is not
+# the same as knowing one wants a code review and the other wants a yes.
+#
+# Sessions are not the unit here, windows are, matching the status bar and the
+# notification click target. Selecting switches the client to the session and
+# then selects the window, because a session can hold several and landing on the
+# wrong one is the failure this is meant to remove.
+
+export PATH="/opt/homebrew/bin:$PATH"
+
+SESSIONS_DIR="${CC_SESSIONS_DIR:-$HOME/.claude/sessions}"
+JOBS_DIR="${CC_JOBS_DIR:-$HOME/.claude/jobs}"
+MARKS_DIR="${CC_WAITING_DIR:-$HOME/.claude/waiting}"
+
+HERE="${BASH_SOURCE[0]%/*}"
+COLLECT="${HERE}/../tmux-powerline/segments/claude/collect.sh"
+
+# Degrades to an unstyled list rather than failing to open, same as the other
+# pickers. Without the helper there are no colours; without collect there is
+# nothing to list at all, which is worth saying out loud.
+if [[ -r "${HERE}/claude-status.sh" ]]; then
+	# shellcheck source=claude-status.sh
+	source "${HERE}/claude-status.sh"
+fi
+
+if [[ ! -r "$COLLECT" ]]; then
+	echo "claude-jump: cannot read ${COLLECT}"
+	sleep 2
+	exit 1
+fi
+# shellcheck disable=SC1090
+source "$COLLECT"
+
+raw=$(__cc_collect "$SESSIONS_DIR" "$JOBS_DIR" "$MARKS_DIR" 2>/dev/null)
+
+# TORN is a read that could not be trusted and EMPTY is a clean read of nothing.
+# Both mean there is no list to show, and both are ordinary rather than errors.
+if [[ -z "$raw" || "$raw" == "TORN" || "$raw" == "EMPTY" ]]; then
+	echo "No Claude sessions running."
+	sleep 1
+	exit 0
+fi
+
+# What each window is waiting on, resolved from the pid that won it. Only ever
+# a handful of files, and only on a keypress, so the cost never touches the
+# status-interval path.
+ask_for() {
+	local pid="$1" sid text
+	[[ -r "${SESSIONS_DIR}/${pid}.json" ]] || return 0
+	sid=$(jq -r '.sessionId // empty' "${SESSIONS_DIR}/${pid}.json" 2>/dev/null)
+	[[ -n "$sid" && -r "${MARKS_DIR}/${sid}" ]] || return 0
+	text=$(cut -f2- <"${MARKS_DIR}/${sid}" 2>/dev/null | head -1)
+	printf '%s' "$text"
+}
+
+current=""
+[[ -n "${TMUX:-}" ]] && current=$(tmux display-message -p '#S:#I')
+
+selected=$(
+	{
+		while read -r kind window state pid; do
+			[[ "$kind" == "WIN" ]] || continue
+
+			case "$state" in
+			waiting) rank=1 ;;
+			busy) rank=2 ;;
+			*) rank=3 ;;
+			esac
+
+			glyph="$CC_BLANK" color="${CC_C_LIVE-}"
+			case "$state" in
+			waiting)
+				glyph="${CC_G_WAIT} "
+				color="${CC_C_WAIT-}"
+				;;
+			busy)
+				glyph="${CC_G_BUSY} "
+				color="${CC_C_BUSY-}"
+				;;
+			*) glyph="${CC_G_IDLE} " ;;
+			esac
+
+			# The window you are standing in is still listed -- leaving it out
+			# would make the list disagree with the count on the bar -- but it
+			# is marked, so selecting it knowingly is a no-op rather than a
+			# surprise.
+			here=""
+			[[ "$window" == "$current" ]] && here=" ${CC_C_DIM-}(here)${CC_C_OFF-}"
+
+			ask=$(ask_for "$pid")
+			[[ -n "$ask" ]] && ask="${CC_C_DIM-}${ask:0:90}${CC_C_OFF-}"
+
+			# rank leads the line for the sort below and is stripped after.
+			printf '%s\t%s%s%s%s%s\t%s\n' \
+				"$rank" \
+				"${color}${glyph}${window}${CC_C_OFF-}" \
+				"$here" \
+				"${ask:+  }" "$ask" "" \
+				"$window"
+		done <<<"$raw"
+		# Waiting first, then busy, then idle: the order the bar already
+		# implies, and the order attention is actually owed in.
+	} | sort -t$'\t' -k1,1n | cut -f2- |
+		fzf --ansi --delimiter='\t' --with-nth=1 --accept-nth=2 \
+			--ghost="claude" \
+			--prompt="claude> "
+)
+
+[[ -z "$selected" ]] && exit 0
+
+# Session and window, not just session. switch-client lands on whichever window
+# was last active there, which is precisely the wrong one when a session holds
+# several and only one of them is asking.
+session="${selected%%:*}"
+tmux switch-client -t "$session" 2>/dev/null || tmux attach -t "$session"
+tmux select-window -t "$selected"
