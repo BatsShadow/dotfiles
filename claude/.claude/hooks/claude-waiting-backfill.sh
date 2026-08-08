@@ -8,9 +8,10 @@
 # feature is for. The same gap reopens after any settings change that drops the
 # hook, and on a fresh machine the moment install-hooks.sh runs.
 #
-# The judgement is identical to the live one; only the source of the text
-# differs. Instead of Stop handing over last_assistant_message, the last
-# assistant message is read back out of the session transcript.
+# The judgement is identical to the live one -- literally the same file, see
+# waiting-rule.jq -- and only the source of the text differs. Instead of Stop
+# handing over last_assistant_message, the last assistant message is read back
+# out of the session transcript.
 #
 # Safe to run repeatedly. It only ever adds a marker to a session that has none,
 # so a marker cleared by answering is not resurrected on the next run.
@@ -23,6 +24,11 @@ WAIT_DIR="${CC_WAITING_DIR:-${HOME}/.claude/waiting}"
 REVIEW_DIR="${CC_WAITING_REVIEW_DIR:-${HOME}/.claude/waiting-review}"
 SESSIONS_DIR="${CC_SESSIONS_DIR:-${HOME}/.claude/sessions}"
 PROJECTS_DIR="${CC_PROJECTS_DIR:-${HOME}/.claude/projects}"
+
+# Shared with claude-waiting.sh, and shared rather than copied on purpose: a
+# backfill that judged differently would mark a window the live path then
+# unmarks on the next turn, for no reason visible in the log.
+RULE="${CC_WAITING_RULE:-${BASH_SOURCE[0]%/*}/waiting-rule.jq}"
 
 # How long a session must have been quiet before its question counts as
 # unanswered. Mirrors the fixed 60s that idle_prompt waits in the live path, so
@@ -91,20 +97,10 @@ for f in "$SESSIONS_DIR"/*.json; do
 		continue
 	}
 
-	verdicts=$(printf '%s' "$text" | jq -R -s -r '
-		sub("[[:space:]]+$"; "")
-		| . as $msg
-		| ($msg | split("\n\n")) as $paras
-		| ($paras | last // "") as $para
-		| ($paras[-2:] | join(" ")) as $tail2
-		| [ ($msg   | endswith("?")),
-		    ($para  | test("\\?")),
-		    ($tail2 | test("\\?")),
-		    ($para  | gsub("[[:space:]]+"; " ") | .[0:300]) ]
-		| @tsv' 2>/dev/null)
+	verdicts=$(printf '%s' "$text" | jq -R -s -r -f "$RULE" 2>/dev/null)
 	[ -n "$verdicts" ] || continue
 
-	IFS=$'\t' read -r strict para tail2 para_text <<<"$verdicts"
+	IFS=$'\t' read -r strict para tail2 ask para_text <<<"$verdicts"
 
 	# Logged whichever way it goes, exactly as the live path does, so a
 	# backfilled call can be reported wrong through waiting-report.sh like any
@@ -112,14 +108,16 @@ for f in "$SESSIONS_DIR"/*.json; do
 	if [ "$DRY" -eq 0 ] && mkdir -p "$REVIEW_DIR" 2>/dev/null; then
 		jq -c -n --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg sid "$sid" \
 			--arg cwd "$(dirname "$transcript")" --arg strict "$strict" \
-			--arg para "$para" --arg tail2 "$tail2" --arg text "$para_text" \
+			--arg para "$para" --arg tail2 "$tail2" --arg ask "$ask" \
+			--arg text "$para_text" \
 			'{ts:$ts, session_id:$sid, cwd:$cwd,
 			  strict:($strict=="true"), para:($para=="true"),
-			  tail2:($tail2=="true"), text:$text, backfill:true}' \
+			  tail2:($tail2=="true"), ask:($ask=="true"),
+			  text:$text, backfill:true}' \
 			>>"${REVIEW_DIR}/decisions.jsonl" 2>/dev/null
 	fi
 
-	if [ "$para" = "true" ]; then
+	if [ "$para" = "true" ] || [ "$ask" = "true" ]; then
 		marked=$((marked + 1))
 		printf '  %s  %s\n' "${sid:0:8}" "${para_text:0:90}"
 		[ "$DRY" -eq 0 ] &&

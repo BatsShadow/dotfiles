@@ -112,6 +112,65 @@ stop "Which one?"
 stop "Never mind, I worked it out."
 assert_no_file "$P" "a later plain turn clears an earlier pending"
 
+printf 'the ask rule\n'
+
+# The turn this rule exists for, reduced to its shape: a request to reply,
+# followed by a closing note, and not a question mark anywhere. Every
+# punctuation rule misses it, including tail2 -- neither of the last two
+# paragraphs has one -- and so would a last-paragraph-only ask.
+reset
+stop 'Three files staged. Here is the proposed commit message:
+
+```
+GH #5126: Only update CSV columns present in the location import file
+```
+
+Reply "ok" to commit it, or tell me what to change.
+
+One note on the footer: I put a real customer impact rather than `None`.'
+assert_file "$P" "a request to reply pends with no question mark present"
+assert_eq "$(jq -r '[.strict, .para, .tail2, .ask] | @tsv' "${CC_WAITING_REVIEW_DIR}/decisions.jsonl")" \
+	"$(printf 'false\tfalse\tfalse\ttrue')" "no punctuation rule sees it, ask alone does"
+
+# The row shows the request, not whatever came last. An ask makes its request
+# and then keeps explaining, so the first one is the real one -- the opposite of
+# how a question behaves.
+assert_eq "$(cut -f2- <"$P")" 'Reply "ok" to commit it, or tell me what to change.' \
+	"the displayed text is the request, not the closing note"
+
+reset
+stop "I fixed it three ways. Why? The index was stale.
+
+So: should I keep all three, or drop the last?"
+assert_eq "$(cut -f2- <"$P")" "So: should I keep all three, or drop the last?" \
+	"a question still displays the last one, not the first"
+
+for phrase in 'Reply "ok" to commit it.' \
+	"Reply with ok and I will push it." \
+	"Say the word and I will open the PR."; do
+	reset
+	stop "$phrase"
+	assert_file "$P" "\"${phrase:0:24}...\" pends"
+done
+
+# Narrow on purpose. These end a great many turns that have simply finished, and
+# a rule that fired on them would leave the bar permanently amber.
+for phrase in "Let me know if you want anything else." \
+	"I have replied to the review comments." \
+	"All three tests pass now."; do
+	reset
+	stop "$phrase"
+	assert_no_file "$P" "\"${phrase:0:24}...\" does not pend"
+done
+
+# The one shape known to fire wrongly, pinned so it is a decision rather than a
+# surprise. `reply with` has to match mid-sentence to catch "please reply with
+# ok", which also catches this. Report it through waiting-report.sh if it turns
+# out to happen; the log is what settles whether the trade was worth it.
+reset
+stop "The parser choked on the reply with the malformed timestamp."
+assert_file "$P" "a noun-phrase \"reply with\" fires too -- accepted false positive"
+
 printf 'promotion\n'
 
 reset

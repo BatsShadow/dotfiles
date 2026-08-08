@@ -41,7 +41,14 @@ fi
 if [[ "${1:-}" == "--tally" ]]; then
 	jq -s -r --slurpfile fb <(cat "$FEEDBACK" 2>/dev/null) '
 		def pct($n; $d): if $d == 0 then " n/a" else "\(($n * 100 / $d) | round)%" end;
-		def fired($k): map(select(.[$k])) | length;
+
+		# Records written before a rule existed have no key for it. Absent has
+		# to read as "did not fire" rather than null, or the rule scores wrong
+		# on every turn logged before it was added.
+		def v($k): if $k == "live" then ((.para // false) or (.ask // false))
+		           else (.[$k] // false) end;
+		def fired($k): map(select(v($k))) | length;
+		def pad($n): $n | tostring | (" " * (5 - length)) + .;
 
 		. as $all
 		| ($fb // []) as $f
@@ -49,19 +56,22 @@ if [[ "${1:-}" == "--tally" ]]; then
 		# A reported turn carries what should have happened: false_negative
 		# means it should have been waiting, false_positive means it should
 		# not. Any rule whose verdict differs from that got this turn wrong --
-		# which scores all three against the same evidence, including the two
+		# which scores every rule against the same evidence, including the ones
 		# that were only ever logged.
-		| def missed($k): $f | map(select(.[$k] != (.verdict == "false_negative"))) | length;
+		| def missed($k): $f | map(select(v($k) != (.verdict == "false_negative"))) | length;
 
 		  "turns judged:       \($all | length)",
 		  "",
 		  "  rule      fired    wrong",
-		  "  strict    \($all | fired("strict") | tostring | (" " * (5 - length)) + .)  \(pct($all | fired("strict"); $all | length))    \(missed("strict"))",
-		  "  para *    \($all | fired("para")   | tostring | (" " * (5 - length)) + .)  \(pct($all | fired("para");   $all | length))    \(missed("para"))",
-		  "  tail2     \($all | fired("tail2")  | tostring | (" " * (5 - length)) + .)  \(pct($all | fired("tail2");  $all | length))    \(missed("tail2"))",
+		  "  strict    \(pad($all | fired("strict")))  \(pct($all | fired("strict"); $all | length))    \(missed("strict"))",
+		  "  para      \(pad($all | fired("para")))  \(pct($all | fired("para");   $all | length))    \(missed("para"))",
+		  "  tail2     \(pad($all | fired("tail2")))  \(pct($all | fired("tail2");  $all | length))    \(missed("tail2"))",
+		  "  ask       \(pad($all | fired("ask")))  \(pct($all | fired("ask");    $all | length))    \(missed("ask"))",
+		  "  live *    \(pad($all | fired("live")))  \(pct($all | fired("live");   $all | length))    \(missed("live"))",
 		  "",
-		  "  * the live rule. wrong is counted only over the \($f | length) turn(s) you reported,",
-		  "    so it is a comparison between rules, not an error rate.",
+		  "  * para or ask, which is what actually runs. wrong is counted only over",
+		  "    the \($f | length) turn(s) you reported, so it compares rules rather than",
+		  "    giving an error rate.",
 		  "",
 		  "reported wrong:     \($f | length)",
 		  "  false positives:  \($f | map(select(.verdict == "false_positive")) | length)   (marked waiting, was not)",
@@ -76,11 +86,12 @@ recent=$(tail -n "$LIMIT" "$DECISIONS" | { tail -r 2>/dev/null || tac; })
 selected=$(
 	printf '%s\n' "$recent" | jq -r --arg wait "$CC_C_WAIT" --arg dim "$CC_C_DIM" \
 		--arg live "$CC_C_LIVE" --arg off "$CC_C_OFF" '
-		# A row where the two rules disagree is the one worth a human glance, so
-		# it is marked -- those are exactly the turns that decide the question.
-		(if .para then $wait else $dim end) as $c
-		| (if .para != .strict then "~" else " " end) as $split
-		| (if .para then "waiting" else "  idle " end) as $verdict
+		# A row where the live rule and the strict one disagree is the one worth
+		# a human glance -- those are exactly the turns that decide the question.
+		(((.para // false) or (.ask // false))) as $live_v
+		| (if $live_v then $wait else $dim end) as $c
+		| (if $live_v != (.strict // false) then "~" else " " end) as $split
+		| (if $live_v then "waiting" else "  idle " end) as $verdict
 		| ((.cwd // "") | split("/") | last // "-") as $where
 		| ((.ts | fromdateiso8601 | strflocaltime("%m-%d %H:%M")) // .ts) as $when
 		| "\($c)\($when) \($verdict)\($split)\($off) \($live)\($where)\($off) \($c)\(.text[0:110])\($off)\t\(tojson)"
@@ -92,7 +103,7 @@ selected=$(
 
 [[ -z "$selected" ]] && exit 0
 
-was_waiting=$(printf '%s' "$selected" | jq -r 'if .para then "true" else "false" end')
+was_waiting=$(printf '%s' "$selected" | jq -r 'if ((.para // false) or (.ask // false)) then "true" else "false" end')
 
 # Offer only the correction that makes sense for what was decided. Presenting
 # both would invite recording "false positive" against a turn that never fired.

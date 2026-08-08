@@ -13,23 +13,31 @@
 # So notification_type cannot answer it. The one field that can is Stop's
 # last_assistant_message, which is the full text of what Claude just said.
 #
-# The rule: the final paragraph contains a question mark. Deliberately not "the
-# message ends in ?", which misses a question with anything after it at all --
-# "Should I do X? I can also do Y." is a question, and the strict rule calls it
-# a statement.
+# The rule: the final paragraph contains a question mark, or asks the user to
+# reply. Deliberately not "the message ends in ?", which misses a question with
+# anything after it at all -- "Should I do X? I can also do Y." is a question,
+# and the strict rule calls it a statement.
 #
-# It is a guess, so it is measured rather than trusted. Three verdicts are
-# computed on every turn and all three are logged; only the middle one acts:
+# It is a guess, so it is measured rather than trusted. Four verdicts are
+# computed on every turn and all four are logged; the live rule is para OR ask:
 #
 #   strict  the message ends in ?
-#   para    the last paragraph contains ?          <- the live rule
+#   para    the last paragraph contains ?          <- live
 #   tail2   either of the last two paragraphs does
+#   ask     the last paragraph says "Reply ..."    <- live
+#
+# ask exists because a request for input does not have to be a question, and the
+# first real turn this ever logged was exactly that: `Reply "ok" to commit it,
+# or tell me what to change.` -- waiting on the user by any reading, and missed
+# by all three punctuation rules. It matches an imperative `Reply` opening a
+# sentence, which is narrow on purpose; "let me know" and friends are far too
+# common in turns that have simply finished.
 #
 # tail2 is there because para has a known blind spot: a question followed by a
 # separate closing paragraph scores false, since the closing line is then the
 # last paragraph. Whether that matters in practice is a question about how
 # Claude actually writes, which no amount of reasoning settles -- so it is
-# logged, and waiting-report.sh scores all three against the calls you mark
+# logged, and waiting-report.sh scores all four against the calls you mark
 # wrong. Widening to tail2 later is a one-word change.
 #
 # Timing is not free. idle_prompt is a fixed 60s timer (measured; documented
@@ -54,6 +62,11 @@ set -u
 WAIT_DIR="${CC_WAITING_DIR:-${HOME}/.claude/waiting}"
 REVIEW_DIR="${CC_WAITING_REVIEW_DIR:-${HOME}/.claude/waiting-review}"
 
+# The rule itself lives in one file, shared with the backfill. They have to
+# agree exactly or a session marked by one and re-examined by the other flips
+# state for no reason the log would explain.
+RULE="${CC_WAITING_RULE:-${BASH_SOURCE[0]%/*}/waiting-rule.jq}"
+
 command -v jq >/dev/null 2>&1 || exit 0
 
 payload=$(cat)
@@ -73,28 +86,20 @@ mkdir -p "$WAIT_DIR" 2>/dev/null || exit 0
 
 case "$event" in
 Stop)
-	# All three verdicts are computed, only para is acted on. The other two are
-	# carried purely so the log can answer which rule would have been right.
-	verdicts=$(printf '%s' "$payload" | jq -r '
-		(.last_assistant_message // "")
-		| sub("[[:space:]]+$"; "")
-		| . as $msg
-		| ($msg | split("\n\n")) as $paras
-		| ($paras | last // "") as $para
-		| ($paras[-2:] | join(" ")) as $tail2
-		| [ ($msg   | endswith("?")),
-		    ($para  | test("\\?")),
-		    ($tail2 | test("\\?")),
-		    ($para  | gsub("[[:space:]]+"; " ") | .[0:300]) ]
-		| @tsv' 2>/dev/null)
-
 	# A payload jq could not read must not silently clear a live pending
-	# marker -- that would drop a genuine question on a malformed event.
+	# marker -- that would drop a genuine question on a malformed event. An
+	# absent message is a different case and does clear it: a turn that said
+	# nothing is asking nothing.
+	msg=$(printf '%s' "$payload" | jq -r '.last_assistant_message // ""' 2>/dev/null) || exit 0
+
+	# All four verdicts are computed, para and ask are acted on. The other two
+	# are carried purely so the log can answer which rule would have been right.
+	verdicts=$(printf '%s' "$msg" | jq -Rs -r -f "$RULE" 2>/dev/null)
 	[ -n "$verdicts" ] || exit 0
 
-	IFS=$'\t' read -r strict para tail2 text <<<"$verdicts"
+	IFS=$'\t' read -r strict para tail2 ask text <<<"$verdicts"
 
-	if [ "$para" = "true" ]; then
+	if [ "$para" = "true" ] || [ "$ask" = "true" ]; then
 		printf 'question\t%s\n' "$text" >"${WAIT_DIR}/${sid}.pending"
 	else
 		rm -f "${WAIT_DIR}/${sid}.pending"
@@ -105,10 +110,10 @@ Stop)
 	if mkdir -p "$REVIEW_DIR" 2>/dev/null; then
 		jq -c -n --arg ts "$ts" --arg sid "$sid" --arg cwd "$cwd" \
 			--arg strict "$strict" --arg para "$para" --arg tail2 "$tail2" \
-			--arg text "$text" \
+			--arg ask "$ask" --arg text "$text" \
 			'{ts:$ts, session_id:$sid, cwd:$cwd,
 			  strict:($strict=="true"), para:($para=="true"),
-			  tail2:($tail2=="true"), text:$text}' \
+			  tail2:($tail2=="true"), ask:($ask=="true"), text:$text}' \
 			>>"${REVIEW_DIR}/decisions.jsonl" 2>/dev/null
 	fi
 	;;
