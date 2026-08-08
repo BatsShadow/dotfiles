@@ -171,6 +171,59 @@ reset
 stop "The parser choked on the reply with the malformed timestamp."
 assert_file "$P" "a noun-phrase \"reply with\" fires too -- accepted false positive"
 
+# An ask buried mid-message is an aside, not the close of a turn. This is the
+# real shape that made the rule windowed: an optional offer four paragraphs from
+# the end of a completion report, followed by results and a handover list.
+reset
+stop "I chased the two failures across both suites.
+
+If you want certainty I can loop the full suite twenty times. Say the word.
+
+Full suite: 2600 passed, 2 failed, both already red on main.
+
+Working tree clean, one commit on upstream/main.
+
+Still yours to do, unchanged:
+
+1. Create the index before deploy
+2. File the two issues
+3. Whether to open the PR"
+assert_no_file "$P" "an ask four paragraphs from the end does not pend"
+assert_eq "$(jq -r '.ask' "${CC_WAITING_REVIEW_DIR}/decisions.jsonl")" "false" \
+	"and is logged as not asking, not merely unacted on"
+
+# One paragraph closer and it counts. The boundary is worth pinning because it
+# is the whole of the difference between the two turns this rule was tuned on.
+reset
+stop "Full suite: 2600 passed, 2 failed, both already red on main.
+
+If you want certainty I can loop it twenty times. Say the word.
+
+That is everything else done."
+assert_file "$P" "an ask in the second-to-last paragraph does pend"
+
+printf 'the displayed text\n'
+
+# The row gets the sentence that asked, not the paragraph around it. A request
+# at the end of a long piece of analysis is the common case, and quoting the
+# analysis instead of the request is what makes a row unreadable.
+reset
+stop "That's strong but not proof. I said I'd tell you plainly which it is, so I believe it is pre-existing interference, and I have not proven it. If you want certainty I can loop the full suite. Say the word."
+assert_eq "$(cut -f2- <"$P")" "Say the word." \
+	"a long paragraph is trimmed to the asking sentence"
+
+reset
+stop "I fixed it three ways. Why? The index was stale. Should I keep all three, or drop the last?"
+assert_eq "$(cut -f2- <"$P")" "Should I keep all three, or drop the last?" \
+	"a paragraph with two question marks is trimmed to the last one"
+
+# Nothing to trim to: a paragraph that is one sentence must survive whole rather
+# than being clipped by a splitter that found no boundary.
+reset
+stop "Which of these should I use?"
+assert_eq "$(cut -f2- <"$P")" "Which of these should I use?" \
+	"a single-sentence paragraph is unchanged"
+
 printf 'promotion\n'
 
 reset

@@ -19,26 +19,16 @@
 # and the strict rule calls it a statement.
 #
 # It is a guess, so it is measured rather than trusted. Four verdicts are
-# computed on every turn and all four are logged; the live rule is para OR ask:
+# computed on every turn and all four are logged; the live rule is para OR ask.
+# The rule itself, and the reasoning behind each pattern and window, is in
+# waiting-rule.jq -- shared with the backfill so the two cannot drift.
 #
-#   strict  the message ends in ?
-#   para    the last paragraph contains ?          <- live
-#   tail2   either of the last two paragraphs does
-#   ask     the last paragraph says "Reply ..."    <- live
-#
-# ask exists because a request for input does not have to be a question, and the
-# first real turn this ever logged was exactly that: `Reply "ok" to commit it,
-# or tell me what to change.` -- waiting on the user by any reading, and missed
-# by all three punctuation rules. It matches an imperative `Reply` opening a
-# sentence, which is narrow on purpose; "let me know" and friends are far too
-# common in turns that have simply finished.
-#
-# tail2 is there because para has a known blind spot: a question followed by a
-# separate closing paragraph scores false, since the closing line is then the
-# last paragraph. Whether that matters in practice is a question about how
-# Claude actually writes, which no amount of reasoning settles -- so it is
-# logged, and waiting-report.sh scores all four against the calls you mark
-# wrong. Widening to tail2 later is a one-word change.
+# What matters here is that the losing rules are logged too. Whether para's
+# known blind spot -- a question followed by a closing paragraph -- matters in
+# practice is a question about how Claude actually writes, which no amount of
+# reasoning settles. So tail2 is computed and recorded against every turn, and
+# waiting-report.sh scores all four against the calls you mark wrong. Switching
+# to it later is a one-word change.
 #
 # Timing is not free. idle_prompt is a fixed 60s timer (measured; documented
 # nowhere), so a window turns amber a minute after Claude asks. There is no
