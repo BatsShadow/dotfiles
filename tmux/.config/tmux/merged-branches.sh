@@ -60,8 +60,8 @@
 # minute. They are computed and stored separately and joined on read.
 #
 # Both are cached rather than computed on demand because these run inside popups
-# that must open instantly: the branch pass is ~5s over 103 worktrees and the
-# dirty pass is ~1.6s even fully parallel and warm. Readers get whatever the
+# that must open instantly: over 103 worktrees the branch pass is ~0.9s and the
+# dirty pass ~2.3s, both already fanned out twelve ways. Readers get whatever the
 # caches hold and never block.
 #
 #   merged-branches.sh                  print the joined set, refreshing behind you
@@ -85,62 +85,64 @@ DIRTY_STAMP="${CACHE_DIR}/merged-branches.dirty.stamp"
 TTL="${CC_MERGED_TTL:-900}"
 DIRTY_TTL="${CC_MERGED_DIRTY_TTL:-60}"
 
-# One `git status` per worktree, and the whole reason this needs a cache at all.
-# Parallel because they are independent and each is mostly waiting on the disk.
-DIRTY_JOBS="${CC_MERGED_DIRTY_JOBS:-12}"
+# One `git status` per worktree for the dirty pass, five short-lived git
+# processes per branch for the patch test. Both are independent per worktree and
+# both spend most of their time waiting on the disk, so both fan out. Serially
+# the branch pass took 5s over 103 worktrees; twelve ways it takes 0.9s for a
+# byte-identical answer, which is most of the reason it is bearable to recompute
+# at all. The older CC_MERGED_DIRTY_JOBS still works.
+JOBS="${CC_MERGED_JOBS:-${CC_MERGED_DIRTY_JOBS:-12}}"
 
-# merged | empty | (nothing, meaning outstanding work) for one branch.
-__mb_state() {
-	local branch="$1" mb tree base_tree synthetic
-
-	mb=$(git -C "$REPO_DIR" merge-base "$BASE_REF" "$branch" 2>/dev/null) || return 0
-	[ -n "$mb" ] || return 0
-
-	tree=$(git -C "$REPO_DIR" rev-parse "${branch}^{tree}" 2>/dev/null) || return 0
-	base_tree=$(git -C "$REPO_DIR" rev-parse "${mb}^{tree}" 2>/dev/null) || return 0
-
-	# Nothing of its own. Must be answered before the patch test rather than by
-	# it: an empty patch is trivially already upstream, so `git cherry` would
-	# call every untouched worktree merged. See the header.
-	if [ "$tree" = "$base_tree" ]; then
-		printf 'empty\n'
-		return 0
-	fi
-
-	synthetic=$(git -C "$REPO_DIR" commit-tree "$tree" -p "$mb" -m merged-probe 2>/dev/null) || return 0
-
-	# `-` prefixes a commit whose patch is already upstream. Anything else,
-	# including no output at all, means it is not.
-	if git -C "$REPO_DIR" cherry "$BASE_REF" "$synthetic" 2>/dev/null | grep -q '^-'; then
-		printf 'merged\n'
-	fi
-}
-
+# `merged` or `empty` per worktree branch, and nothing at all for a branch with
+# outstanding work.
+#
+# The classification runs in the xargs child rather than in a shell function,
+# because a function cannot cross into `sh -c`. Exporting the settings it reads
+# is the price of the parallelism.
 __mb_compute() {
-	local branch state
-
 	git -C "$REPO_DIR" rev-parse --verify --quiet "$BASE_REF" >/dev/null 2>&1 || return 1
 
-	for dir in "$WORKTREE_DIR"/*/; do
-		[ -d "$dir" ] || continue
-		branch="${dir%/}"
-		branch="${branch##*/}"
+	export REPO_DIR BASE_REF
+	# The trunk is not work in progress and is never finished with. Left
+	# unclassified it reads as `empty`, perfectly accurately -- it has no commits
+	# of its own -- and lands at the top of a list offering to delete it.
+	MB_TRUNK="${BASE_REF##*/}"
+	export MB_TRUNK
 
-		git -C "$REPO_DIR" show-ref --verify --quiet "refs/heads/${branch}" || continue
+	# Sorted on the way out. The order xargs finishes in is whatever the disk
+	# decides, and a cache that reshuffles itself every refresh is impossible to
+	# diff against the last one when something looks wrong.
+	find "$WORKTREE_DIR" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null |
+		xargs -0 -P "$JOBS" -n1 sh -c '
+			b=${1##*/}
+			[ "$b" = "$MB_TRUNK" ] && exit 0
+			git -C "$REPO_DIR" show-ref --verify --quiet "refs/heads/$b" || exit 0
 
-		# The trunk is not work in progress and is never finished with. Left
-		# unclassified it reads as `empty`, perfectly accurately -- it has no
-		# commits of its own -- and lands at the top of a list offering to
-		# delete it.
-		[ "$branch" = "${BASE_REF##*/}" ] && continue
+			mb=$(git -C "$REPO_DIR" merge-base "$BASE_REF" "$b" 2>/dev/null) || exit 0
+			[ -n "$mb" ] || exit 0
+			tree=$(git -C "$REPO_DIR" rev-parse "$b^{tree}" 2>/dev/null) || exit 0
+			base=$(git -C "$REPO_DIR" rev-parse "$mb^{tree}" 2>/dev/null) || exit 0
 
-		state=$(__mb_state "$branch")
-		[ -n "$state" ] && printf '%s\t%s\n' "$state" "$branch"
-	done
+			# Nothing of its own. Must be answered before the patch test rather
+			# than by it: an empty patch is trivially already upstream, so
+			# `git cherry` would call every untouched worktree merged.
+			if [ "$tree" = "$base" ]; then
+				printf "empty\t%s\n" "$b"
+				exit 0
+			fi
 
-	# Explicit, because otherwise the function returns the status of the last
-	# branch tested -- so a run ending on an unmerged branch would report
-	# failure, and the caller would throw away a perfectly good result.
+			syn=$(git -C "$REPO_DIR" commit-tree "$tree" -p "$mb" -m merged-probe 2>/dev/null) || exit 0
+
+			# `-` prefixes a commit whose patch is already upstream. Anything
+			# else, including no output at all, means it is not. Exit 0 either
+			# way: enough non-zero children in a row and xargs gives up with
+			# 123, which __mb_refresh would read as a failed sweep and discard.
+			if git -C "$REPO_DIR" cherry "$BASE_REF" "$syn" 2>/dev/null | grep -q "^-"; then
+				printf "merged\t%s\n" "$b"
+			fi
+			exit 0
+		' _ | sort -t"$(printf '\t')" -k2,2
+
 	return 0
 }
 
@@ -173,7 +175,7 @@ __mb_compute_dirty() {
 	# return 123 -- which __mb_refresh_dirty would read as "the sweep failed"
 	# and discard a complete, correct result.
 	find "$WORKTREE_DIR" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null |
-		xargs -0 -P "$DIRTY_JOBS" -n1 sh -c '
+		xargs -0 -P "$JOBS" -n1 sh -c '
 			st=$(git -C "$1" status --porcelain 2>/dev/null)
 			if [ -n "$st" ]; then
 				# Strip the two status columns, keep the destination of a
