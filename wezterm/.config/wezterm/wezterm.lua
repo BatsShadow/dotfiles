@@ -113,7 +113,13 @@ config.keys = {
       )
     end),
   },
-  -- Bind cmd-T to tumx Create Window (no more Wezterm tabs)
+  -- Bind cmd-T to tmux new-window (no more Wezterm tabs)
+  --
+  -- Sends prefix-t, which tmux.conf binds explicitly. It used to send prefix-c
+  -- and rely on tmux's default binding for that -- until prefix-c was taken for
+  -- the Claude jumper and cmd-T started opening a picker. Anything here that
+  -- leans on a tmux default is one rebind away from doing something else
+  -- entirely, so keep this pointing at keys tmux.conf names out loud.
   {
     key = 't',
     mods = 'CMD',
@@ -126,7 +132,7 @@ config.keys = {
       win:perform_action(
         wezterm.action.Multiple({
           wezterm.action.SendKey({ key = ' ', mods = 'CTRL' }),
-          wezterm.action.SendKey({ key = 'c' }),
+          wezterm.action.SendKey({ key = 't' }),
         }),
         pane
       )
