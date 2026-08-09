@@ -36,6 +36,32 @@
 #   It fired on 55 here and contributed no genuine detection at all. Adding it
 #   as a second opinion took the count from 40 to 70, all 30 of them wrong.
 #
+# Matching the commit subject instead is the obvious cheap alternative and does
+# not work either. Every finished branch here is one commit titled `GH #N: ...`,
+# and every squash on main carries that same line with the PR number appended,
+# so the join looks free: one `git log` over main's 4,476 subjects is 46ms
+# against the 0.9s this costs. Both readings of it were measured over the same
+# 103 worktrees, and both fail towards offering up unlanded work.
+#
+#   By GH number, it found all 38 the patch test did, plus two it should not
+#   have. `wip-export-creds-fix` quotes GH #5073, which is on main because a
+#   different PR referenced the same issue -- its own PR is open, with 149
+#   insertions and 657 deletions that have landed nowhere. Being fully in sync
+#   with its remote does not save it; it was 0/0 against origin.
+#   `daily-all-ach-itemized-reports` quotes GH #4297, which landed from another
+#   branch entirely, and holds a different tree with 674 insertions of its own.
+#   One issue spanning several PRs is ordinary, so a number on main says the
+#   issue was worked on, never that this branch's work is what landed.
+#
+#   By whole subject, it is worse. 2,682 of main's 4,245 subjects carry no GH
+#   number at all, and one of them is literally `wip` -- which marks any wip
+#   branch merged, and there are several here. It also loses real detections to
+#   a PR title edited before the merge: `dynamic-toast-qr` went in as `... on /l
+#   and /s` and no longer matches the commit it was written from.
+#
+# The patch-id is the only signal that answers the question actually being
+# asked, which is about content rather than about labels.
+#
 # Uncommitted changes outrank both. Work in the working tree has landed nowhere
 # by definition, so a dirty worktree is reported as `dirty` whatever its commits
 # say -- 14 of the 70 branches this would otherwise offer up as reclaimable have
