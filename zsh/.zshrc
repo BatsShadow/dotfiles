@@ -50,6 +50,9 @@ alias cdw="cd ~/src/upngo/worktrees"
 
 alias cl=claude --enable-auto-mode
 
+alias h="hunk diff"
+alias hs="hunk show"
+
 # Report a window the status bar called wrong -- amber when nothing was waiting,
 # or grey when Claude had asked something. See claude/.claude/hooks/.
 alias ccwrong="~/.config/tmux/waiting-report.sh"
