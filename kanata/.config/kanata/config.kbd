@@ -69,18 +69,29 @@
 )
 
 ;; Top-row keys that hold into the modnav layer, each supplying one modifier.
-;; Their key lists differ from the hrm ones in both directions:
+;; Only one list differs from the hrm ones:
 ;;
 ;;   q w e r  hold-on-press, not tap-on-press, so a second one pressed inside the
 ;;            tapping term stacks its modifier instead of forcing an early tap
-;;   u i h j k l m ,
-;;            hold-on-press so an arrow fires and repeats on press rather than
-;;            waiting for its release under permissive hold
+;;
+;; The modnav targets (u i h j k l m ,) must NOT be listed here. Listing them
+;; made an arrow fire on press instead of waiting for release under permissive
+;; hold, but hold-on-press cannot tell a deliberate chord from an ordinary
+;; opposite-hand roll -- and these keys output l u m n e i h, the letters that
+;; most often follow q w f p. Word-initial rolls resolved to the hold: "with"
+;; typed alt+right, "quick" ctrl+home, "put" shift+home, "when" alt+pgdn,
+;; "people" shift+up. Only tap-hold-require-prior-idle kept it to the first
+;; letter after a pause. Unlisted, they fall back to permissive hold, which
+;; separates roll from chord by release order the way the hrm keys do.
+;;
+;; The cost is that an arrow pressed in the same instant as its modifier waits
+;; for the tapping term to resolve; press the modifier a beat first and it is
+;; immediate. Holding the arrow still repeats.
 (deftemplate navmod (tap-key hold-action)
   (tap-hold-keys $quick-tap-ms $tapping-term $tap-key $hold-action
     (tap-on-press         t z x c v)
     (tap-on-press-release a s d f g lsft b)
-    (hold-on-press        q w e r u i h j k l m ,))
+    (hold-on-press        q w e r))
 )
 
 (defalias
