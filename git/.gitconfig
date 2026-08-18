@@ -43,6 +43,7 @@
     #list commands
     
     lr = "!git --no-pager log --oneline --no-decorate"
+    l = l1
     l1 = log -1
     l1c = "!git l1 --color=always | tee /dev/tty | tail -n +5 | pbcopy"
     le = log --oneline --decorate
