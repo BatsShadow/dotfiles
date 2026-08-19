@@ -17,7 +17,6 @@ if [[ -r "$CC_HELPER" ]]; then
     source "$CC_HELPER"
 else
     cc_load() { :; }
-    cc_merged_load() { :; }
     cc_row() { printf '%s\t%s\n' "$1" "$1"; }
 fi
 
@@ -50,31 +49,76 @@ else
     # state glyph and the colour; the value is the bare session name or path the
     # rest of this script already expects, so nothing below the picker changes.
     cc_load
-    cc_merged_load
+
+    # No cc_merged_load. Nothing in this list is about branches -- CC_FALLBACK
+    # is unset here, so the marks it loads are never consulted -- and the call
+    # is not free: serving the cache costs ~40ms, and finding it stale (60s for
+    # the dirty half) detaches a sweep that pins every core for over two
+    # seconds. Paying that on the most-pressed key in the config, to populate
+    # two arrays nothing reads, also slowed the list being built behind it.
+
+    # Which sessions exist, and which names the history already knows. Both are
+    # read once into the shell, because both used to be asked once per row: a
+    # `tmux has-session` per history entry and a `grep` per live session, 39
+    # processes on this machine to settle 39 questions that one `list-sessions`
+    # and one pass over the history file answer between them. At ~5ms a tmux
+    # round trip and ~3ms a fork that was the bulk of the delay between the
+    # keystroke and the list appearing, and it grew with every session kept.
+    #
+    # Swapping the grep for a faster grep does not help and was measured: the
+    # cost is starting a process at all, not searching 1.7KB, and ripgrep starts
+    # ~1ms slower than BSD grep. The fix is to not spawn one.
+    declare -A live=() in_history=() emitted=()
+    declare -a live_order=()
+
+    # Insertion order is kept separately. Iterating an associative array yields
+    # its keys in hash order, which would silently reshuffle the tail of the
+    # list; tmux's own order is the one that has always been shown.
+    while IFS= read -r name; do
+        [[ -n "$name" ]] || continue
+        live["$name"]=1
+        live_order+=("$name")
+    done < <(tmux list-sessions -F '#S' 2>/dev/null)
+
+    while IFS= read -r name; do
+        [[ -n "$name" ]] && in_history["$name"]=1
+    done < "$HISTORY_FILE"
+
     selected=$(
         {
-            # Existing tmux sessions sorted by recency, excluding current
+            # Existing tmux sessions sorted by recency, excluding current.
+            #
+            # `emitted` carries the dedup that an awk pass in front of fzf used
+            # to do. It keys on the value for the same reason that pass did --
+            # two rows for one session would otherwise survive as soon as their
+            # glyphs differed -- and it keeps the first occurrence, so a name
+            # holds its history position. Doing it here also lets rows reach fzf
+            # as they are produced: awk in the middle of the pipe block-buffers,
+            # so nothing was drawn until the last row had been built.
             while IFS= read -r name; do
-                [[ "$name" != "$current_session" ]] && cc_row "$name" session
-            done < <(
-                # Read history in reverse (most recent last → most recent first after tac)
-                tail -r "$HISTORY_FILE" | awk '!seen[$0]++' | while IFS= read -r hist_name; do
-                    tmux has-session -t="$hist_name" 2>/dev/null && echo "$hist_name"
-                done
-                # Then any sessions not in history
-                tmux list-sessions -F '#S' 2>/dev/null | while IFS= read -r s; do
-                    [[ "$s" != "$current_session" ]] && ! grep -qxF "$s" "$HISTORY_FILE" && echo "$s"
-                done
-            )
+                [[ -n "$name" && -z "${emitted[$name]:-}" ]] || continue
+                [[ -n "${live[$name]:-}" && "$name" != "$current_session" ]] || continue
+                emitted["$name"]=1
+                cc_row "$name" session
+            done < <(tail -r "$HISTORY_FILE")
+
+            # Then any sessions not in history
+            for name in "${live_order[@]}"; do
+                [[ -z "${emitted[$name]:-}" && -z "${in_history[$name]:-}" ]] || continue
+                [[ "$name" != "$current_session" ]] || continue
+                emitted["$name"]=1
+                cc_row "$name" session
+            done
 
             # No directories: this picker lists sessions only. A session is
             # created either from the current directory via [new], or by
             # worktree-new.sh, which does its own directory selection and then
             # hands the path to this script as $1.
-            cc_row "[new]" new
-            # Dedup on the value, not the whole row: two rows for the same
-            # session would otherwise survive as soon as their glyphs differed.
-        } | awk -F'\t' '!seen[$2]++' | fzf --ansi \
+            #
+            # Suppressed only by a session that is literally named `[new]`,
+            # which is what the awk dedup did with it too.
+            [[ -z "${emitted["[new]"]:-}" ]] && cc_row "[new]" new
+        } | fzf --ansi \
             --delimiter='\t' --with-nth=1 --accept-nth=2 \
             --ghost="session" \
             --prompt="session> "

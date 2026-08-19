@@ -51,17 +51,38 @@ if [[ -z "$raw" || "$raw" == "TORN" || "$raw" == "EMPTY" ]]; then
 	exit 0
 fi
 
-# What each window is waiting on, resolved from the pid that won it. Only ever
-# a handful of files, and only on a keypress, so the cost never touches the
-# status-interval path.
-ask_for() {
-	local pid="$1" sid text
-	[[ -r "${SESSIONS_DIR}/${pid}.json" ]] || return 0
-	sid=$(jq -r '.sessionId // empty' "${SESSIONS_DIR}/${pid}.json" 2>/dev/null)
-	[[ -n "$sid" && -r "${MARKS_DIR}/${sid}" ]] || return 0
-	text=$(cut -f2- <"${MARKS_DIR}/${sid}" 2>/dev/null | head -1)
-	printf '%s' "$text"
+# What each window is waiting on, resolved from the pid that won it, for every
+# window at once.
+#
+# This was a jq per row, which is the wrong unit: jq costs ~19ms to start and
+# essentially nothing to answer, so eighteen windows spent ~350ms learning what
+# one invocation over the whole directory reports in 19ms. Reading the marker
+# is now the shell's own `read` rather than a `cut` and a `head`, and the
+# lookup at the call site is an array subscript rather than a command
+# substitution -- three more processes a row that bought nothing.
+#
+# Still only on a keypress, so none of this touches the status-interval path.
+declare -A CC_ASK=()
+cc_load_asks() {
+	local file sid pid text
+
+	while IFS=$'\t' read -r file sid; do
+		[[ -n "$sid" && -r "${MARKS_DIR}/${sid}" ]] || continue
+
+		pid="${file##*/}"
+		pid="${pid%.json}"
+
+		# `type<TAB>text`, one line, as claude-waiting.sh writes it. Stripping
+		# to the first tab keeps the text's own tabs and leading spaces, and
+		# yields the whole line if there is no tab at all -- both of which are
+		# what the `cut -f2-` here used to do.
+		IFS= read -r text <"${MARKS_DIR}/${sid}"
+		text="${text#*$'\t'}"
+		[[ -n "$text" ]] && CC_ASK["$pid"]="$text"
+	done < <(jq -r '[input_filename, (.sessionId // empty)] | @tsv' \
+		"${SESSIONS_DIR}"/*.json 2>/dev/null)
 }
+cc_load_asks
 
 current=""
 [[ -n "${TMUX:-}" ]] && current=$(tmux display-message -p '#S:#I')
@@ -97,7 +118,7 @@ selected=$(
 			here=""
 			[[ "$window" == "$current" ]] && here=" ${CC_C_DIM-}(here)${CC_C_OFF-}"
 
-			ask=$(ask_for "$pid")
+			ask="${CC_ASK[$pid]:-}"
 			[[ -n "$ask" ]] && ask="${CC_C_DIM-}${ask:0:90}${CC_C_OFF-}"
 
 			# rank leads the line for the sort below and is stripped after.
