@@ -85,13 +85,36 @@ printf '\n'
 read -rp "  proceed? (y/N) " confirm
 [[ "$confirm" == "y" || "$confirm" == "Y" ]] || exit 0
 
+failed=()
 for name in "${selected[@]}"; do
 	if tmux kill-session -t "$name" 2>/dev/null; then
 		printf '    killed %s\n' "$name"
 	else
 		printf '    FAILED %s\n' "$name"
+		failed+=("$name")
 	fi
 done
 
-printf '\n'
-read -rp "  press enter to continue..."
+# No keypress to dismiss. Nothing here is slow enough to be worth watching --
+# unlike X, which defers the actual removing -- so the popup has nothing left
+# to do but get out of the way, and the two lines above go with it.
+#
+# The status line carries what mattered in them. A session that is gone is its
+# own confirmation and needs no more than the count; a kill that did not happen
+# leaves no trace at all, so it has to be said somewhere that outlives the
+# popup. Held for six seconds in that case rather than two, and naming each
+# one, because it is the only outcome here that needs a decision.
+#
+# Two seconds, not the default 750ms: this is issued from inside the popup and
+# has to survive it tearing down over the top of the message.
+if [[ -n "${TMUX:-}" ]]; then
+	killed=$((${#selected[@]} - ${#failed[@]}))
+	if ((${#failed[@]})); then
+		tmux display-message -d 6000 -l "killed ${killed}, FAILED ${#failed[@]}: ${failed[*]}"
+	else
+		tmux display-message -d 2000 -l "killed ${killed} session(s)"
+	fi
+else
+	# A plain shell keeps its scrollback, so the lines above are still there.
+	printf '\n'
+fi
