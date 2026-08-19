@@ -27,6 +27,16 @@
 # keeps the row out of the list, and the refusal catches the minute of staleness
 # the cache allows. Anything that does get skipped is named individually at the
 # end, and forcing stays a single-worktree decision made deliberately.
+#
+# The removals themselves do not run here. A popup holds its whole tmux client
+# hostage while it is open, and deleting a worktree carrying node_modules is
+# tens of thousands of files -- long enough, several rows deep, to be the only
+# part of this that ever feels slow. So the popup's job ends at the y/N: it
+# hands the list to the tmux server and exits, the client comes straight back,
+# and the deleting happens with nobody watching. What that costs is the running
+# commentary, which nothing was reading anyway; the log keeps it, and the status
+# line and a notification both get told when it is done -- the second because
+# "with nobody watching" often means the terminal is not on screen at all.
 
 export PATH="/opt/homebrew/bin:$PATH"
 
@@ -203,6 +213,116 @@ if [[ "${1:-}" == "--list" ]]; then
 fi
 
 self="${BASH_SOURCE[0]}"
+# The background half is re-entered by the tmux server, whose working directory
+# is not this one and is not knowable from here.
+[[ "$self" == /* ]] || self="$PWD/$self"
+
+LOG="${TMPDIR:-/tmp}/worktree-remove.log"
+
+# The removals, wherever they end up running. One line per worktree, and the
+# ones git refused left in `failed`.
+remove_selected() {
+	local branch dir
+	failed=()
+
+	for branch in "$@"; do
+		dir="${WORKTREE_DIR}/${branch}"
+
+		if git -C "$REPO_DIR" worktree remove "$dir" 2>/dev/null; then
+			printf '    removed  %s\n' "$branch"
+			if tmux has-session -t="$branch" 2>/dev/null; then
+				tmux kill-session -t "$branch" 2>/dev/null &&
+					printf '    killed   %s (session)\n' "$branch"
+			fi
+		else
+			# Almost always uncommitted changes, which is the case worth
+			# stopping for. Named individually so it can be dealt with on its
+			# own terms.
+			printf '    SKIPPED  %s -- not clean\n' "$branch"
+			failed+=("$branch")
+		fi
+	done
+}
+
+force_hint() {
+	printf '\n  %d skipped for local changes. Inspect before forcing:\n\n' "${#failed[@]}"
+	printf '    git -C %s worktree remove --force %s/<name>\n' "$REPO_DIR" "$WORKTREE_DIR"
+}
+
+# terminal-notifier first, then osascript, which is the order and the reasoning
+# in tmux-powerline/segments/claude/notify.sh. That one is not reusable from
+# here: it is shaped around the click action that jumps you to the waiting
+# session, and the sessions this script notifies about have just been killed.
+# So no -execute, and with nothing to click, the two backends differ only in
+# which of them is installed.
+#
+# Both drop the notification silently when notifications are switched off for
+# them in System Settings, and both still exit 0. The status line carries the
+# same summary for that reason -- this is the copy you get when you have looked
+# away from tmux, not the only one.
+notify() {
+	local title="worktree cleanup" message="$1"
+
+	if command -v terminal-notifier >/dev/null 2>&1; then
+		# -group so a second run replaces the first card instead of stacking.
+		# Nothing needs quoting: these are separate argv, and without -execute
+		# there is no shell on the far side to reach.
+		terminal-notifier -title "$title" -message "$message" \
+			-group worktree-remove >/dev/null 2>&1
+		return 0
+	fi
+
+	# Here there is. The message reaches osascript as an AppleScript string
+	# literal, and it carries branch names, so a double quote in one would end
+	# that literal early. Backslashes have to be escaped before quotes -- doing
+	# it the other way round plants backslashes for the backslash pass to double
+	# up. The title is a constant and needs none of this.
+	message="${message//\\/\\\\}"
+	message="${message//\"/\\\"}"
+	osascript -e "display notification \"${message}\" with title \"${title}\"" >/dev/null 2>&1
+}
+
+# Re-entered through `tmux run-shell -b`, with the popup that asked already
+# gone. The branches arrive in a file rather than as arguments because
+# run-shell expands its command as a FORMAT before /bin/sh ever sees it, and a
+# `#` is legal in a branch name -- one `#{` in the list and the command comes
+# out the other side rewritten. A path we generate cannot carry one.
+if [[ "${1:-}" == "--remove" ]]; then
+	mapfile -t selected <"$2"
+	rm -f "$2"
+	((${#selected[@]})) || exit 0
+
+	# So the popup vanishing is distinguishable from having answered N. Long
+	# enough to survive the popup tearing down over the top of it; the default
+	# display-time is 750ms and this is racing a screen redraw.
+	tmux display-message -d 2000 -l "removing ${#selected[@]} worktree(s)..."
+
+	# `failed` survives this because a redirected group is not a subshell.
+	{
+		printf '\n=== %s ===\n' "$(date '+%F %T')"
+		remove_selected "${selected[@]}"
+	} >>"$LOG" 2>&1
+
+	removed=$((${#selected[@]} - ${#failed[@]}))
+	if ((${#failed[@]})); then
+		force_hint >>"$LOG"
+
+		# Six seconds, not the zero-delay hold this used to take. A message with
+		# no delay stays up until a key is pressed and swallows that keystroke,
+		# which was worth it while the status line was the only place this could
+		# land; the notification now sits in Notification Center until dismissed,
+		# so the outcome that needs a decision no longer depends on catching a
+		# status line at the right moment.
+		summary="removed ${removed}, skipped ${#failed[@]} for local changes: ${failed[*]}"
+		tmux display-message -d 6000 -l "${summary} -- see $LOG"
+	else
+		summary="removed ${removed} worktree(s)"
+		tmux display-message -d 4000 -l "$summary"
+	fi
+
+	notify "$summary"
+	exit 0
+fi
 
 mapfile -t selected < <(
 	"$self" --list |
@@ -222,30 +342,20 @@ printf '\n'
 
 read -rp "  proceed? (y/N) " confirm
 [[ "$confirm" == "y" || "$confirm" == "Y" ]] || exit 0
-printf '\n'
 
-failed=()
-for branch in "${selected[@]}"; do
-	dir="${WORKTREE_DIR}/${branch}"
-
-	if git -C "$REPO_DIR" worktree remove "$dir" 2>/dev/null; then
-		printf '    removed  %s\n' "$branch"
-		if tmux has-session -t="$branch" 2>/dev/null; then
-			tmux kill-session -t "$branch" 2>/dev/null &&
-				printf '    killed   %s (session)\n' "$branch"
-		fi
-	else
-		# Almost always uncommitted changes, which is the case worth stopping
-		# for. Named individually so it can be dealt with on its own terms.
-		printf '    SKIPPED  %s -- not clean\n' "$branch"
-		failed+=("$branch")
-	fi
-done
-
-if ((${#failed[@]})); then
-	printf '\n  %d skipped for local changes. Inspect before forcing:\n\n' "${#failed[@]}"
-	printf '    git -C %s worktree remove --force %s/<name>\n' "$REPO_DIR" "$WORKTREE_DIR"
+# Hand off and get out of the way. run-shell hangs the work off the tmux
+# server, which outlives this popup by definition -- backgrounding it here
+# would only outlive the popup by however long tmux takes to tear the pty down.
+if [[ -n "${TMUX:-}" ]]; then
+	list=$(mktemp "${TMPDIR:-/tmp}/worktree-remove.XXXXXX")
+	printf '%s\n' "${selected[@]}" >"$list"
+	tmux run-shell -b "'$self' --remove '$list'"
+	exit 0
 fi
 
+# Run from a plain shell instead, where there is no server to hand to and
+# nothing being blocked by staying.
 printf '\n'
-read -rp "  press enter to continue..."
+remove_selected "${selected[@]}"
+((${#failed[@]})) && force_hint
+printf '\n'
