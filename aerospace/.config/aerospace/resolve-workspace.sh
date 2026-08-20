@@ -30,7 +30,7 @@ case "$APP_ID" in
     fi
     ;;
   com.apple.Safari)
-    echo "Browser"
+    echo "Safari"
     ;;
   com.tinyspeck.slackmacgap)
     echo "Slack"
@@ -39,7 +39,7 @@ case "$APP_ID" in
     echo "Email"
     ;;
   us.zoom.xos)
-    echo "Slack"
+    echo "Zoom"
     ;;
   *)
     echo "Browser"
