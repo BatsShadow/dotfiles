@@ -41,14 +41,14 @@ The install script iterates all top-level directories, stows them, then installs
 
 ## Git Workflow
 
-**Commit straight to `main`. Do not create a branch unless asked.**
+**Don't create a branch unless asked.** Changes here are usually one small
+config edit at a time, verified by reloading the thing you just edited. A
+branch wraps that loop in a merge and a cleanup for a review that never comes.
+Work directly in the checkout instead.
 
-This is a single-maintainer dotfiles repo, not a reviewed codebase. Changes
-here are small, iterative, and self-verifying — you edit a config, reload it,
-and immediately see whether it worked. A branch adds a merge and a cleanup
-step to that loop and buys nothing, since there is no reviewer and no CI gate
-on the other side.
+Suggest a branch only for genuinely larger work — a multi-step project that
+will sit unfinished across sessions, or a change big enough to want a clean
+escape hatch.
 
-So: make the change, verify it, commit it to `main`, and push. No branch, no
-merge, no confirmation prompts at any step — this repo is the user's own and
-they reload and use the result themselves, which is the real verification.
+**Still ask before committing, and ask before pushing.** Branching is the only
+step this section removes; it is not a grant of autonomy over git.
