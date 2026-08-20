@@ -284,22 +284,43 @@ and layout controls (`a` Aux, `t` Stage, `d` Shelf, `r`/`s` rebalance, `w`/`f`
 gaps, `x`/`c` right-column size, `v` fix-screen) are all left-hand, held with
 **right-`i`** alt.
 
-This is why **Zoom moved from `alt-z` to `alt-,`** *(2026-07-17)*: `z` is the
-left pinky in Colemak-DH, so `alt-z` meant holding alt with left-ring and
+This is why **Zoom moved from `alt-z` to the bottom row** *(2026-07-17)*: `z` is
+the left pinky in Colemak-DH, so `alt-z` meant holding alt with left-ring and
 reaching with left-pinky on the **same hand** — the only app key that broke the
-rule, and it felt like it. **Safari** took `alt-.` alongside it, extending the
-bottom-row app run: `k` Calendar, `h` Slack, `,` Zoom, `.` Safari.
+rule, and it felt like it. **Safari** joined it, extending the bottom-row app
+run: `k` Calendar, `h` Slack, `,` Safari, `.` Zoom.
+
+*(2026-08-20: `,` and `.` swapped — Safari took comma, Zoom took period. Safari
+is reached far more often, and comma is the easier of the two.)*
 
 Known remaining exception: **`alt-p`** (Arc's PRs tab) is left-hand (`p` is
 left-ring, top row). It is an app *action* rather than an app key, so the reach
 matters less; `alt-j` is free if it ever grates.
 
 **Workspace mode mirrors both keys** so the two modes never disagree about what a
-key means: `,` = Zoom, `.` = Safari in both. Workspace mode's model is one app per
+key means: `,` = Safari, `.` = Zoom in both. Workspace mode's model is one app per
 workspace, so this gave Zoom and Safari their own **`Zoom`** and **`Safari`**
 workspaces (previously they were filed into `Slack` and `Browser` by
 `on-window-detected`). `alt-shift-,` / `alt-shift-.` move a window there, matching
 every other workspace-mode app key.
+
+### Zoom's key cannot launch Zoom
+
+*(2026-08-20.)* `alt-.` passes **`--no-launch`** to both `dispatch.sh` and
+`tile-mode/app.sh`. Zoom is an app you are *summoned by* — a meeting link opens
+it — never one you go and start yourself, and a stray keypress that boots Zoom
+in the background is pure noise.
+
+The two halves are deliberately separate:
+
+- The **`on-window-detected`** rule still routes `us.zoom.xos` to the `Zoom`
+  workspace. Whenever Zoom does open a window, it lands where it belongs.
+- The **key** only ever navigates. In workspace mode it still makes the trip to
+  the (empty) `Zoom` workspace; in tile mode there is nothing to focus, so it is
+  inert.
+
+`--no-launch` is a general flag, not a Zoom special case — any app that should
+only ever be opened by something else can take it.
 
 ### Layout toggles are disabled in tile mode
 

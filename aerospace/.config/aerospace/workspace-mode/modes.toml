@@ -29,7 +29,7 @@ run = "move-node-to-workspace YouTube"
 if = 'test %{app-bundle-id} = company.thebrowser.Browser'
 run = "move-node-to-workspace Browser"
 
-[[on-window-detected]] # Safari — its own workspace (alt-period), not grouped with Arc
+[[on-window-detected]] # Safari — its own workspace (alt-comma), not grouped with Arc
 if = 'test %{app-bundle-id} = com.apple.Safari'
 run = "move-node-to-workspace Safari"
 
@@ -41,7 +41,9 @@ run = "move-node-to-workspace Slack"
 if = 'test %{app-bundle-id} = md.obsidian'
 run = "move-node-to-workspace Email"
 
-[[on-window-detected]] # Zoom — its own workspace (alt-comma), not grouped with Slack
+[[on-window-detected]] # Zoom — its own workspace (alt-period), not grouped with Slack.
+# This rule is the whole reason the alt-period key can refuse to launch Zoom:
+# whenever Zoom does start itself, its window lands here regardless.
 if = 'test %{app-bundle-id} = us.zoom.xos'
 run = "move-node-to-workspace Zoom"
 
@@ -60,7 +62,7 @@ cmd-m = []
 
 # Layout toggles — free-form tiling lives here (tile mode disables both: they
 # would break its canonical Stage | Rail tree). Both now sit on slash, which
-# frees alt-comma to be the Zoom app key in tile mode without the two modes
+# frees alt-comma to be an app key in tile mode without the two modes
 # disagreeing about what comma means.
 alt-slash = 'layout tiles accordion'
 alt-shift-slash = 'layout horizontal vertical'
@@ -202,20 +204,24 @@ alt-shift-k = [
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]
 
-# Zoom (alt-comma) and Safari (alt-period) — same keys as tile mode, so the two
-# modes agree: `,` = Zoom, `.` = Safari. Both are right-hand keys, held with the
+# Safari (alt-comma) and Zoom (alt-period) — same keys as tile mode, so the two
+# modes agree: `,` = Safari, `.` = Zoom. Both are right-hand keys, held with the
 # left-r alt home-row mod (see STAGE-RAIL-DESIGN.md "The hand rule").
-alt-comma = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id us.zoom.xos --app-name zoom.us --workspace Zoom'
+alt-comma = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.apple.Safari --app-name Safari --workspace Safari'
 alt-shift-comma = [
-  'move-node-to-workspace Zoom',
-  'workspace Zoom',
+  'move-node-to-workspace Safari',
+  'workspace Safari',
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]
 
-alt-period = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.apple.Safari --app-name Safari --workspace Safari'
+# --no-launch: the Zoom key never starts Zoom. Zoom only ever appears when Zoom
+# itself opens a window (a meeting link), and the on-window-detected rule above
+# still parks that window on the Zoom workspace. With Zoom not running the key
+# just switches to the empty workspace.
+alt-period = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --no-launch --app-id us.zoom.xos --app-name zoom.us --workspace Zoom'
 alt-shift-period = [
-  'move-node-to-workspace Safari',
-  'workspace Safari',
+  'move-node-to-workspace Zoom',
+  'workspace Zoom',
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]
 

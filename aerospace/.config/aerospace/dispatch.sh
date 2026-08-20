@@ -5,12 +5,13 @@
 #   1. Count windows on the target workspace
 #   2. If already on the target workspace → run --on-focus action (if provided)
 #   3. If no windows on the target workspace → launch app / open URL, then switch
+#      (unless --no-launch: switch to the empty workspace without launching)
 #   4. Otherwise → switch to workspace and auto-config gaps
 #
 # Tile mode logic:
 #   1. If already focused on target → run --on-focus action
 #   2. If app has windows → split-focus to it
-#   3. If app not running → launch it
+#   3. If app not running → launch it (unless --no-launch: do nothing)
 #
 # Options:
 #   --app-id <id>         Bundle ID to match (required)
@@ -20,6 +21,9 @@
 #   --find-args <args>    Extra args for find-window.sh (tile mode)
 #   --on-focus <cmd>      Command to run if already on target workspace/window
 #   --url <url>           URL to open in new Arc window if no matching window exists
+#   --no-launch           Never start the app. For apps that should only ever be
+#                         opened by something else (Zoom, from a meeting link):
+#                         the key navigates to them but cannot summon them.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE=$(cat "$SCRIPT_DIR/.current-mode" 2>/dev/null || echo "tile")
@@ -33,6 +37,7 @@ FIND_ARGS=""
 ON_FOCUS=""
 URL=""
 EXCLUDE=""
+NO_LAUNCH=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -44,6 +49,7 @@ while [[ $# -gt 0 ]]; do
     --on-focus) ON_FOCUS="$2"; shift 2 ;;
     --url) URL="$2"; shift 2 ;;
     --exclude) EXCLUDE="$2"; shift 2 ;;
+    --no-launch) NO_LAUNCH=1; shift ;;
     *) shift ;;
   esac
 done
@@ -55,6 +61,10 @@ if [ "$MODE" = "tile" ]; then
   APP_WINDOW_COUNT=$(aerospace list-windows --all --format '%{app-bundle-id}' 2>/dev/null | grep -c "^${APP_ID}$")
 
   if [ "${APP_WINDOW_COUNT:-0}" -eq 0 ]; then
+    if [ "$NO_LAUNCH" -eq 1 ]; then
+      echo "App $APP_NAME not running and --no-launch set, nothing to focus."
+      exit 0
+    fi
     echo "App $APP_NAME not running, launching..."
     if [ -n "$URL" ]; then
       "$SCRIPT_DIR/open-arc-url.sh" "$URL"
@@ -146,8 +156,9 @@ else
     exit 0
   fi
 
-  # Target workspace is empty → launch the app
-  if [ "${WS_WINDOW_COUNT:-0}" -eq 0 ]; then
+  # Target workspace is empty → launch the app. Under --no-launch we still make
+  # the trip to the (empty) workspace; only the launch is skipped.
+  if [ "${WS_WINDOW_COUNT:-0}" -eq 0 ] && [ "$NO_LAUNCH" -eq 0 ]; then
     echo "Target app/window not found, launching..."
     if [ -n "$URL" ]; then
       "$SCRIPT_DIR/open-arc-url.sh" "$URL"

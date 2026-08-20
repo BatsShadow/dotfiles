@@ -2,7 +2,8 @@
 # Tile-mode app key handler. Two intents, selected by --stage:
 #
 #   Look (default) — pure attention; NEVER mutates the layout.
-#     1. No matching window            -> launch the app (or open the URL).
+#     1. No matching window            -> launch the app (or open the URL), or
+#        under --no-launch do nothing at all.
 #     2. Already focused on a match     -> run --on-focus action (e.g. cycle tabs).
 #     3. A match only on Aux (built-in) -> focus it there, in place.
 #     4. Otherwise                      -> focus the nearest match. Focusing a
@@ -23,12 +24,16 @@
 #   --find-url <regex>                 additionally require the active tab URL to match (Arc)
 #   --exclude-url <regex>              exclude windows whose active tab URL matches (Arc)
 #   --stage                            promote the match to the Stage instead of just focusing
+#   --no-launch                        never start the app; with no match the key
+#                                      is inert. For apps that should only ever be
+#                                      opened by something else (Zoom, from a
+#                                      meeting link).
 set -uo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 trace_begin "app.sh $*"
 
 APP_ID=""; APP_NAME=""; FIND_TITLE=""; EXCLUDE=""; ON_FOCUS=""; URL=""; STAGE=0
-FIND_URL=""; EXCLUDE_URL=""; ANY=0
+FIND_URL=""; EXCLUDE_URL=""; ANY=0; NO_LAUNCH=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --app-id) APP_ID="$2"; shift 2 ;;
@@ -41,6 +46,7 @@ while [[ $# -gt 0 ]]; do
     --exclude-url) EXCLUDE_URL="$2"; shift 2 ;;
     --any) ANY=1; shift ;;
     --stage) STAGE=1; shift ;;
+    --no-launch) NO_LAUNCH=1; shift ;;
     *) shift ;;
   esac
 done
@@ -104,6 +110,9 @@ MATCHES="$(matches)"
 # Prevention, not repair — once born in the wrong container it takes tree surgery
 # (alt-0) to fold back in.
 if [ -z "$MATCHES" ]; then
+  # --no-launch: no window to look at and we refuse to make one, so stop here
+  # before park_focus_in_rail moves focus for a launch that will never happen.
+  [ "$NO_LAUNCH" -eq 1 ] && exit 0
   park_focus_in_rail
   if [ -n "$URL" ]; then
     "$AERO_DIR/open-arc-url.sh" "$URL"
