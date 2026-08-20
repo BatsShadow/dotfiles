@@ -60,6 +60,8 @@ alt-comma = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --a
 # --no-launch: the Zoom key never starts Zoom. With no Zoom window there is
 # nothing to look at, so the key is simply inert until Zoom opens itself.
 alt-period = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --no-launch --app-id us.zoom.xos --app-name zoom.us'
+# Poker (alt-j) — the only free right-hand key (Colemak-DH top row, index finger).
+alt-j = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.clubwptgold.electron --app-name "ClubWPT Gold"'
 
 # Look at Arc's "PRs" tab (Work space): focus the main Arc window, then select PRs.
 alt-p = [
@@ -89,6 +91,7 @@ alt-shift-y = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh -
 alt-shift-k = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.apple.iCal --app-name Calendar'
 alt-shift-comma = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.apple.Safari --app-name Safari'
 alt-shift-period = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --no-launch --stage --app-id us.zoom.xos --app-name zoom.us'
+alt-shift-j = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.clubwptgold.electron --app-name "ClubWPT Gold"'
 
 # Left hand — A R S T (physical left-to-right)
 alt-a = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/focus-monitor.sh secondary'  # Look at Aux (built-in / far-left)

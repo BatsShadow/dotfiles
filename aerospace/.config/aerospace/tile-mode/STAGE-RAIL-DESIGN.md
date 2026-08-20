@@ -279,7 +279,7 @@ to it:
 
 > **Right hand = apps. Left hand = zones and layout.**
 
-Apps (`u o l h ; y k , .`) are all right-hand, held with **left-`r`** alt. Zone
+Apps (`u o l h ; y k , . j`) are all right-hand, held with **left-`r`** alt. Zone
 and layout controls (`a` Aux, `t` Stage, `d` Shelf, `r`/`s` rebalance, `w`/`f`
 gaps, `x`/`c` right-column size, `v` fix-screen) are all left-hand, held with
 **right-`i`** alt.
@@ -295,7 +295,7 @@ is reached far more often, and comma is the easier of the two.)*
 
 Known remaining exception: **`alt-p`** (Arc's PRs tab) is left-hand (`p` is
 left-ring, top row). It is an app *action* rather than an app key, so the reach
-matters less; `alt-j` is free if it ever grates.
+matters less. There is no longer a spare key to move it to — see below.
 
 **Workspace mode mirrors both keys** so the two modes never disagree about what a
 key means: `,` = Safari, `.` = Zoom in both. Workspace mode's model is one app per
@@ -303,6 +303,23 @@ workspace, so this gave Zoom and Safari their own **`Zoom`** and **`Safari`**
 workspaces (previously they were filed into `Slack` and `Browser` by
 `on-window-detected`). `alt-shift-,` / `alt-shift-.` move a window there, matching
 every other workspace-mode app key.
+
+### `alt-j` — Poker, and the last free right-hand key
+
+*(2026-08-20.)* ClubWPT Gold took **`alt-j`** with a **`Poker`** workspace. `j`
+is the Colemak-DH top-row index finger (QWERTY-`y` position) and was the only
+unbound right-hand letter left, so the hand rule survives intact — but it was
+also the last one. The right hand is now full:
+
+| Row | Keys |
+|---|---|
+| Top | `j` Poker · `l` Email · `u` Terminal · `y` YouTube · `;` Discord |
+| Home | `m`/`n`/`e`/`i` focus · `o` Browser |
+| Bottom | `k` Calendar · `h` Slack · `,` Safari · `.` Zoom · `/` layout toggles |
+
+The only unbound right-hand keys remaining are `'` (whose shift partner is
+already service mode, so it gets no move/stage sibling) and the brackets. A
+tenth app key means either taking one of those or retiring an existing one.
 
 ### Zoom's key cannot launch Zoom
 

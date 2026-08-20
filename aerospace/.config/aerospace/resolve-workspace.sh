@@ -41,6 +41,9 @@ case "$APP_ID" in
   us.zoom.xos)
     echo "Zoom"
     ;;
+  com.clubwptgold.electron)
+    echo "Poker"
+    ;;
   *)
     echo "Browser"
     ;;

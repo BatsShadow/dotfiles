@@ -47,6 +47,10 @@ run = "move-node-to-workspace Email"
 if = 'test %{app-bundle-id} = us.zoom.xos'
 run = "move-node-to-workspace Zoom"
 
+[[on-window-detected]] # ClubWPT Gold (alt-j)
+if = 'test %{app-bundle-id} = com.clubwptgold.electron'
+run = "move-node-to-workspace Poker"
+
 [[on-window-detected]]
 if = 'test %{app-bundle-id} = com.brnbw.Tuna'
 run = "layout floating"
@@ -222,6 +226,15 @@ alt-period = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --no-la
 alt-shift-period = [
   'move-node-to-workspace Zoom',
   'workspace Zoom',
+  'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
+]
+
+# Poker (alt-j) — the only free right-hand key (Colemak-DH top row, index
+# finger). ClubWPT Gold gets its own workspace so a table never shares a screen.
+alt-j = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.clubwptgold.electron --app-name "ClubWPT Gold" --workspace Poker'
+alt-shift-j = [
+  'move-node-to-workspace Poker',
+  'workspace Poker',
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]
 
