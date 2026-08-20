@@ -49,5 +49,6 @@ and immediately see whether it worked. A branch adds a merge and a cleanup
 step to that loop and buys nothing, since there is no reviewer and no CI gate
 on the other side.
 
-So: make the change, verify it, commit it to `main`. Ask before pushing to
-`origin` — that part is still outward-facing.
+So: make the change, verify it, commit it to `main`, and push. No branch, no
+merge, no confirmation prompts at any step — this repo is the user's own and
+they reload and use the result themselves, which is the real verification.
