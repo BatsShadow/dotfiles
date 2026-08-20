@@ -38,3 +38,16 @@ The install script iterates all top-level directories, stows them, then installs
 - Editor is set to `/opt/homebrew/bin/nvim`.
 - `eza` replaces `ls` when available; `zoxide` replaces `cd`.
 - Tmux auto-starts in zsh sessions.
+
+## Git Workflow
+
+**Commit straight to `main`. Do not create a branch unless asked.**
+
+This is a single-maintainer dotfiles repo, not a reviewed codebase. Changes
+here are small, iterative, and self-verifying — you edit a config, reload it,
+and immediately see whether it worked. A branch adds a merge and a cleanup
+step to that loop and buys nothing, since there is no reviewer and no CI gate
+on the other side.
+
+So: make the change, verify it, commit it to `main`. Ask before pushing to
+`origin` — that part is still outward-facing.
