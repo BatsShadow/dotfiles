@@ -1,5 +1,12 @@
 #!/usr/bin/env zsh
 
+# Stow folds a directory into a single symlink when it creates that directory
+# itself. We want that one level down -- hooks/ and skills/ each as a single
+# link -- but not for ~/.claude, which would put Claude Code's session state
+# (600M+ of transcripts, history and caches) inside the checkout. Creating
+# ~/.claude first stops the fold there and lets the two leaves fold.
+mkdir -p ~/.claude
+
 for d in *(/); stow -v -t ~/ -S $d
 ~/.config/tmux/plugins/tpm/bin/install_plugins
 tmux source ~/.config/tmux/tmux.conf
