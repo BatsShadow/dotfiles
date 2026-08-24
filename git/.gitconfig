@@ -126,6 +126,10 @@
     # Force-push the current branch to a same-named branch on origin
     push-feature = "!git push -u origin +HEAD; git l1c"
 
+    # Land on the latest upstream main. Detaches HEAD there rather than moving a
+    # local branch, so it is a place to read from or branch off, not to commit on.
+    com = "!git fetch upstream ; git checkout upstream/main"
+
     # Create a new feature branch based on the latest
     # Must provide the branch name as the first command line parameter
     # Provide the second parameter to use a different upstream branch
