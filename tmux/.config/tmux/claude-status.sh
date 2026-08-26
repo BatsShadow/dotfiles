@@ -132,6 +132,11 @@ cc_load() {
 #   session  a running tmux session, annotated with its Claude state
 #   dir      a directory with no session yet -- dimmed, because the brightness
 #            split between live and latent is what gives the list its hierarchy
+#   dormant  a session that was open before the last reboot and is not running
+#            now. Latent in exactly the sense `dir` is, so it renders the same
+#            way; named apart only because the row means something different to
+#            the reader. It carries no glyph for the reason nothing latent does
+#            -- there is no process, so there is no Claude state to report
 #   new      the [new] sentinel
 #   plain    no styling, blank column only. For pickers whose rows are all the
 #            same kind, where dimming every row would say nothing; the blank

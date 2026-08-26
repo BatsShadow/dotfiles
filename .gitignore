@@ -2,6 +2,7 @@ tmux/.config/tmux/plugins
 tmux/.config/tmux/.last-session
 tmux/.config/tmux/.session-history
 tmux/.config/tmux/.session-dirs
+tmux/.config/tmux/.live-sessions
 .claude/settings.local.json
 hunk/.config/hunk/state.json
 .docs/

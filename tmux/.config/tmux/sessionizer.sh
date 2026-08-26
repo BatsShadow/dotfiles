@@ -20,6 +20,17 @@ else
     cc_row() { printf '%s\t%s\n' "$1" "$1"; }
 fi
 
+# Sessions that were open before the machine last went down. Degrades the same
+# way and for the same reason: without it the picker lists what is running,
+# which is what it listed before any of this existed.
+LS_HELPER="${BASH_SOURCE[0]%/*}/live-sessions.sh"
+if [[ -r "$LS_HELPER" ]]; then
+    # shellcheck source=live-sessions.sh
+    source "$LS_HELPER"
+else
+    ls_restorable() { :; }
+fi
+
 # How the claude window starts. The helper picks between continuing the
 # conversation already in the directory and opening a fresh one; a partial stow
 # that leaves it behind costs you the continue, not the window.
@@ -93,6 +104,18 @@ else
         [[ -n "$name" ]] && in_history["$name"]=1
     done < "$HISTORY_FILE"
 
+    # Recorded-but-not-running: everything live-sessions.sh saw before the
+    # server last died, minus what is running now and minus anything whose
+    # directory has since been removed. After a reboot this is the entire list,
+    # which is the case the whole thing exists for.
+    declare -A restorable=()
+    declare -a restorable_order=()
+    while IFS= read -r name; do
+        [[ -n "$name" ]] || continue
+        restorable["$name"]=1
+        restorable_order+=("$name")
+    done < <(ls_restorable "${live_order[@]}")
+
     selected=$(
         {
             # Existing tmux sessions sorted by recency, excluding current.
@@ -104,11 +127,25 @@ else
             # holds its history position. Doing it here also lets rows reach fzf
             # as they are produced: awk in the middle of the pipe block-buffers,
             # so nothing was drawn until the last row had been built.
+            #
+            # Running and recorded-but-not-running share one list and one
+            # recency order, separated by brightness alone. That is the split
+            # claude-status.sh already describes -- bright for what is live,
+            # dim for what is merely latent -- and it is the reason no new
+            # glyph appears here: the glyph column belongs to Claude state, and
+            # a row that is not running has no Claude to report.
             while IFS= read -r name; do
                 [[ -n "$name" && -z "${emitted[$name]:-}" ]] || continue
-                [[ -n "${live[$name]:-}" && "$name" != "$current_session" ]] || continue
+                if [[ -n "${live[$name]:-}" ]]; then
+                    [[ "$name" != "$current_session" ]] || continue
+                    kind=session
+                elif [[ -n "${restorable[$name]:-}" ]]; then
+                    kind=dormant
+                else
+                    continue
+                fi
                 emitted["$name"]=1
-                cc_row "$name" session
+                cc_row "$name" "$kind"
             done < <(tail -r "$HISTORY_FILE")
 
             # Then any sessions not in history
@@ -117,6 +154,16 @@ else
                 [[ "$name" != "$current_session" ]] || continue
                 emitted["$name"]=1
                 cc_row "$name" session
+            done
+
+            # And any recorded session the last 100 history entries have
+            # forgotten. Guarded on `emitted` alone: the loop above already
+            # takes every name history knows, live or dormant, so an in_history
+            # test here could only drop a row it had not in fact emitted.
+            for name in "${restorable_order[@]}"; do
+                [[ -z "${emitted[$name]:-}" ]] || continue
+                emitted["$name"]=1
+                cc_row "$name" dormant
             done
 
             # No directories: this picker lists sessions only. A session is
