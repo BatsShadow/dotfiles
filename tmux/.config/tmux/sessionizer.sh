@@ -20,6 +20,15 @@ else
     cc_row() { printf '%s\t%s\n' "$1" "$1"; }
 fi
 
+# How the claude window starts. The helper picks between continuing the
+# conversation already in the directory and opening a fresh one; a partial stow
+# that leaves it behind costs you the continue, not the window.
+# Spelled out from $HOME rather than relative to this script, unlike the
+# helpers above: this one is not sourced here, it is handed to tmux to run later
+# in the session's own directory, where a relative path would not resolve.
+CLAUDE_CMD="$HOME/.config/tmux/claude-continue.sh"
+[[ -x "$CLAUDE_CMD" ]] || CLAUDE_CMD="claude"
+
 TAB=$(printf '\t')
 
 # Look up the saved directory for a session name
@@ -146,7 +155,7 @@ if [[ "$selected" == "[new]" ]]; then
 
     tmux new-session -d -s "$session_name" -c "$selected" -n "vi" "NVIM_APPNAME=lazyvim nvim; exec zsh -l"
     tmux new-window -t "$session_name" -n "cli" -c "$selected"
-    tmux new-window -t "$session_name" -n "claude" -c "$selected" "claude -n '$session_name'; exec zsh -l"
+    tmux new-window -t "$session_name" -n "claude" -c "$selected" "'$CLAUDE_CMD' -n '$session_name'; exec zsh -l"
     tmux select-window -t "$session_name:cli"
     tmux switch-client -t "$session_name"
     exit 0
@@ -197,10 +206,15 @@ else
     needs_windows=true
 fi
 
+# A session rebuilt after a reboot comes back with its Claude where you left it,
+# because the helper continues the conversation the directory already holds. One
+# rule for every rebuild rather than one for restores and another for new
+# sessions: the directory is what identifies the conversation either way, and
+# where it holds none the helper starts a fresh Claude instead.
 if [[ "$needs_windows" == "true" ]]; then
     tmux new-session -d -s "$session_name" -c "$session_dir" -n "vi" "NVIM_APPNAME=lazyvim nvim; exec zsh -l"
     tmux new-window -t "$session_name" -n "cli" -c "$session_dir"
-    tmux new-window -t "$session_name" -n "claude" -c "$session_dir" "claude -n '$session_name'; exec zsh -l"
+    tmux new-window -t "$session_name" -n "claude" -c "$session_dir" "'$CLAUDE_CMD' -n '$session_name'; exec zsh -l"
     tmux select-window -t "$session_name:cli"
 fi
 

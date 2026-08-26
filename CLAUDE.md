@@ -23,7 +23,7 @@ The install script iterates all top-level directories, stows them, then installs
 - **zsh** — Shell config split across `.zshenv` (env vars, brew init, cargo), `.zprofile` (PATH, oh-my-zsh setup, oh-my-posh prompt), `.zshrc` (aliases, keybindings, zoxide, eza). Private env vars in `private.env` (not committed).
 - **git** — `.gitconfig` with extensive aliases (see `[alias]` section). Uses `diff-so-fancy` for diffs. Conditional includes for different work contexts.
 - **kanata** — Keyboard remapping via Kanata with Karabiner VirtualHIDDevice drivers. Installed from Homebrew, run as LaunchDaemons (`sudo kanata/.config/kanata/install.sh`). Colemak-DH with home row mods in `config.kbd`; `fn+R` live-reloads it.
-- **tmux** — Prefix is `Ctrl+Space`. Plugins managed by TPM (plugins dir is gitignored). Catppuccin theme. vim-tmux-navigator for seamless vim/tmux pane switching.
+- **tmux** — Prefix is `Ctrl+Space`. Plugins managed by TPM (plugins dir is gitignored). Catppuccin theme. vim-tmux-navigator for seamless vim/tmux pane switching. `claude-continue.sh` opens the session's claude window on the conversation the directory already holds, or on a fresh one where it holds none: `claude -c` errors out instead of falling back, which left every new session staring at a bare shell. Tests: `tmux/.config/tmux/tests/`.
 - **lazyvim** — Neovim config based on LazyVim. Custom plugins in `lua/plugins/`. Uses Catppuccin theme.
 - **wezterm** — Terminal emulator config in `wezterm.lua`.
 - **aerospace** — Tiling window manager. Has two layout modes (tile-mode, workspace-mode) with helper scripts.
