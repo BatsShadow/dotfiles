@@ -49,7 +49,15 @@ ls_record() {
 	# of erasing a live one is the work you forgot you had open.
 	[ -n "$names" ] || return 0
 
-	printf '%s\n' "$names" >"${LS_FILE}.tmp" && mv "${LS_FILE}.tmp" "$LS_FILE"
+	# A scratch file per run, not one shared name. session-created and
+	# session-closed fire close enough together to overlap -- a sessionizer
+	# switch that rebuilds one session while closing another does it -- and two
+	# runs sharing a scratch file means the second mv finds nothing there,
+	# because the first already moved it away. The rename is atomic either way,
+	# so whichever run lands last wins, and it is the one holding the freshest
+	# list.
+	local tmp="${LS_FILE}.tmp.$$"
+	printf '%s\n' "$names" >"$tmp" && mv "$tmp" "$LS_FILE" || rm -f "$tmp"
 }
 
 # Recorded sessions that are not currently running, in recorded order. The live

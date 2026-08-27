@@ -83,6 +83,23 @@ assert_eq "alpha beta " "$(recorded)" "rewrites rather than appends"
 LS_TMUX="tmux -L no-such-socket-$$" "$SCRIPT"
 assert_eq "alpha beta " "$(recorded)" "an empty session list leaves the file alone"
 
+# Two runs can be in flight at once: closing one session while another opens --
+# what a sessionizer switch does -- fires both hooks together. A scratch file
+# shared between runs breaks exactly there, the second mv finding nothing where
+# the first had already moved it. A race is not something a test can stage, so
+# this leans on volume instead, and takes anything on stderr as the bug.
+ERR="${WORK}/concurrent.err"
+: >"$ERR"
+for _ in $(seq 10); do "$SCRIPT" 2>>"$ERR" & done
+wait
+assert_eq "" "$(cat "$ERR")" "concurrent runs report no errors"
+assert_eq "alpha beta " "$(recorded)" "concurrent runs leave one intact list"
+
+# And clean up after themselves, so a scratch file is never what the picker or
+# `git status` finds sitting next to the list.
+leftovers=$(find "$WORK" -maxdepth 1 -name '.live-sessions.tmp.*' | wc -l | tr -d ' ')
+assert_eq "0" "$leftovers" "concurrent runs leave no scratch files"
+
 # --- hooks -----------------------------------------------------------------
 
 tmux -L "$SOCKET" set-hook -g session-created "run-shell $SCRIPT"
