@@ -232,6 +232,7 @@ config.window_decorations = 'INTEGRATED_BUTTONS|RESIZE'
 config.use_fancy_tab_bar = false
 config.integrated_title_button_style = 'Windows'
 config.hide_tab_bar_if_only_one_tab = true
+config.enable_kitty_graphics = true
 
 config.window_padding = {
   left = 16,
