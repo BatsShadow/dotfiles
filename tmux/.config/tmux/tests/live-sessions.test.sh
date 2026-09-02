@@ -97,7 +97,8 @@ assert_eq "alpha beta " "$(recorded)" "concurrent runs leave one intact list"
 
 # And clean up after themselves, so a scratch file is never what the picker or
 # `git status` finds sitting next to the list.
-leftovers=$(find "$WORK" -maxdepth 1 -name '.live-sessions.tmp.*' | wc -l | tr -d ' ')
+leftovers=$(find "$WORK" -maxdepth 1 \( -name '.live-sessions.tmp.*' -o \
+	-name '.live-sessions.carry.new.*' \) | wc -l | tr -d ' ')
 assert_eq "0" "$leftovers" "concurrent runs leave no scratch files"
 
 # --- hooks -----------------------------------------------------------------
@@ -131,6 +132,49 @@ kill -TERM "$srv"
 while kill -0 "$srv" 2>/dev/null; do :; done
 perl -e 'select(undef,undef,undef,0.3)'
 assert_eq "$before" "$(recorded)" "a server killed by signal leaves the list intact"
+
+# --- carried across the reboot ---------------------------------------------
+
+# Surviving the kill is only half of it. The list has to still be there once the
+# machine is back, and the first session opened on the new server is what used
+# to erase it: the recorder rewrote the file from the live set, so the sessions
+# the reboot was meant to preserve were gone seconds into the next boot, long
+# before anyone could press the key that lists them.
+printf 'alpha\nbeta\ngamma\n' >"$LIVE"
+
+# The server above is dead, so this is genuinely a new one, which is the whole
+# distinction the recorder has to draw.
+tmux -L "$SOCKET" new-session -d -s alpha
+tmux -L "$SOCKET" set-hook -g session-created "run-shell $SCRIPT"
+tmux -L "$SOCKET" set-hook -g session-closed "run-shell $SCRIPT"
+
+tmux -L "$SOCKET" new-session -d -s delta
+settle_until grep -qx delta "$LIVE"
+assert_eq "alpha beta delta gamma " "$(recorded)" \
+	"a session opened after a reboot keeps the carried-over list"
+
+# Closing something opened on this boot says nothing about what the reboot left.
+tmux -L "$SOCKET" kill-session -t delta
+settle_until bash -c '! grep -qx delta "$0"' "$LIVE"
+assert_eq "alpha beta gamma " "$(recorded)" \
+	"closing a session leaves the carried-over list alone"
+
+# Restoring a carried-over session hands it back to the live set, and closing it
+# then is a real close: it has served its purpose and must stop being offered,
+# or the picker would keep it forever.
+# Reopening a carried-over session leaves the file's contents alone -- the name
+# is listed either way, and all that moves is which set it belongs to -- so
+# waiting on content would sail straight past the hook and kill the session
+# before the recorder had seen it come back. Wait for the write instead.
+written="$(stat -f %Fm "$LIVE")"
+tmux -L "$SOCKET" new-session -d -s beta
+settle_until bash -c '[ "$(stat -f %Fm "$0")" != "$1" ]' "$LIVE" "$written"
+tmux -L "$SOCKET" kill-session -t beta
+settle_until bash -c '! grep -qx beta "$0"' "$LIVE"
+assert_eq "alpha gamma " "$(recorded)" \
+	"a carried-over session closed after restoring stops being offered"
+
+tmux -L "$SOCKET" kill-server 2>/dev/null
 
 # --- restorable ------------------------------------------------------------
 
