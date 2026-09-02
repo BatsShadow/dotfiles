@@ -15,6 +15,13 @@ tmux source ~/.config/tmux/tmux.conf
 # so a fresh checkout has a theme.toml naming a flavor that is not there yet.
 ya pkg install
 
+# LazyVim's rust extra drives rust-analyzer through rustaceanvim, which takes it
+# from the toolchain rather than Mason so it stays in step with rustc. The catch
+# is that ~/.cargo/bin/rust-analyzer is a rustup shim that exists whether or not
+# the component behind it does, so a machine missing the component gives the
+# editor a binary that launches and exits rather than one it can report missing.
+command -v rustup &>/dev/null && rustup component add rust-analyzer
+
 # Claude Code's settings.json is written by Claude Code itself, so it is merged
 # into rather than stowed -- see the script for why a symlink there is unsafe.
 ~/.claude/hooks/install-hooks.sh
