@@ -7,3 +7,7 @@ tmux/.config/tmux/.live-sessions*
 hunk/.config/hunk/state.json
 .docs/
 .superpowers/
+# ya pkg redownloads these, except ayu-mirage: it targets the Yazi 0.3 schema
+# and is patched by hand here, so it is dropped from package.toml and kept.
+yazi/.config/yazi/flavors/*
+!yazi/.config/yazi/flavors/ayu-mirage.yazi

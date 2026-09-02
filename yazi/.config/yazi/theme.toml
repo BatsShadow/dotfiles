@@ -1,0 +1,15 @@
+# Colors come from a flavor package, not from this file. flavors/ is gitignored
+# the same way tmux's plugins are, and `ya pkg install` refills it from the
+# revisions package.toml pins; install.zsh runs that on a fresh machine.
+#
+# ayu-mirage is the one exception, committed rather than fetched: upstream
+# targets the Yazi 0.3 schema and is ported by hand here, so `ya pkg` would
+# overwrite the port. The header of flavors/ayu-mirage.yazi/flavor.toml lists
+# what the port changed. ayu-dark is the fetched alternative and the darker of
+# the two; swap the name below and `app:theme` reloads without restarting yazi.
+#
+# Only `dark` is set. Yazi chooses between dark and light by the terminal's
+# background, and every terminal here is dark, so a light entry would name a
+# flavor that never loads.
+[flavor]
+dark = "ayu-mirage"

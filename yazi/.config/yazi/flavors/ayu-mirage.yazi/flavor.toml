@@ -1,0 +1,197 @@
+# vim:fileencoding=utf-8:foldmethod=marker
+#
+# atareao/ayu-mirage, ported from the Yazi 0.3 schema to the current one and
+# kept here by hand rather than by `ya pkg` -- see package.toml.
+#
+# Three things upstream does that this version of Yazi rejects outright:
+#   - 8-digit #rrggbbaa colors. Alpha is gone, so #b8cfe680 and #409fff40 are
+#     flattened against #242936, the background this flavor already assumes:
+#     #6e7c8e and #2b4768.
+#   - `[manager]`, `[pick]`, `separator_open`, `tab_width`, and the block the
+#     file itself marks "remove once 0.4 gets released". All renamed or dropped.
+#   - `name =` in filetype rules, now `url =`.
+#
+# One deliberate change beyond the port: upstream's fallback paints ordinary
+# filenames #242936, which is its own background color. Against a real terminal
+# background they are almost unreadable, so the fallback here is #cccac2, the
+# foreground the rest of the flavor uses.
+
+# : Manager {{{
+
+[mgr]
+cwd = { fg = "#1c212b" }
+
+# Hovered
+hovered         = { reversed = true }
+preview_hovered = { underline = true }
+
+# Find
+find_keyword  = { fg = "#24ffb6", bold = true, italic = true, underline = true }
+find_position = { fg = "#6e7c8e", bg = "reset", bold = true, italic = true }
+
+# Marker
+marker_copied   = { fg = "#2b4768", bg = "#2b4768" }
+marker_cut      = { fg = "#ff246d", bg = "#ff246d" }
+marker_marked   = { fg = "#1c212b", bg = "#1c212b" }
+marker_selected = { fg = "#24ffb6", bg = "#24ffb6" }
+
+# Count
+count_copied   = { fg = "#cccac2", bg = "#2b4768" }
+count_cut      = { fg = "#cccac2", bg = "#ff246d" }
+count_selected = { fg = "#cccac2", bg = "#24ffb6" }
+
+# Border
+border_symbol = "│"
+border_style  = { fg = "#171b24" }
+
+# : }}}
+
+
+# : Tabs {{{
+
+# Was tab_active / tab_inactive / tab_width under [manager].
+[tabs]
+active    = { reversed = true }
+inactive  = {}
+sep_inner = { open = "", close = "" }
+sep_outer = { open = "", close = "" }
+
+# : }}}
+
+
+# : Mode {{{
+
+[mode]
+normal_main = { fg = "#cccac2", bg = "#242936", bold = true }
+normal_alt  = { fg = "#242936", bg = "#6e7c8e" }
+
+# Select mode
+select_main = { fg = "#cccac2", bg = "#2b4768", bold = true }
+select_alt  = { fg = "#2b4768", bg = "#6e7c8e" }
+
+# Unset mode
+unset_main = { fg = "#cccac2", bg = "#242936", bold = true }
+unset_alt  = { fg = "#242936", bg = "#6e7c8e" }
+
+# : }}}
+
+
+# : Status bar {{{
+
+[status]
+overall   = {}
+sep_left  = { open = "", close = "" }
+sep_right = { open = "", close = "" }
+
+# Progress
+progress_label  = { fg = "#ffffff", bold = true }
+progress_normal = { fg = "#242936", bg = "#24ffb6" }
+progress_error  = { fg = "#ff246d", bg = "#24ffb6" }
+
+# Permissions
+perm_sep   = { fg = "#171b24" }
+perm_type  = { fg = "#242936" }
+perm_read  = { fg = "#24ffb6" }
+perm_write = { fg = "#ff246d" }
+perm_exec  = { fg = "#2b4768" }
+
+# : }}}
+
+
+# : Select {{{
+
+[select]
+border   = { fg = "#242936" }
+active   = { fg = "#6e7c8e", bold = true }
+inactive = {}
+
+# : }}}
+
+
+# : Input {{{
+
+[input]
+border   = { fg = "#242936" }
+title    = {}
+value    = {}
+selected = { reversed = true }
+
+# : }}}
+
+
+# : Completion {{{
+
+[completion]
+border = { fg = "#242936" }
+
+# : }}}
+
+
+# : Tasks {{{
+
+[tasks]
+border  = { fg = "#242936" }
+title   = {}
+hovered = { fg = "#6e7c8e", underline = true }
+
+# : }}}
+
+
+# : Which {{{
+
+[which]
+cols            = 3
+mask            = { bg = "#6e7c8e" }
+cand            = { fg = "#1c212b" }
+rest            = { fg = "#707a8c" }
+desc            = { fg = "#6e7c8e" }
+separator       = "  "
+separator_style = { fg = "#6e7c8e" }
+
+# : }}}
+
+
+# : Help {{{
+
+[help]
+on      = { fg = "#1c212b" }
+run     = { fg = "#6e7c8e" }
+hovered = { reversed = true, bold = true }
+footer  = { fg = "#6e7c8e", bg = "#242936" }
+
+# : }}}
+
+
+# : Notify {{{
+
+[notify]
+title_info  = { fg = "#2b4768" }
+title_warn  = { fg = "#24ffb6" }
+title_error = { fg = "#ff246d" }
+
+# : }}}
+
+
+# : File-specific styles {{{
+
+[filetype]
+rules = [
+	# Images
+	{ mime = "image/*", fg = "#1c212b" },
+
+	# Media
+	{ mime = "{audio,video}/*", fg = "#24ffb6" },
+
+	# Archives
+	{ mime = "application/*zip", fg = "#6e7c8e" },
+	{ mime = "application/x-{tar,bzip*,7z-compressed,xz,rar}", fg = "#6e7c8e" },
+
+	# Documents
+	{ mime = "application/{pdf,doc,rtf}", fg = "#2b4768" },
+
+	# Fallback
+	{ url = "*/", fg = "#6e7c8e" },
+	{ url = "*", fg = "#cccac2" },
+]
+
+# : }}}
