@@ -12,7 +12,22 @@
 #
 #   claude-waiting.sh        marks a session as waiting on you (Stop,
 #                            Notification, UserPromptSubmit, SessionEnd)
-#   session-start-skills.sh  injects the always-on skills (SessionStart)
+#   session-start-skills.sh  injects the always-on skills (SessionStart,
+#                            UserPromptSubmit)
+#
+# The skills hook runs on two events because one was measured not to be enough.
+# A session opened with /clear carried the whole of unslop from its first token,
+# and still put 35 em dashes into 60 replies across 13 turns -- the rule the
+# skill states most plainly, broken in roughly every other message. Nothing was
+# missing from the context; the instruction was simply a long way behind the
+# text it governed by the time each reply was written. UserPromptSubmit puts it
+# back in front of every turn.
+#
+# This is a bet on recency, not a check: the same mechanism that already failed,
+# applied closer to the point of writing. It costs ~1700 tokens per turn, about
+# 22k over a session of that length, and it detects nothing. Worth keeping only
+# if the count actually drops -- count em dashes in a session transcript before
+# deciding it works.
 #
 # Idempotent, and additive per event: an entry is appended only when no existing
 # one already runs this command, so hooks configured for other purposes survive.
@@ -82,6 +97,7 @@ jq --arg cmd "$CMD" --arg skills_cmd "$SKILLS_CMD" \
 	| ensure("SessionEnd"; $cmd; "")
 	| retire("SessionStart"; $legacy)
 	| ensure("SessionStart"; $skills_cmd; $skills_matcher)
+	| ensure("UserPromptSubmit"; $skills_cmd; "")
 ' "$SETTINGS" >"$tmp"
 
 # Replace only once the new content is known to be valid JSON. Truncating the

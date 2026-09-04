@@ -59,11 +59,22 @@ assert_eq "startup|clear|compact" "$(q '.hooks.SessionStart[0].matcher')" \
 assert_eq "null" "$(q '.hooks.Stop[0].matcher')" \
 	"the waiting hook is registered without one"
 
+# The skills hook runs on two events, not one. SessionStart alone puts the skill
+# 100k tokens behind the response it is meant to govern by the end of a long
+# session; UserPromptSubmit puts it back in front of every turn. No matcher
+# here, because there are no prompt kinds to select between.
+assert_eq "1" "$(count UserPromptSubmit "$SKILLS")" \
+	"registers the skills hook on UserPromptSubmit too"
+assert_eq "1" "$(count UserPromptSubmit "$WAITING")" \
+	"and leaves the waiting hook already on that event alone"
+
 # install.zsh runs this on every stow, so the second run is the normal case.
 install
 install
 assert_eq "1" "$(count Stop "$WAITING")" "re-running does not register the waiting hook twice"
 assert_eq "1" "$(count SessionStart "$SKILLS")" "re-running does not register the skills hook twice"
+assert_eq "1" "$(count UserPromptSubmit "$SKILLS")" \
+	"re-running does not register the per-turn injection twice"
 
 # The hand-written predecessor. Both would fire, so the session would open with
 # the skill in its context twice over.
