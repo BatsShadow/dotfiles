@@ -12,22 +12,21 @@
 #
 #   claude-waiting.sh        marks a session as waiting on you (Stop,
 #                            Notification, UserPromptSubmit, SessionEnd)
-#   session-start-skills.sh  injects the always-on skills (SessionStart,
-#                            UserPromptSubmit)
+#   session-start-skills.sh  injects the always-on skills (SessionStart)
+#   turn-skill-reminder.sh   re-states the three rules that break (UserPromptSubmit)
 #
-# The skills hook runs on two events because one was measured not to be enough.
-# A session opened with /clear carried the whole of unslop from its first token,
-# and still put 35 em dashes into 60 replies across 13 turns -- the rule the
-# skill states most plainly, broken in roughly every other message. Nothing was
-# missing from the context; the instruction was simply a long way behind the
-# text it governed by the time each reply was written. UserPromptSubmit puts it
-# back in front of every turn.
+# Two events, because one was measured not to be enough, and two payloads,
+# because the same 80 lines repeated every turn is the wrong shape for the
+# second one. A session opened with /clear carried the whole of unslop from its
+# first token and still put 35 em dashes into 60 replies. Nothing was missing
+# from the context; the rules were just a long way behind the text by the time
+# each reply got written. So SessionStart keeps the full skill and
+# UserPromptSubmit carries three rules, which is 98.5% of the measured
+# violations at 69 tokens a turn instead of 1731.
 #
-# This is a bet on recency, not a check: the same mechanism that already failed,
-# applied closer to the point of writing. It costs ~1700 tokens per turn, about
-# 22k over a session of that length, and it detects nothing. Worth keeping only
-# if the count actually drops -- count em dashes in a session transcript before
-# deciding it works.
+# Both are bets on recency rather than checks. Neither detects anything. Worth
+# keeping only if the count drops, so count em dashes in a transcript before
+# believing either one works.
 #
 # Idempotent, and additive per event: an entry is appended only when no existing
 # one already runs this command, so hooks configured for other purposes survive.
@@ -39,6 +38,7 @@ set -eu
 SETTINGS="${1:-${HOME}/.claude/settings.json}"
 CMD="${CC_HOOK_CMD:-~/.claude/hooks/claude-waiting.sh}"
 SKILLS_CMD="${CC_SKILLS_HOOK_CMD:-~/.claude/hooks/session-start-skills.sh}"
+TURN_CMD="${CC_TURN_HOOK_CMD:-~/.claude/hooks/turn-skill-reminder.sh}"
 
 # resume is left out on purpose: a resumed session already carries the context
 # these skills were injected into, and injecting them again would pay for the
@@ -61,7 +61,7 @@ command -v jq >/dev/null 2>&1 || {
 tmp="${SETTINGS}.tmp.$$"
 trap 'rm -f "$tmp"' EXIT
 
-jq --arg cmd "$CMD" --arg skills_cmd "$SKILLS_CMD" \
+jq --arg cmd "$CMD" --arg skills_cmd "$SKILLS_CMD" --arg turn_cmd "$TURN_CMD" \
 	--arg skills_matcher "$SKILLS_MATCHER" --arg legacy "$LEGACY_SKILLS_CMD" '
 	def entry($cmd; $matcher):
 		{hooks: [{type: "command", command: $cmd}]}
@@ -97,7 +97,10 @@ jq --arg cmd "$CMD" --arg skills_cmd "$SKILLS_CMD" \
 	| ensure("SessionEnd"; $cmd; "")
 	| retire("SessionStart"; $legacy)
 	| ensure("SessionStart"; $skills_cmd; $skills_matcher)
-	| ensure("UserPromptSubmit"; $skills_cmd; "")
+	# An earlier version of this script put the whole skill here. Both would
+	# fire, so the turn would carry the full rules and the reminder on top.
+	| retire("UserPromptSubmit"; $skills_cmd)
+	| ensure("UserPromptSubmit"; $turn_cmd; "")
 ' "$SETTINGS" >"$tmp"
 
 # Replace only once the new content is known to be valid JSON. Truncating the
@@ -107,4 +110,4 @@ jq -e . "$tmp" >/dev/null
 mv -f "$tmp" "$SETTINGS"
 trap - EXIT
 
-echo "install-hooks: ${CMD} and ${SKILLS_CMD} registered in ${SETTINGS}"
+echo "install-hooks: ${CMD}, ${SKILLS_CMD} and ${TURN_CMD} registered in ${SETTINGS}"

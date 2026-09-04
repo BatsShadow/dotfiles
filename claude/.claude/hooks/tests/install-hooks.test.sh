@@ -39,6 +39,7 @@ assert_eq() { # want got label
 S="${WORK}/settings.json"
 WAITING="~/.claude/hooks/claude-waiting.sh"
 SKILLS="~/.claude/hooks/session-start-skills.sh"
+TURN="~/.claude/hooks/turn-skill-reminder.sh"
 LEGACY="cat ~/.claude/skills/unslop/SKILL.md"
 
 install() { "$INSTALL" "$S" >/dev/null; }
@@ -59,12 +60,14 @@ assert_eq "startup|clear|compact" "$(q '.hooks.SessionStart[0].matcher')" \
 assert_eq "null" "$(q '.hooks.Stop[0].matcher')" \
 	"the waiting hook is registered without one"
 
-# The skills hook runs on two events, not one. SessionStart alone puts the skill
-# 100k tokens behind the response it is meant to govern by the end of a long
-# session; UserPromptSubmit puts it back in front of every turn. No matcher
-# here, because there are no prompt kinds to select between.
-assert_eq "1" "$(count UserPromptSubmit "$SKILLS")" \
-	"registers the skills hook on UserPromptSubmit too"
+# Two events, two different payloads. SessionStart gets the whole skill once.
+# UserPromptSubmit gets a short reminder of the rules that actually get broken,
+# because 80 lines repeated every turn cost ~1700 tokens a time and bury the one
+# rule that is 89% of the violations.
+assert_eq "1" "$(count UserPromptSubmit "$TURN")" \
+	"registers the short reminder on UserPromptSubmit"
+assert_eq "0" "$(count UserPromptSubmit "$SKILLS")" \
+	"and not the full skill, which belongs to SessionStart alone"
 assert_eq "1" "$(count UserPromptSubmit "$WAITING")" \
 	"and leaves the waiting hook already on that event alone"
 
@@ -73,8 +76,8 @@ install
 install
 assert_eq "1" "$(count Stop "$WAITING")" "re-running does not register the waiting hook twice"
 assert_eq "1" "$(count SessionStart "$SKILLS")" "re-running does not register the skills hook twice"
-assert_eq "1" "$(count UserPromptSubmit "$SKILLS")" \
-	"re-running does not register the per-turn injection twice"
+assert_eq "1" "$(count UserPromptSubmit "$TURN")" \
+	"re-running does not register the per-turn reminder twice"
 
 # The hand-written predecessor. Both would fire, so the session would open with
 # the skill in its context twice over.
@@ -82,6 +85,15 @@ printf '%s\n' '{"hooks":{"SessionStart":[{"matcher":"startup|clear|compact","hoo
 install
 assert_eq "0" "$(count SessionStart "$LEGACY")" "retires the hand-registered cat"
 assert_eq "1" "$(count SessionStart "$SKILLS")" "and leaves the script in its place"
+
+# The shape this replaces: an earlier version of this script put the whole skill
+# on UserPromptSubmit. Both would fire, so every turn would carry the full rules
+# and the reminder on top of them.
+printf '%s\n' '{"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"~/.claude/hooks/session-start-skills.sh"}]}]}}' >"$S"
+install
+assert_eq "0" "$(count UserPromptSubmit "$SKILLS")" "retires the full skill from UserPromptSubmit"
+assert_eq "1" "$(count UserPromptSubmit "$TURN")" "and leaves the reminder in its place"
+assert_eq "1" "$(count SessionStart "$SKILLS")" "while SessionStart keeps the full skill"
 
 # Everything else in the file belongs to Claude Code or to the user. A hook
 # registered for another purpose, on an event this script also writes to, is the
