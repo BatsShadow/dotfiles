@@ -5,7 +5,8 @@
 #   1. Count windows on the target workspace
 #   2. If already on the target workspace → run --on-focus action (if provided)
 #   3. If no windows on the target workspace → launch app / open URL, then switch
-#      (unless --no-launch: switch to the empty workspace without launching)
+#      (unless --no-launch: switch to the empty workspace without launching, or
+#      the app already has a window on some other workspace: switch and say so)
 #   4. Otherwise → switch to workspace and auto-config gaps
 #
 # Tile mode logic:
@@ -159,14 +160,39 @@ else
   # Target workspace is empty → launch the app. Under --no-launch we still make
   # the trip to the (empty) workspace; only the launch is skipped.
   if [ "${WS_WINDOW_COUNT:-0}" -eq 0 ] && [ "$NO_LAUNCH" -eq 0 ]; then
-    echo "Target app/window not found, launching..."
-    if [ -n "$URL" ]; then
-      "$SCRIPT_DIR/open-arc-url.sh" "$URL"
+    # A window moved by hand to another workspace leaves this one empty, and
+    # `open -b` on an app that is already running cannot conjure a second
+    # window: it just activates the one that moved, dragging the screen to that
+    # workspace for an instant before the switch below pulls it back. The window
+    # looks like it flashed and vanished, with no hint of where it went. So say
+    # where it went and leave it where the user put it. Opening a URL is the
+    # exception, it really does make a new window, so it still runs.
+    STRAY_WS=$(aerospace list-windows --all --format '%{app-bundle-id}|%{workspace}' 2>/dev/null |
+      awk -F'|' -v id="$APP_ID" '
+        $1 == id && !seen[$2]++ { ws[++n] = $2 }
+        END {
+          for (i = 1; i <= n; i++) {
+            list = list (i == 1 ? "" : i == n ? " and " : ", ") ws[i]
+          }
+          print list
+        }')
+
+    if [ -z "$URL" ] && [ -n "$STRAY_WS" ]; then
+      echo "$APP_NAME has no window on $TARGET_WS; it is on $STRAY_WS."
+      SPACE_WORD="space"
+      case "$STRAY_WS" in *" and "*) SPACE_WORD="spaces" ;; esac
+      MSG="$APP_NAME is on the $STRAY_WS $SPACE_WORD"
+      osascript -e "display notification \"${MSG//\"/\\\"}\" with title \"AeroSpace\"" &
     else
-      open -b "$APP_ID"
+      echo "Target app/window not found, launching..."
+      if [ -n "$URL" ]; then
+        "$SCRIPT_DIR/open-arc-url.sh" "$URL"
+      else
+        open -b "$APP_ID"
+      fi
+      # Brief pause for the window to appear so auto-config counts it
+      sleep 0.5
     fi
-    # Brief pause for the window to appear so auto-config counts it
-    sleep 0.5
   fi
 
   # Cross-monitor displacement protection: when switching to a workspace
