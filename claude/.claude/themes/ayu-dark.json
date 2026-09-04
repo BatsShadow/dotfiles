@@ -1,6 +1,6 @@
 {
   "name": "Ayu Dark",
-  "base": "dark",
+  "base": "dark-ansi",
   "overrides": {
     "claude": "#e6b450",
     "claudeShimmer": "#ffd580",
@@ -49,6 +49,30 @@
     "purple_FOR_SUBAGENTS_ONLY": "#d2a6ff",
     "orange_FOR_SUBAGENTS_ONLY": "#ff8f40",
     "pink_FOR_SUBAGENTS_ONLY": "#e6a2c5",
-    "cyan_FOR_SUBAGENTS_ONLY": "#95e6cb"
+    "cyan_FOR_SUBAGENTS_ONLY": "#95e6cb",
+    "skill": "#d2a6ff",
+    "autoAcceptShimmer": "#d5ff80",
+    "claudeBlue_FOR_SYSTEM_SPINNER": "#59c2ff",
+    "claudeBlueShimmer_FOR_SYSTEM_SPINNER": "#73d0ff",
+    "composerSidebarBackground": "#11151c",
+    "background": "#95e6cb",
+    "professionalBlue": "#6a9bcc",
+    "chromeYellow": "#fbbc04",
+    "clawd_body": "#d77757",
+    "clawd_background": "#000000",
+    "rainbow_red": "#eb5f57",
+    "rainbow_orange": "#f58b57",
+    "rainbow_yellow": "#fac35f",
+    "rainbow_green": "#91c882",
+    "rainbow_blue": "#82aadc",
+    "rainbow_indigo": "#9b82c8",
+    "rainbow_violet": "#c882b4",
+    "rainbow_red_shimmer": "#fa9b93",
+    "rainbow_orange_shimmer": "#ffb989",
+    "rainbow_yellow_shimmer": "#ffe19b",
+    "rainbow_green_shimmer": "#b9e6b4",
+    "rainbow_blue_shimmer": "#b4cdf0",
+    "rainbow_indigo_shimmer": "#c3b4e6",
+    "rainbow_violet_shimmer": "#e6b4d2"
   }
 }

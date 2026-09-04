@@ -61,6 +61,13 @@ test.
   version. Catppuccin came first and left remnants that still read as live,
   notably the `catppuccin/tmux` plugin loaded in `tmux.conf` and an entry in
   `lazy-lock.json`. Leftovers, not the theme.
+- `ayu-dark.json` sets all 72 colour tokens and still says
+  `"base": "dark-ansi"`, which looks redundant. It is the only way to colour
+  markdown inline code: that path resolves `permission` by base-theme *name*
+  and never reads `overrides`, so stock dark's periwinkle won no matter what
+  the file said. `dark-ansi` makes it `ansi:blueBright`, which the stowed
+  wezterm palette paints ayu blue. The 72 tokens are what keeps the base from
+  dragging anything else to ANSI with it.
 
 ## Git
 
