@@ -24,7 +24,8 @@ checked. Don't copy those explanations into this file.
   into `~/.claude/` lands in the repo with no re-stow.
 - **`~/.claude/settings.json` is merged, never stowed.** Claude Code rewrites
   that file itself and would replace a symlink with a regular file.
-  `hooks/install-hooks.sh` merges the registrations in, idempotently.
+  `hooks/install-hooks.sh` merges in the hook registrations and the active
+  theme, idempotently.
 - A new file in an already-stowed package needs `stow -R <package>` unless the
   package folded to a single symlink.
 - `zsh/private.env` holds secrets and is not committed.

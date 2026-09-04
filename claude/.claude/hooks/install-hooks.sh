@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Register this directory's hooks in ~/.claude/settings.json.
+# Merge this directory's hook registrations and theme choice into
+# ~/.claude/settings.json.
 #
 # settings.json is deliberately NOT stowed. Claude Code writes to it itself --
 # /permissions, plugin toggles, model choice -- and a program that saves by
@@ -28,6 +29,17 @@
 # keeping only if the count drops, so count em dashes in a transcript before
 # believing either one works.
 #
+# The theme is here for the reason the hooks are. themes/ is stowed, so
+# ayu-dark.json travels with the repo, but the choice of which theme is active
+# is a settings.json key and does not. A fresh machine got the file and came up
+# on the default.
+#
+# Written only when the key is absent, which is the one place this script
+# differs from the hooks. Those are matched on command, so a second entry is
+# always wrong. There is exactly one theme key, and anything already in it is a
+# deliberate answer, so install.zsh re-running this on every stow must not
+# overwrite a later pick from /theme.
+#
 # Idempotent, and additive per event: an entry is appended only when no existing
 # one already runs this command, so hooks configured for other purposes survive.
 #
@@ -39,6 +51,7 @@ SETTINGS="${1:-${HOME}/.claude/settings.json}"
 CMD="${CC_HOOK_CMD:-~/.claude/hooks/claude-waiting.sh}"
 SKILLS_CMD="${CC_SKILLS_HOOK_CMD:-~/.claude/hooks/session-start-skills.sh}"
 TURN_CMD="${CC_TURN_HOOK_CMD:-~/.claude/hooks/turn-skill-reminder.sh}"
+THEME="${CC_THEME:-custom:ayu-dark}"
 
 # resume is left out on purpose: a resumed session already carries the context
 # these skills were injected into, and injecting them again would pay for the
@@ -62,7 +75,8 @@ tmp="${SETTINGS}.tmp.$$"
 trap 'rm -f "$tmp"' EXIT
 
 jq --arg cmd "$CMD" --arg skills_cmd "$SKILLS_CMD" --arg turn_cmd "$TURN_CMD" \
-	--arg skills_matcher "$SKILLS_MATCHER" --arg legacy "$LEGACY_SKILLS_CMD" '
+	--arg skills_matcher "$SKILLS_MATCHER" --arg legacy "$LEGACY_SKILLS_CMD" \
+	--arg theme "$THEME" '
 	def entry($cmd; $matcher):
 		{hooks: [{type: "command", command: $cmd}]}
 		| if $matcher == "" then . else {matcher: $matcher} + . end;
@@ -101,6 +115,9 @@ jq --arg cmd "$CMD" --arg skills_cmd "$SKILLS_CMD" --arg turn_cmd "$TURN_CMD" \
 	# fire, so the turn would carry the full rules and the reminder on top.
 	| retire("UserPromptSubmit"; $skills_cmd)
 	| ensure("UserPromptSubmit"; $turn_cmd; "")
+	# A null here is Claude Code having written the key without a value, which
+	# is still not a choice, so it is filled the same as a missing one.
+	| if (.theme // null) == null then .theme = $theme else . end
 ' "$SETTINGS" >"$tmp"
 
 # Replace only once the new content is known to be valid JSON. Truncating the
@@ -111,3 +128,4 @@ mv -f "$tmp" "$SETTINGS"
 trap - EXIT
 
 echo "install-hooks: ${CMD}, ${SKILLS_CMD} and ${TURN_CMD} registered in ${SETTINGS}"
+echo "install-hooks: theme is $(jq -r '.theme' "$SETTINGS")"

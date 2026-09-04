@@ -95,6 +95,23 @@ assert_eq "0" "$(count UserPromptSubmit "$SKILLS")" "retires the full skill from
 assert_eq "1" "$(count UserPromptSubmit "$TURN")" "and leaves the reminder in its place"
 assert_eq "1" "$(count SessionStart "$SKILLS")" "while SessionStart keeps the full skill"
 
+# The theme is the one key written by value rather than matched by command, so
+# the failure it can cause is the opposite of a duplicate: overwriting a choice
+# someone made in /theme. install.zsh runs this on every stow, so that would
+# undo the pick on the next unrelated install.
+rm -f "$S"
+install
+assert_eq "custom:ayu-dark" "$(q '.theme')" "sets the theme on a machine with no settings"
+
+printf '%s\n' '{"theme":"dark-daltonized"}' >"$S"
+install
+assert_eq "dark-daltonized" "$(q '.theme')" "leaves a theme the user already chose"
+
+# Claude Code writing the key with no value is not a choice either.
+printf '%s\n' '{"theme":null}' >"$S"
+install
+assert_eq "custom:ayu-dark" "$(q '.theme')" "fills a null theme"
+
 # Everything else in the file belongs to Claude Code or to the user. A hook
 # registered for another purpose, on an event this script also writes to, is the
 # case where an over-eager installer does real damage.
