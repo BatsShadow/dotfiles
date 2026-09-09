@@ -62,6 +62,9 @@ alt-comma = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --a
 alt-period = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --no-launch --app-id us.zoom.xos --app-name zoom.us'
 # Poker (alt-j) — the only free right-hand key (Colemak-DH top row, index finger).
 alt-j = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.clubwptgold.electron --app-name "ClubWPT Gold"'
+# Compass (alt-'). Home row right pinky, freed by moving service mode off
+# alt-shift-' onto backslash.
+alt-quote = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.mongodb.compass --app-name "MongoDB Compass"'
 
 # Look at Arc's "PRs" tab (Work space): focus the main Arc window, then select PRs.
 alt-p = [
@@ -92,6 +95,7 @@ alt-shift-k = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh -
 alt-shift-comma = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.apple.Safari --app-name Safari'
 alt-shift-period = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --no-launch --stage --app-id us.zoom.xos --app-name zoom.us'
 alt-shift-j = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.clubwptgold.electron --app-name "ClubWPT Gold"'
+alt-shift-quote = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --stage --app-id com.mongodb.compass --app-name "MongoDB Compass"'
 
 # Left hand — A R S T (physical left-to-right)
 alt-a = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/focus-monitor.sh secondary'  # Look at Aux (built-in / far-left)
@@ -122,8 +126,10 @@ alt-shift-q = 'exec-and-forget /Users/scott/.config/aerospace/toggle-mode.sh'
 
 alt-tab = 'workspace-back-and-forth'
 
-# Service mode
-alt-shift-quote = 'mode service'
+# Service mode. On backslash rather than alt-shift-' so the quote key is free
+# for a full app/stage pair. Backslash sits outside the Colemak-DH remap, a
+# top-right pinky stretch, which suits a mode reached a few times a month.
+alt-backslash = 'mode service'
 
 [mode.service.binding]
 # Re-render the config from source (modes/globals/gaps) then reload — a bare

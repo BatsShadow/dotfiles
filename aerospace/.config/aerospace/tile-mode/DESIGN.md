@@ -207,7 +207,7 @@ follows the window to its new screen**:
   - Focus follows the sent window to the built-in.
 - **Single monitor** (undocked): no-op.
 
-Service mode (alt-shift-quote) unchanged.
+Service mode (alt-backslash) unchanged.
 
 ## Mode-toggle continuity (alt-shift-q)
 

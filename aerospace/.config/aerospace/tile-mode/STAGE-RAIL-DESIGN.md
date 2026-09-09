@@ -314,12 +314,25 @@ also the last one. The right hand is now full:
 | Row | Keys |
 |---|---|
 | Top | `j` Poker · `l` Email · `u` Terminal · `y` YouTube · `;` Discord |
-| Home | `m`/`n`/`e`/`i` focus · `o` Browser |
+| Home | `m`/`n`/`e`/`i` focus · `o` Browser · `'` Compass |
 | Bottom | `k` Calendar · `h` Slack · `,` Safari · `.` Zoom · `/` layout toggles |
 
-The only unbound right-hand keys remaining are `'` (whose shift partner is
-already service mode, so it gets no move/stage sibling) and the brackets. A
-tenth app key means either taking one of those or retiring an existing one.
+The only unbound right-hand keys remaining are the brackets. An eleventh app
+key means taking one of those or retiring an existing one.
+
+### `alt-'` becomes Compass, and service mode moves to `\`
+
+*(2026-09-09.)* MongoDB Compass took **`alt-'`** with a **`Compass`**
+workspace. The paragraph above ruled that key out because its shift partner was
+`mode service`, and an app key with no move/stage sibling is half a key.
+Service mode is reached a few times a month, so it moved to **`alt-\`** and `'`
+became a full pair.
+
+Backslash is absent from the kanata `defsrc` grid, and that absence is what
+makes it a safe home. `config.kbd` sets `process-unmapped-keys yes` with
+`block-unmapped-keys no`, so kanata passes the key through untouched and it
+stays where the MacBook prints it, above return. Outside the Colemak-DH remap
+and a pinky stretch away, which is the point.
 
 ### Zoom's key cannot launch Zoom
 

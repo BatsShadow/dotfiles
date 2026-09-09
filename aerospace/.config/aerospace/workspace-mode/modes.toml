@@ -51,6 +51,10 @@ run = "move-node-to-workspace Zoom"
 if = 'test %{app-bundle-id} = com.clubwptgold.electron'
 run = "move-node-to-workspace Poker"
 
+[[on-window-detected]] # MongoDB Compass (alt-')
+if = 'test %{app-bundle-id} = com.mongodb.compass'
+run = "move-node-to-workspace Compass"
+
 [[on-window-detected]]
 if = 'test %{app-bundle-id} = com.brnbw.Tuna'
 run = "layout floating"
@@ -238,6 +242,16 @@ alt-shift-j = [
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]
 
+# Compass (alt-'). Home row right pinky, freed by moving service mode off
+# alt-shift-' onto backslash. Its own workspace so a query result never
+# shares a screen.
+alt-quote = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.mongodb.compass --app-name "MongoDB Compass" --workspace Compass'
+alt-shift-quote = [
+  'move-node-to-workspace Compass',
+  'workspace Compass',
+  'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
+]
+
 alt-p = [
   'workspace Browser',
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh W',
@@ -283,8 +297,10 @@ alt-shift-q = 'exec-and-forget /Users/scott/.config/aerospace/toggle-mode.sh'
 
 alt-tab = 'workspace-back-and-forth'
 
-# Service mode
-alt-shift-quote = 'mode service'
+# Service mode. On backslash rather than alt-shift-' so the quote key is free
+# for a full app/workspace pair. Backslash sits outside the Colemak-DH remap, a
+# top-right pinky stretch, which suits a mode reached a few times a month.
+alt-backslash = 'mode service'
 
 [mode.service.binding]
 # Re-render the config from source (modes/globals/gaps) then reload + notify — a

@@ -44,6 +44,9 @@ case "$APP_ID" in
   com.clubwptgold.electron)
     echo "Poker"
     ;;
+  com.mongodb.compass)
+    echo "Compass"
+    ;;
   *)
     echo "Browser"
     ;;
