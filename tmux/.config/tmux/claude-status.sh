@@ -20,9 +20,9 @@
 # Mirrors the palette in tmux-powerline/segments/claude_sessions.sh, where the
 # rule is set out in full: only the waiting state is chromatic, everything else
 # is a luminance ramp. Colour in the picker therefore means "this one needs you"
-# and nothing else. The segment's values cannot be shared from here -- a tmux
-# popup shell inherits none of tmux-powerline's environment -- so they are
-# restated. Keep the two in step.
+# and nothing else. Restated rather than sourced, unlike the glyphs below: the
+# segment states these as hex and the picker needs SGR escapes, so there is
+# nothing common to share. Keep the two in step.
 CC_C_WAIT="${CC_C_WAIT-$'\033[1;38;2;230;180;80m'}" # #e6b450, bold
 CC_C_BUSY="${CC_C_BUSY-$'\033[38;2;172;182;191m'}"  # #acb6bf
 CC_C_LIVE="${CC_C_LIVE-$'\033[38;2;191;189;182m'}"  # #bfbdb6
@@ -30,10 +30,19 @@ CC_C_DIM="${CC_C_DIM-$'\033[38;2;86;91;102m'}"      # #565b66
 CC_C_NEW="${CC_C_NEW-$'\033[38;2;89;194;255m'}"     # #59c2ff
 CC_C_OFF=$'\033[0m'
 
-# Same glyphs the status bar uses, so a session reads identically in the picker
-# and on the bar.
-CC_G_WAIT="${CC_G_WAIT-󰫢}"
-CC_G_BUSY="${CC_G_BUSY-󰧞}"
+# The status bar's glyphs, sourced rather than restated so the two cannot be
+# changed apart. `..` is tmux/.config in the checkout and under stow alike,
+# because ~/.config/tmux and ~/.config/tmux-powerline are sibling symlinks into
+# it. If it is missing the glyph column renders blank, failing closed like every
+# other value borrowed from the segment.
+__cc_glyphs="${BASH_SOURCE[0]%/*}/../tmux-powerline/segments/claude/glyphs.sh"
+if [ -r "$__cc_glyphs" ]; then
+	# shellcheck source=../tmux-powerline/segments/claude/glyphs.sh
+	source "$__cc_glyphs"
+fi
+unset __cc_glyphs
+CC_G_WAIT="${CC_G_WAIT-${CC_GLYPH_WAIT-}}"
+CC_G_BUSY="${CC_G_BUSY-${CC_GLYPH_BUSY-}}"
 
 # There is one glyph column, and a waiting or busy Claude always owns it. Those
 # are the only facts that are ever urgent, so they must never be crowded out by
@@ -43,7 +52,7 @@ CC_G_BUSY="${CC_G_BUSY-󰧞}"
 # What fills the column when no Claude is demanding anything is the caller's
 # choice, because the useful answer depends on what the popup does -- see
 # CC_FALLBACK below.
-CC_G_IDLE="${CC_G_IDLE-·}"
+CC_G_IDLE="${CC_G_IDLE-${CC_GLYPH_IDLE-}}"
 CC_G_MERGED="${CC_G_MERGED-✓}"
 
 # Which of those the fallback shows: `idle`, `merged`, or unset for neither.

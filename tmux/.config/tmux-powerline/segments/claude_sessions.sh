@@ -90,12 +90,20 @@ TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_COLOR="${TMUX_POWERLINE_SEG_CLAUDE_SESSI
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_COLOR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_COLOR:-#acb6bf}"
 TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_COLOR:-#565b66}"
 
+# Shared with the fzf pickers rather than restated, because a session has to
+# read identically on the bar and in a picker and restating them is what let
+# them drift. Change a glyph in claude/glyphs.sh and both move together.
+#
 # Sized to read at a glance rather than to pack tightly -- if a count ends up
 # touching its glyph, widen TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_GAP below rather
 # than shrinking these.
-TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH:-󰫢}"
-TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH:-󰧞}"
-TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH:-·}"
+if [ -r "${BASH_SOURCE[0]%/*}/claude/glyphs.sh" ]; then
+	# shellcheck source=claude/glyphs.sh
+	source "${BASH_SOURCE[0]%/*}/claude/glyphs.sh"
+fi
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_WAIT_GLYPH:-${CC_GLYPH_WAIT-}}"
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_BUSY_GLYPH:-${CC_GLYPH_BUSY-}}"
+TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH="${TMUX_POWERLINE_SEG_CLAUDE_SESSIONS_IDLE_GLYPH:-${CC_GLYPH_IDLE-}}"
 
 # Glyph marking an idle window in the window list, as opposed to the idle count
 # in the segment above. Empty: idle is the resting state of most windows, so
