@@ -34,12 +34,24 @@ style on the command line rather than expecting it to read the config.
 
 ## Settled
 
-Colour. Everything read washed out beside wezterm because wezterm hands sRGB hex
-straight to the display without converting, so the ayu palette is effectively
-shown as Display P3. Ghostty converts by default and lands on the duller,
-technically correct colour. `window-colorspace = display-p3` matches wezterm.
-Confirmed by sampling pixels from a screenshot of each and running the P3 to
-sRGB conversion, which agreed to the byte.
+Colour. `window-colorspace = display-p3` is set, and it does not make Ghostty
+match wezterm. It overshoots, which is the point. Sampled from the status bar of
+a side-by-side screenshot, sRGB-tagged:
+
+| configured | wezterm | Ghostty |
+| ---------- | ------- | ------- |
+| `#59c2ff`  | `#59c2ff` | `#03c5ff` |
+| `#95e6cb`  | `#95e6cb` | `#79e9ca` |
+| `#f07178`  | `#f07178` | `#ff6774` |
+
+wezterm paints the configured hex verbatim. Ghostty shows each value as though
+it were a Display P3 triple, which lands on the third column, exact to the byte
+on all three. More saturated than the palette asks for, and preferred, so it
+stays. Drop the line to get wezterm's rendering back.
+
+An earlier revision of this file had the two terminals swapped, claiming wezterm
+was the one showing the palette as P3 and that this setting made them agree.
+Neither is true.
 
 Font styles. Three of the four style strings guessed from the docs were right.
 `Black` is not a style Xenon NF advertises and is now `ExtraBold`, checked with
@@ -62,6 +74,39 @@ the word-name spelling leaves the default live and both fire.
 
 Padding. `window-padding-y` does take a `top,bottom` pair. Currently `5,0`.
 
+Ligatures. wezterm scoped features per rule, `calt,liga` on the roman faces and
+`calt,liga,ss01` on the italic ones, so `ss01` is the entire difference between
+them. Ghostty's `font-feature` is global and the man page lists per-face
+targeting as a future enhancement, so one of the two had to give. `ss01` is
+dropped. It is Monaspace's equals and comparison group, measured as covering
+`! # - / = ~`, and having it on globally put those ligatures into roman code
+text where wezterm never had them. The cost is italic and bold-italic losing
+them, which in practice is nvim comments and the oh-my-posh prompt.
+
+For reference, `calt` is texture healing rather than ligatures here, covering
+letters plus 243 non-ASCII inputs, and `liga` covers `! . / ; |`.
+
+Two ways to get the italic ligatures back, if they turn out to be missed.
+
+Patch the two roman faces so the global `ss01` becomes a no-op for them. The
+tag appears exactly once in each file, one feature record, so renaming it to the
+unregistered `ss00` is a four-byte overwrite that keeps the alphabetical order
+the spec wants (`sinf` < `ss00` < `ss02`) and shifts no offsets. The faces are
+brew casks, so the copies also need their own family name, and `NF` to `NL` is
+the same byte length in every `name` record, which keeps that in-place too.
+
+Or use the official frozen build for the italic pair, which bakes every
+stylistic set in. It has no Nerd Font variant, but `font-codepoint-map` routes
+the icon ranges to a face that does:
+
+```
+font-codepoint-map = U+E000-U+F8FF,U+F0000-U+FFFFD=Monaspace Argon NF
+```
+
+Frozen is not brew-managed, though. `font-monaspace` ships the static set, 210
+artifacts and none of them frozen, so that route means a hand-managed 69MB
+download and all ten stylistic sets rather than just `ss01`.
+
 Glyph sizing. Ghostty scales nerd font icons to the cell and wezterm draws them
 at natural size, so the tmux status bar's busy icon came out twice the size it
 is in wezterm. `adjust-icon-height` cannot reach a glyph whose width is what
@@ -74,10 +119,6 @@ ordinary Unicode, which is never scaled.
 argued from a premise that no longer holds now the colourspace is `display-p3`,
 so `native`, `linear` and `linear-corrected` want comparing again on the same
 nvim buffer.
-
-`font-feature = ss01` is global. Ghostty has no way to scope a feature to one
-face, so the alternate cursive forms wanted on Argon and Krypton also land on
-Neon and Xenon. Look at a roman `a` and `f` with it on and off.
 
 `background-blur = 30` is Ghostty's own blur. macOS 26 also accepts
 `macos-glass-regular` and `macos-glass-clear`, which draw through

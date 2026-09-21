@@ -18,24 +18,8 @@ font-style-bold = ExtraBold
 font-family-italic = Monaspace Argon NF
 font-style-italic = Light Italic
 
-# 'Medium' rather than 'Medium Italic', deliberately. The Monaspace superfamily
-# is being used as four selectable faces, and bold+italic is the selector for
-# Krypton. It is not a request for slanted text. The oh-my-posh prompt wraps 15
-# segments in <b><i> for exactly that reason, and wezterm's matching rule names
-# Krypton at weight Medium with no style, so it resolves to the upright face.
-#
-# Naming an italic style here breaks that: the prompt renders in true italics.
-# Stripping <i> from the templates would not fix it either, since the pair is
-# what picks Krypton at all, and dropping half of it promotes the prompt to the
-# bold face and makes it Xenon ExtraBold.
-#
-# Naming the upright face is not enough on its own. font-synthetic-style
-# defaults to bold,italic,bold-italic, so Ghostty skews an upright face itself
-# when text asks for italic, which is how the slant survived pointing this at
-# Krypton Medium. wezterm does no such thing. It has to be 'no-bold-italic' and
-# not 'no-italic': the docs warn that disabling italic alone leaves the slant in
-# the bold-italic style. bold and italic keep their synthesis, since Xenon
-# ExtraBold and Argon Light Italic are both real faces and never trigger it.
+# Upright, not slanted: bold+italic is how the prompt selects Krypton. The
+# no-bold-italic stops Ghostty skewing it back. See NOTES.md.
 font-family-bold-italic = Monaspace Krypton NF
 font-style-bold-italic = Medium
 font-synthetic-style = no-bold-italic
@@ -44,19 +28,15 @@ font-size = 14
 
 adjust-cell-height = 32%
 
-# font-feature is global: there is no way to scope a feature to one face. In
-# Monaspace ss01 swaps in the alternate cursive italic forms, which is wanted on
-# Argon and Krypton but also lands on Neon and Xenon. Look at a roman 'a' and
-# 'f' with this on and off before keeping it.
+# ss01 left off: it is global-only and would ligate roman code text. See NOTES.md.
 font-feature = calt
 font-feature = liga
-font-feature = ss01
 
+# Deliberately oversaturates the palette below. Not a correction. See NOTES.md.
 window-colorspace = display-p3
 alpha-blending = native
 
-# Off by default in Ghostty. If specific bold spans look wrong rather than the
-# whole screen, this is the one that matters.
+# Off by default in Ghostty, on by default in wezterm.
 bold-is-bright = true
 
 background = #151720
@@ -89,16 +69,8 @@ palette = 15=#ffffff
 # Keys
 # ---------------------------------------------------------------------------
 #
-# Every binding here fires unconditionally and assumes tmux is running, which it
-# always is. Ghostty has no scripting layer, so there is no way to check the
-# foreground process first.
-#
-# \x00 is Ctrl+Space, the tmux prefix set in tmux/.config/tmux/tmux.conf.
-#
-# If an embedded NUL turns out not to survive the trip to the pty, add
-#   set -g prefix2 C-b
-# to tmux.conf and swap every \x00 below for \x02. tmux answers to both prefixes
-# and nothing else has to change.
+# Every binding fires unconditionally: Ghostty cannot check the foreground
+# process, and tmux is always running. \x00 is Ctrl+Space, the tmux prefix.
 
 # Readline word motion, matching Terminal.app. ESC b / ESC f.
 keybind = opt+left=text:\x1bb
@@ -108,22 +80,14 @@ keybind = opt+right=text:\x1bf
 keybind = cmd+left=text:\x01
 keybind = cmd+right=text:\x05
 
-# prefix C-k, which tmux.conf line 48 binds to the clear-and-reset chain.
-# This replaces Ghostty's own cmd+k, which clears its scrollback rather than
-# tmux's.
+# prefix C-k (tmux.conf:48), replacing Ghostty's own scrollback clear.
 keybind = cmd+k=text:\x00\x0b
 
-# prefix t, which tmux.conf line 41 binds to new-window. Pointing at a key
-# tmux.conf names out loud rather than a tmux default: prefix c used to be the
-# target here, until it was taken for the Claude jumper and cmd+t started
-# opening a picker instead.
+# prefix t = new-window (tmux.conf:41). prefix c is the Claude jumper now.
 keybind = cmd+t=text:\x00t
 
-# cmd+NUM switches tmux windows.
-#
-# Ghostty registers its own goto_tab bindings under the W3C physical-key names
-# (cmd+digit_1 and friends) and they have to be unbound explicitly. Rebinding
-# only the word-name spelling leaves the default live and both fire.
+# cmd+NUM switches tmux windows. The unbinds are required: Ghostty's own
+# goto_tab uses the physical-key names, so without them both bindings fire.
 keybind = cmd+digit_0=unbind
 keybind = cmd+digit_1=unbind
 keybind = cmd+digit_2=unbind
@@ -146,7 +110,5 @@ keybind = cmd+seven=text:\x00\x37
 keybind = cmd+eight=text:\x00\x38
 keybind = cmd+nine=text:\x00\x39
 
-# Shift+Enter sends a newline to Claude Code. Ghostty speaks the kitty keyboard
-# protocol natively, so this may already work without the binding once Claude
-# Code turns the protocol on. Kept explicit.
+# Shift+Enter newline for Claude Code, explicit rather than relying on kitty kbd.
 keybind = shift+enter=csi:13;2u
