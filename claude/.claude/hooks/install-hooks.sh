@@ -9,25 +9,18 @@
 # stop tracking. So the scripts are stowed and the reference to them is merged
 # in here instead.
 #
-# Two registrations, for the two things the hooks dir does:
+# One registration now, for the one thing the hooks dir still does:
 #
-#   claude-waiting.sh        marks a session as waiting on you (Stop,
-#                            Notification, UserPromptSubmit, SessionEnd)
-#   session-start-skills.sh  injects the always-on skills (SessionStart)
-#   turn-skill-reminder.sh   re-states the three rules that break (UserPromptSubmit)
+#   claude-waiting.sh  marks a session as waiting on you (Stop, Notification,
+#                      UserPromptSubmit, SessionEnd)
 #
-# Two events, because one was measured not to be enough, and two payloads,
-# because the same 80 lines repeated every turn is the wrong shape for the
-# second one. A session opened with /clear carried the whole of unslop from its
-# first token and still put 35 em dashes into 60 replies. Nothing was missing
-# from the context; the rules were just a long way behind the text by the time
-# each reply got written. So SessionStart keeps the full skill and
-# UserPromptSubmit carries three rules, which is 98.5% of the measured
-# violations at 69 tokens a turn instead of 1731.
-#
-# Both are bets on recency rather than checks. Neither detects anything. Worth
-# keeping only if the count drops, so count em dashes in a transcript before
-# believing either one works.
+# It used to register two more, which injected unslop at session start and
+# re-stated its three worst rules every turn. Claude Code loads the rules
+# itself now, because ~/.claude/CLAUDE.md imports references/unslop.md and
+# expands the import before the first reply. The scripts are deleted, so the
+# job here is to take their registrations back out of settings.json on every
+# machine that ran the old version. A registration left pointing at a deleted
+# script is a hook error on every turn.
 #
 # The theme is here for the reason the hooks are. themes/ is stowed, so
 # ayu-dark.json travels with the repo, but the choice of which theme is active
@@ -49,20 +42,15 @@ set -eu
 
 SETTINGS="${1:-${HOME}/.claude/settings.json}"
 CMD="${CC_HOOK_CMD:-~/.claude/hooks/claude-waiting.sh}"
-SKILLS_CMD="${CC_SKILLS_HOOK_CMD:-~/.claude/hooks/session-start-skills.sh}"
-TURN_CMD="${CC_TURN_HOOK_CMD:-~/.claude/hooks/turn-skill-reminder.sh}"
 THEME="${CC_THEME:-custom:ayu-dark}"
 
-# resume is left out on purpose: a resumed session already carries the context
-# these skills were injected into, and injecting them again would pay for the
-# same tokens twice.
-SKILLS_MATCHER="${CC_SKILLS_HOOK_MATCHER:-startup|clear|compact}"
-
-# What this replaces: the same idea registered by hand, as a literal `cat` in
-# settings.json. Left in place it would print the skill a second time on every
-# session start, so it is retired here rather than reported. Matched on the
-# exact command, so a `cat` of anything else is somebody else's hook and stays.
-LEGACY_SKILLS_CMD="${CC_LEGACY_SKILLS_HOOK_CMD:-cat ~/.claude/skills/unslop/SKILL.md}"
+# The three retired commands, oldest first: unslop cat'd into SessionStart by
+# hand, then the script that replaced it, then the per-turn reminder that came
+# with it. Each is matched on its exact command, so a `cat` of something else,
+# or anyone else's hook on the same event, is left alone.
+RETIRED_LEGACY_CMD="${CC_LEGACY_SKILLS_HOOK_CMD:-cat ~/.claude/skills/unslop/SKILL.md}"
+RETIRED_SKILLS_CMD="${CC_SKILLS_HOOK_CMD:-~/.claude/hooks/session-start-skills.sh}"
+RETIRED_TURN_CMD="${CC_TURN_HOOK_CMD:-~/.claude/hooks/turn-skill-reminder.sh}"
 
 command -v jq >/dev/null 2>&1 || {
 	echo "install-hooks: jq is required" >&2
@@ -74,8 +62,8 @@ command -v jq >/dev/null 2>&1 || {
 tmp="${SETTINGS}.tmp.$$"
 trap 'rm -f "$tmp"' EXIT
 
-jq --arg cmd "$CMD" --arg skills_cmd "$SKILLS_CMD" --arg turn_cmd "$TURN_CMD" \
-	--arg skills_matcher "$SKILLS_MATCHER" --arg legacy "$LEGACY_SKILLS_CMD" \
+jq --arg cmd "$CMD" --arg legacy "$RETIRED_LEGACY_CMD" \
+	--arg skills_cmd "$RETIRED_SKILLS_CMD" --arg turn_cmd "$RETIRED_TURN_CMD" \
 	--arg theme "$THEME" '
 	def entry($cmd; $matcher):
 		{hooks: [{type: "command", command: $cmd}]}
@@ -110,11 +98,10 @@ jq --arg cmd "$CMD" --arg skills_cmd "$SKILLS_CMD" --arg turn_cmd "$TURN_CMD" \
 	| ensure("UserPromptSubmit"; $cmd; "")
 	| ensure("SessionEnd"; $cmd; "")
 	| retire("SessionStart"; $legacy)
-	| ensure("SessionStart"; $skills_cmd; $skills_matcher)
-	# An earlier version of this script put the whole skill here. Both would
-	# fire, so the turn would carry the full rules and the reminder on top.
+	| retire("SessionStart"; $skills_cmd)
+	# An earlier version of this script put the whole skill on this event too.
 	| retire("UserPromptSubmit"; $skills_cmd)
-	| ensure("UserPromptSubmit"; $turn_cmd; "")
+	| retire("UserPromptSubmit"; $turn_cmd)
 	# A null here is Claude Code having written the key without a value, which
 	# is still not a choice, so it is filled the same as a missing one.
 	| if (.theme // null) == null then .theme = $theme else . end
@@ -127,5 +114,5 @@ jq -e . "$tmp" >/dev/null
 mv -f "$tmp" "$SETTINGS"
 trap - EXIT
 
-echo "install-hooks: ${CMD}, ${SKILLS_CMD} and ${TURN_CMD} registered in ${SETTINGS}"
+echo "install-hooks: ${CMD} registered in ${SETTINGS}"
 echo "install-hooks: theme is $(jq -r '.theme' "$SETTINGS")"

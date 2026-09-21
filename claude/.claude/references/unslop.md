@@ -1,11 +1,31 @@
----
-name: unslop
-description: Cut AI tells from any writing. Must always apply.
----
-
 # Unslop
 
-Edit text to remove AI patterns and add human voice.
+Cut AI tells from any writing. This governs everything written in every
+session, replies, commit messages and code comments alike.
+
+It lives here rather than in a skill because a skill loads when something
+triggers it, and nothing triggers a rule that has to be in force before the
+first word. `~/.claude/CLAUDE.md` imports this file, so Claude Code loads it
+itself, every session, before the first reply.
+
+## The three that actually break
+
+Measured across 189 transcripts on this machine, split on the date unslop
+landed. Injecting the rules cut the em dash rate 45%, from 199.8 per 10k words
+to 110.7, so the mechanism works and does not finish. Of the violations left
+that a regex can see, em dashes are 89%, bold inline headers 7%, and "not just
+X" 2%. Those three are 98.5% of the total. The other 28 rules together produced
+21 hits in 110k words.
+
+Being in context from the first token is not enough by itself. One session
+opened with /clear carried the whole of these rules and still put 35 em dashes
+into 60 replies. Nothing was missing from the context; the rules were just a
+long way behind the text by the time each reply got written. Re-read this
+section before writing anything long.
+
+Only the rules a scanner can count are ranked here. Puffery, plain speech and
+active voice may well be broken just as often, invisibly. Do not read the three
+as the whole job.
 
 ## Process
 

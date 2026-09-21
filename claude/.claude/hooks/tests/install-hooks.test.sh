@@ -3,9 +3,11 @@
 #
 # What makes this worth testing is that it edits a file it does not own. Claude
 # Code writes settings.json itself and so does the user, so the two failures
-# that matter are silent in opposite directions: registering twice (the same
-# hook fires twice per event, and for SessionStart that is the skill pasted into
-# the context twice), or registering over somebody else's hook.
+# that matter are silent in opposite directions: registering twice, so the same
+# hook fires twice per event, or registering over somebody else's hook. A third
+# followed from deleting the unslop hooks. A registration left behind pointing
+# at a script that is gone fails on every turn, so the retirements are tested
+# the same way the registrations are.
 #
 #   ./install-hooks.test.sh
 
@@ -38,6 +40,7 @@ assert_eq() { # want got label
 
 S="${WORK}/settings.json"
 WAITING="~/.claude/hooks/claude-waiting.sh"
+# All three retired. unslop is imported by ~/.claude/CLAUDE.md now.
 SKILLS="~/.claude/hooks/session-start-skills.sh"
 TURN="~/.claude/hooks/turn-skill-reminder.sh"
 LEGACY="cat ~/.claude/skills/unslop/SKILL.md"
@@ -54,46 +57,43 @@ q() { jq -r "$1" "$S"; }
 rm -f "$S"
 install
 assert_eq "1" "$(count Stop "$WAITING")" "creates settings.json and registers the waiting hook"
-assert_eq "1" "$(count SessionStart "$SKILLS")" "registers the skills hook"
-assert_eq "startup|clear|compact" "$(q '.hooks.SessionStart[0].matcher')" \
-	"the skills hook carries its matcher"
-assert_eq "null" "$(q '.hooks.Stop[0].matcher')" \
-	"the waiting hook is registered without one"
-
-# Two events, two different payloads. SessionStart gets the whole skill once.
-# UserPromptSubmit gets a short reminder of the rules that actually get broken,
-# because 80 lines repeated every turn cost ~1700 tokens a time and bury the one
-# rule that is 89% of the violations.
-assert_eq "1" "$(count UserPromptSubmit "$TURN")" \
-	"registers the short reminder on UserPromptSubmit"
-assert_eq "0" "$(count UserPromptSubmit "$SKILLS")" \
-	"and not the full skill, which belongs to SessionStart alone"
 assert_eq "1" "$(count UserPromptSubmit "$WAITING")" \
-	"and leaves the waiting hook already on that event alone"
+	"and on every other event it claims"
+assert_eq "null" "$(q '.hooks.Stop[0].matcher')" \
+	"the waiting hook is registered without a matcher"
+
+# The waiting hook is the only one left. A fresh machine must not acquire a
+# SessionStart entry at all, since retiring something must never invent the
+# event it was retired from.
+assert_eq "null" "$(q '.hooks.SessionStart')" \
+	"invents no SessionStart on a machine that never had one"
+assert_eq "0" "$(count UserPromptSubmit "$TURN")" "registers no per-turn reminder"
 
 # install.zsh runs this on every stow, so the second run is the normal case.
 install
 install
 assert_eq "1" "$(count Stop "$WAITING")" "re-running does not register the waiting hook twice"
-assert_eq "1" "$(count SessionStart "$SKILLS")" "re-running does not register the skills hook twice"
-assert_eq "1" "$(count UserPromptSubmit "$TURN")" \
-	"re-running does not register the per-turn reminder twice"
+assert_eq "1" "$(count UserPromptSubmit "$WAITING")" \
+	"nor on UserPromptSubmit, where two hooks used to sit"
 
-# The hand-written predecessor. Both would fire, so the session would open with
-# the skill in its context twice over.
+# The hand-written predecessor, from before any of this was a script.
 printf '%s\n' '{"hooks":{"SessionStart":[{"matcher":"startup|clear|compact","hooks":[{"type":"command","command":"cat ~/.claude/skills/unslop/SKILL.md","shell":"bash","async":false}]}]}}' >"$S"
 install
 assert_eq "0" "$(count SessionStart "$LEGACY")" "retires the hand-registered cat"
-assert_eq "1" "$(count SessionStart "$SKILLS")" "and leaves the script in its place"
 
-# The shape this replaces: an earlier version of this script put the whole skill
-# on UserPromptSubmit. Both would fire, so every turn would carry the full rules
-# and the reminder on top of them.
+# What a machine looks like on the stow that follows this change: both unslop
+# hooks registered against scripts that no longer exist.
+printf '%s\n' '{"hooks":{"SessionStart":[{"matcher":"startup|clear|compact","hooks":[{"type":"command","command":"~/.claude/hooks/session-start-skills.sh"}]}],"UserPromptSubmit":[{"hooks":[{"type":"command","command":"~/.claude/hooks/turn-skill-reminder.sh"}]}]}}' >"$S"
+install
+assert_eq "0" "$(count SessionStart "$SKILLS")" "retires the session-start injection"
+assert_eq "0" "$(count UserPromptSubmit "$TURN")" "retires the per-turn reminder"
+assert_eq "1" "$(count UserPromptSubmit "$WAITING")" \
+	"and the waiting hook takes the place it left"
+
+# An earlier version of the script put the whole skill on UserPromptSubmit too.
 printf '%s\n' '{"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"~/.claude/hooks/session-start-skills.sh"}]}]}}' >"$S"
 install
 assert_eq "0" "$(count UserPromptSubmit "$SKILLS")" "retires the full skill from UserPromptSubmit"
-assert_eq "1" "$(count UserPromptSubmit "$TURN")" "and leaves the reminder in its place"
-assert_eq "1" "$(count SessionStart "$SKILLS")" "while SessionStart keeps the full skill"
 
 # The theme is the one key written by value rather than matched by command, so
 # the failure it can cause is the opposite of a duplicate: overwriting a choice
@@ -121,13 +121,14 @@ assert_eq "1" "$(count SessionStart "echo mine")" "leaves someone else's hook on
 assert_eq "1" "$(count PreToolUse "echo pre")" "leaves an event it does not manage"
 assert_eq "opus" "$(q '.model')" "leaves unrelated settings"
 
-# An entry emptied by the retirement goes with it. Keeping the husk would leave
-# SessionStart holding an entry that runs nothing, which reads as a hook that
-# stopped working rather than one that was replaced.
+# An entry emptied by the retirement goes with it, and so does the event once
+# nothing is left on it. Keeping the husk would leave SessionStart holding an
+# entry that runs nothing, which reads as a hook that stopped working rather
+# than one that was removed.
 printf '%s\n' '{"hooks":{"SessionStart":[{"matcher":"startup","hooks":[{"type":"command","command":"cat ~/.claude/skills/unslop/SKILL.md"}]}]}}' >"$S"
 install
-assert_eq "1" "$(q '.hooks.SessionStart | length')" \
-	"an entry left empty by the retirement is dropped, not kept"
+assert_eq "null" "$(q '.hooks.SessionStart')" \
+	"an entry left empty by the retirement is dropped, and the empty event with it"
 
 # Invalid JSON is the user's file in a state this script must not make worse:
 # jq cannot read it, so there is nothing to merge into and nothing to write.

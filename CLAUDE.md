@@ -16,12 +16,17 @@ checked. Don't copy those explanations into this file.
 
 ## Traps
 
-- **`~/.claude` is only partly stowed.** `hooks/`, `skills/` and `themes/` are;
-  nothing else is. The rest is Claude Code's own state, 600M+ of transcripts
-  and caches, and it must stay out of the repo. `install.zsh` pre-creates
-  `~/.claude` so stow folds one level down instead of swallowing all of it.
-  Each of the three is a single symlink, so a skill or theme written straight
-  into `~/.claude/` lands in the repo with no re-stow.
+- **`~/.claude` is only partly stowed.** `CLAUDE.md`, `hooks/`, `references/`
+  and `themes/` are; nothing else is. The rest is Claude Code's own state,
+  600M+ of transcripts and caches, and it must stay out of the repo.
+  `install.zsh` pre-creates `~/.claude` so stow folds one level down instead of
+  swallowing all of it. Each of those directories is a single symlink, so a
+  theme written straight into `~/.claude/` lands in the repo with no re-stow.
+- **`skills/` is not stowed, and was.** `~/.claude/skills` was a symlink into
+  this package until the unslop skill left it holding nothing but Claude Code's
+  own 4.1M synced cache, which the symlink pulled into the checkout. It is a
+  real directory owned by Claude Code now. The `skills/synced/` line in
+  `.gitignore` is kept as a guard rather than because anything still needs it.
 - **`~/.claude/settings.json` is merged, never stowed.** Claude Code rewrites
   that file itself and would replace a symlink with a regular file.
   `hooks/install-hooks.sh` merges in the hook registrations and the active
@@ -68,6 +73,18 @@ test.
   the file said. `dark-ansi` makes it `ansi:blueBright`, which the stowed
   wezterm palette paints ayu blue. The 72 tokens are what keeps the base from
   dragging anything else to ANSI with it.
+
+## Claude's own writing rules
+
+`claude/.claude/references/unslop.md` holds them and
+`claude/.claude/CLAUDE.md` pulls them in with `@references/unslop.md`. Claude
+Code expands that import when it loads the file, so the rules are in context
+before the first reply.
+
+They were a skill, injected by two hooks because nothing else ever loaded them.
+Both hooks are gone. If you move the rules, check the import still resolves.
+Imports are relative to the file that writes them. A project file's `@~/...`
+and absolute-path imports were both tested here and expanded to nothing.
 
 ## Git
 

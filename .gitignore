@@ -5,6 +5,12 @@ tmux/.config/tmux/.session-dirs
 tmux/.config/tmux/.live-sessions*
 .claude/settings.local.json
 hunk/.config/hunk/state.json
+# Claude Code's cache of the skills on the claude.ai account, refreshed on
+# login. It used to land here, because ~/.claude/skills was one stow symlink
+# into this package and every write went straight to the checkout. That symlink
+# is gone and the cache lives in a real ~/.claude/skills now. Kept as a guard
+# for the day something stows skills/ again.
+claude/.claude/skills/synced/
 .docs/
 .superpowers/
 # ya pkg redownloads these, except ayu-mirage: it targets the Yazi 0.3 schema
