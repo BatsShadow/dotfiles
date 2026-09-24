@@ -11,13 +11,23 @@ find_repos() {
 		sed 's#/\.git$##' | sort
 }
 
-# Every live worktree of a repo, main first, as git reports it.
+# Every live worktree of a repo, main first, as git reports it, less any that
+# belong to another repo. A repo copied with cp -R still lists the original's
+# worktrees, whose .git points at the original, so their snapshots landed in
+# the original's objects and the copy published them as its own.
 find_worktrees() { # repo_dir
+	local own wt
+	own=$(git -C "$1" rev-parse --path-format=absolute --git-common-dir) || return
+	own=$(cd "$own" && pwd -P)
 	git -C "$1" worktree list --porcelain | awk '
 		/^worktree / { p = substr($0, 10) }
 		/^bare$/ || /^prunable/ { p = "" }
 		/^$/ { if (p != "") print p; p = "" }
-		END { if (p != "") print p }'
+		END { if (p != "") print p }' |
+		while IFS= read -r wt; do
+			[ "$(cd "$(git -C "$wt" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P)" = "$own" ] &&
+				printf '%s\n' "$wt"
+		done
 }
 
 # True when the hub clone is mid-rebase, mid-merge or has stray edits, as a

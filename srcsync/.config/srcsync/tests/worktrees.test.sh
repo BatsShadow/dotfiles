@@ -74,4 +74,23 @@ on b apply
 assert_eq "yes" "$([ -d "$(home b)/src/lib/.git" ] && echo yes || echo no)" \
 	"a repo deleted on a is not deleted on b"
 
+printf 'a copy of a repo keeps the original'"'"'s worktrees registered\n'
+
+# cp -R of a repo, as a backup, copies .git/worktrees too, so git worktree list
+# in the copy names worktrees whose .git points back at the original.
+g a src/app worktree add -q -b shared "$(home a)/src/app-shared"
+echo "wip" >"$(home a)/src/app-shared/wip"
+g a src/app worktree add -q --detach "$(home a)/src/app-clean"
+cp -R "$(home a)/src/app" "$(home a)/src/app-copy"
+echo "wip" >"$(home a)/src/app-copy/wip"
+on a publish
+LAST_A=$(home a)/.local/state/srcsync/last.json
+assert_eq "src/app-copy" \
+	"$(jq -r '.repos["src/app-copy"].worktrees | keys | join(" ")' "$LAST_A")" \
+	"the copy publishes only its own worktree"
+assert_eq "src/app src/app-clean src/app-shared" \
+	"$(jq -r '.repos["src/app"].worktrees | keys | join(" ")' "$LAST_A")" \
+	"and the original keeps the shared ones"
+assert_eq 0 "$(grep -c 'snapshot failed' "$WORK/a.log")" "and no snapshot fails"
+
 done_testing
