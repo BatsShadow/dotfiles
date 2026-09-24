@@ -30,7 +30,9 @@ install_once() { # dir
 
 printf 'first run renders and bootstraps\n'
 
-install_once "$LAUNCHD_DIR"
+# umask 000, as the main machine's shell has, made the plist world-writable,
+# and launchd refuses those with "bad ownership/permissions" (error 5).
+(umask 000 && install_once "$LAUNCHD_DIR")
 rc=$?
 assert_eq 0 "$rc" "install.sh exits 0"
 assert_eq yes "$([ -e "$PLIST" ] && echo yes || echo no)" "plist exists"
@@ -39,6 +41,7 @@ assert_eq 0 "$(grep -c '@HOME@' "$PLIST")" "no @HOME@ left in the rendered plist
 assert_eq 180 "$(plutil -extract StartInterval raw -o - "$PLIST")" "StartInterval is 180"
 assert_eq /bin/bash "$(plutil -extract ProgramArguments.0 raw -o - "$PLIST")" "runs under /bin/bash"
 assert_eq timer "$(plutil -extract ProgramArguments.3 raw -o - "$PLIST")" "last argument is timer"
+assert_eq -rw-r--r-- "$(stat -f %Sp "$PLIST")" "the plist is 644 whatever the umask"
 
 assert_eq "bootout gui/$UID_NOW/com.batsshadow.srcsync
 bootstrap gui/$UID_NOW $PLIST" "$(cat "$LOG")" "fake launchctl saw bootout then bootstrap"
@@ -49,6 +52,12 @@ before=$(wc -l <"$LOG" | tr -d ' ')
 install_once "$LAUNCHD_DIR"
 after=$(wc -l <"$LOG" | tr -d ' ')
 assert_eq "$before" "$after" "second run calls launchctl no further times"
+
+chmod 666 "$PLIST"
+install_once "$LAUNCHD_DIR"
+assert_eq $((after + 2)) "$(wc -l <"$LOG" | tr -d ' ')" \
+	"a plist left world-writable is fixed and bootstrapped again"
+assert_eq -rw-r--r-- "$(stat -f %Sp "$PLIST")" "and is 644 after"
 
 printf 'a changed template bootstraps again\n'
 

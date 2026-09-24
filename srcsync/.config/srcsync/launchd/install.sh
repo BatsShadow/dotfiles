@@ -25,9 +25,11 @@ mkdir -p "$LAUNCH_AGENTS_DIR"
 tmp="$PLIST.tmp.$$"
 trap 'rm -f "$tmp"' EXIT
 sed "s|@HOME@|$HOME|g" "$TEMPLATE" >"$tmp"
+# launchd refuses a plist others can write, and umask 000 makes one
+chmod 644 "$tmp"
 plutil -lint "$tmp" >/dev/null
 
-if [ -e "$PLIST" ] && cmp -s "$tmp" "$PLIST"; then
+if [ -e "$PLIST" ] && cmp -s "$tmp" "$PLIST" && [ "$(stat -f %Lp "$PLIST")" = 644 ]; then
 	exit 0
 fi
 
