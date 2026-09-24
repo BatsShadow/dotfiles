@@ -1,0 +1,39 @@
+# srcsync settings. lib/common.sh load_config reads this, one per line.
+
+# A repo with any remote URL containing this is company code. Its snapshots go
+# only to its own origin, never the personal hub, whatever a sync line says.
+company upngo
+# A company repo whose origin contains this is the shared team repo. Snapshot
+# refs would land on colleagues' fetches, so it is skipped until forked.
+team upngopay
+
+# Only repos whose origin is on this host, or an ssh alias of it like
+# github.com-batsshadow, are carried. Bitbucket clones and repos with no
+# remote are ignored unless a sync line says hub.
+forge github.com
+# Repos with a remote under these accounts are always carried. Anyone else's clone is carried
+# once it has local changes, and stays carried after.
+owner BatsShadow
+
+# Never snapshotted, whether or not the repo ignores them.
+exclude .env
+exclude .env.*
+exclude *.pem
+exclude *.key
+exclude .envrc
+
+max_size 50M
+
+# Every hook and timer calls `auto`; while this says off, it only logs.
+auto off
+
+# Carry each worktree's Claude transcripts with its code. Off until DESIGN.md
+# checks 1 and 2 say claude -c resumes a transcript from the other machine.
+transcripts off
+
+# sync <path from $HOME> hub|origin|skip
+# Someone else's project with a one-line change. The snapshot would carry its
+# whole history to the hub, 150M to 370M, and the size cap refuses that.
+sync src/oss/angular skip
+sync src/oss/swagger-editor skip
+sync src/oss/wezterm skip

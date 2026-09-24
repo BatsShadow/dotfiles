@@ -1,0 +1,7 @@
+#!/bin/bash
+# sleepwatcher's brew service runs this and waits for it, so it stays in the
+# foreground: `auto sleep` uses that wait to hold the lid until a publish that
+# was mid-flight gets its last chance to finish.
+SRCSYNC_BIN="${SRCSYNC_BIN:-$HOME/.config/srcsync/srcsync.sh}"
+[ -e "$SRCSYNC_BIN" ] || exit 0
+/bin/bash "$SRCSYNC_BIN" auto sleep

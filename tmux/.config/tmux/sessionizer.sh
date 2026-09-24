@@ -200,6 +200,9 @@ if [[ "$selected" == "[new]" ]]; then
     echo "$session_name" >> "$HISTORY_FILE"
     tail -100 "$HISTORY_FILE" > "$HISTORY_FILE.tmp" && mv "$HISTORY_FILE.tmp" "$HISTORY_FILE"
 
+    # Bring in the other machine's work before claude-continue.sh looks for it.
+    [[ -x ~/.config/srcsync/open.sh ]] && ~/.config/srcsync/open.sh "$selected"
+
     tmux new-session -d -s "$session_name" -c "$selected" -n "vi" "NVIM_APPNAME=lazyvim nvim; exec zsh -l"
     tmux new-window -t "$session_name" -n "cli" -c "$selected"
     tmux new-window -t "$session_name" -n "claude" -c "$selected" "'$CLAUDE_CMD' -n '$session_name'; exec zsh -l"
@@ -259,6 +262,7 @@ fi
 # sessions: the directory is what identifies the conversation either way, and
 # where it holds none the helper starts a fresh Claude instead.
 if [[ "$needs_windows" == "true" ]]; then
+    [[ -x ~/.config/srcsync/open.sh ]] && ~/.config/srcsync/open.sh "$session_dir"
     tmux new-session -d -s "$session_name" -c "$session_dir" -n "vi" "NVIM_APPNAME=lazyvim nvim; exec zsh -l"
     tmux new-window -t "$session_name" -n "cli" -c "$session_dir"
     tmux new-window -t "$session_name" -n "claude" -c "$session_dir" "'$CLAUDE_CMD' -n '$session_name'; exec zsh -l"

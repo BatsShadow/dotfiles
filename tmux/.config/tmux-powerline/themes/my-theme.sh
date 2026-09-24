@@ -148,6 +148,12 @@ sky_blue="$ayu_regexp"
 claude_slug_bg="$ayu_selection"
 claude_slug_fg="$ayu_ui"
 
+# Same quiet slug as claude_sessions above: this segment is blank almost
+# always, and only earns attention (its own "⇄ !N" text) when something is
+# actually stale or conflicted.
+srcsync_slug_bg="$ayu_selection"
+srcsync_slug_fg="$ayu_ui"
+
 TMUX_POWERLINE_SEPARATOR_LEFT_BOLD=""
 TMUX_POWERLINE_SEPARATOR_LEFT_THIN=""
 TMUX_POWERLINE_SEPARATOR_RIGHT_BOLD=""
@@ -274,6 +280,7 @@ if [ -z "$TMUX_POWERLINE_RIGHT_STATUS_SEGMENTS" ]; then
     #"macos_notification_count 29 255"
     #"mailcount 9 255"
     "claude_sessions $claude_slug_bg $claude_slug_fg"
+    "srcsync $srcsync_slug_bg $srcsync_slug_fg"
     "tmux_session_info $flamingo $thm_bg"
     "now_playing $spotify_green $spotify_black"
     #"cpu 240 136"

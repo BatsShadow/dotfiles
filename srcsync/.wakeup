@@ -1,0 +1,6 @@
+#!/bin/bash
+# sleepwatcher's brew service runs this on wake. See .sleep for why it calls
+# out to srcsync.sh rather than doing the work itself.
+SRCSYNC_BIN="${SRCSYNC_BIN:-$HOME/.config/srcsync/srcsync.sh}"
+[ -e "$SRCSYNC_BIN" ] || exit 0
+/bin/bash "$SRCSYNC_BIN" auto wake

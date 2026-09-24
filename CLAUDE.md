@@ -1,8 +1,9 @@
 # CLAUDE.md
 
 macOS dotfiles under GNU Stow. Each top-level directory is a package mirroring
-`$HOME`, so `zsh/.zshrc` becomes `~/.zshrc`. `./install.zsh` stows everything
-and runs the post-stow steps. `stow -v -t ~/ -S <package>` does one.
+`$HOME`, so `zsh/.zshrc` becomes `~/.zshrc`. `./install.zsh` installs the Brewfile,
+stows everything and runs the post-stow steps. `stow -v -t ~/ -S <package>`
+does one. README.md has the steps for a new Mac.
 
 ## Read the header before you edit the script
 

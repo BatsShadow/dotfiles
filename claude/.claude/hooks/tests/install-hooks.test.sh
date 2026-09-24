@@ -40,6 +40,7 @@ assert_eq() { # want got label
 
 S="${WORK}/settings.json"
 WAITING="~/.claude/hooks/claude-waiting.sh"
+SRCSYNC="~/.claude/hooks/srcsync-hook.sh"
 # All three retired. unslop is imported by ~/.claude/CLAUDE.md now.
 SKILLS="~/.claude/hooks/session-start-skills.sh"
 TURN="~/.claude/hooks/turn-skill-reminder.sh"
@@ -69,12 +70,17 @@ assert_eq "null" "$(q '.hooks.SessionStart')" \
 	"invents no SessionStart on a machine that never had one"
 assert_eq "0" "$(count UserPromptSubmit "$TURN")" "registers no per-turn reminder"
 
+assert_eq "1" "$(count Stop "$SRCSYNC")" "and registers the srcsync hook on Stop"
+assert_eq "1" "$(count SessionEnd "$SRCSYNC")" "and on SessionEnd"
+
 # install.zsh runs this on every stow, so the second run is the normal case.
 install
 install
 assert_eq "1" "$(count Stop "$WAITING")" "re-running does not register the waiting hook twice"
 assert_eq "1" "$(count UserPromptSubmit "$WAITING")" \
 	"nor on UserPromptSubmit, where two hooks used to sit"
+assert_eq "1" "$(count Stop "$SRCSYNC")" "nor the srcsync hook on Stop"
+assert_eq "1" "$(count SessionEnd "$SRCSYNC")" "nor on SessionEnd"
 
 # The hand-written predecessor, from before any of this was a script.
 printf '%s\n' '{"hooks":{"SessionStart":[{"matcher":"startup|clear|compact","hooks":[{"type":"command","command":"cat ~/.claude/skills/unslop/SKILL.md","shell":"bash","async":false}]}]}}' >"$S"

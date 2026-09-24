@@ -14,6 +14,9 @@
 #   claude-waiting.sh  marks a session as waiting on you (Stop, Notification,
 #                      UserPromptSubmit, SessionEnd)
 #
+# srcsync-hook.sh is registered the same way, on Stop and SessionEnd, to
+# trigger srcsync's own auto command.
+#
 # It used to register two more, which injected unslop at session start and
 # re-stated its three worst rules every turn. Claude Code loads the rules
 # itself now, because ~/.claude/CLAUDE.md imports references/unslop.md and
@@ -42,6 +45,7 @@ set -eu
 
 SETTINGS="${1:-${HOME}/.claude/settings.json}"
 CMD="${CC_HOOK_CMD:-~/.claude/hooks/claude-waiting.sh}"
+SRCSYNC="${CC_SRCSYNC_HOOK_CMD:-~/.claude/hooks/srcsync-hook.sh}"
 THEME="${CC_THEME:-custom:ayu-dark}"
 
 # The three retired commands, oldest first: unslop cat'd into SessionStart by
@@ -62,7 +66,7 @@ command -v jq >/dev/null 2>&1 || {
 tmp="${SETTINGS}.tmp.$$"
 trap 'rm -f "$tmp"' EXIT
 
-jq --arg cmd "$CMD" --arg legacy "$RETIRED_LEGACY_CMD" \
+jq --arg cmd "$CMD" --arg srcsync "$SRCSYNC" --arg legacy "$RETIRED_LEGACY_CMD" \
 	--arg skills_cmd "$RETIRED_SKILLS_CMD" --arg turn_cmd "$RETIRED_TURN_CMD" \
 	--arg theme "$THEME" '
 	def entry($cmd; $matcher):
@@ -97,6 +101,8 @@ jq --arg cmd "$CMD" --arg legacy "$RETIRED_LEGACY_CMD" \
 	| ensure("Notification"; $cmd; "")
 	| ensure("UserPromptSubmit"; $cmd; "")
 	| ensure("SessionEnd"; $cmd; "")
+	| ensure("Stop"; $srcsync; "")
+	| ensure("SessionEnd"; $srcsync; "")
 	| retire("SessionStart"; $legacy)
 	| retire("SessionStart"; $skills_cmd)
 	# An earlier version of this script put the whole skill on this event too.
