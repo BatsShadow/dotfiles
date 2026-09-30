@@ -264,4 +264,13 @@ assert_eq "refs/srcsync/c/src/plain/tree" "$(refs_in plain | cut -d' ' -f2)" \
 assert_eq "" "$(refs_in hub | grep src/plain)" "and never to the hub"
 assert_eq "" "$(refs_in queued; refs_in hub | grep src/queued)" "a queued push for an ignored repo is not made"
 
+printf 'a failed push says why\n'
+
+c_repo git@github.com:me/acme-gone.git src/gone
+echo "wip" >>"$(home c)/src/gone/README"
+rm -rf "$GH/acme-gone.git"
+on c publish
+assert_eq 1 "$(grep -c 'src/gone: push failed, will retry: ..*' "$WORK/c.log")" \
+	"the log names the push failure with git's reason"
+
 done_testing

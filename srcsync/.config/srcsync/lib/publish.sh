@@ -223,7 +223,7 @@ publish_repo() { # repo_dir
 # Pushes the snapshot refs of every repo with unpushed ones. A repo that fails
 # stays pending for the next run.
 push_pending() {
-	local rkey repo target left=""
+	local rkey repo target err left=""
 	[ -f "$PENDING" ] || return 0
 	while IFS= read -r rkey; do
 		[ -n "$rkey" ] || continue
@@ -234,9 +234,9 @@ push_pending() {
 		fi
 		target=$(sync_target "$repo" "$rkey")
 		case $target in ignore | skip:*) continue ;; esac
-		if ! git -C "$repo" push -q --force --no-verify "$(target_url "$target")" \
-			"refs/srcsync/$SRCSYNC_HOST/*:refs/srcsync/$SRCSYNC_HOST/*" 2>/dev/null; then
-			say "$rkey: push failed, will retry"
+		if ! err=$(git -C "$repo" push -q --force --no-verify "$(target_url "$target")" \
+			"refs/srcsync/$SRCSYNC_HOST/*:refs/srcsync/$SRCSYNC_HOST/*" 2>&1); then
+			say "$rkey: push failed, will retry: $(printf '%s' "$err" | grep -v '^ *$' | tail -1)"
 			left=$left$rkey$'\n'
 		fi
 	done <"$PENDING"
