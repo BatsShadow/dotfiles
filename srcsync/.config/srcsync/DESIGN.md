@@ -109,15 +109,22 @@ they were visited in. srcsync runs git with `GIT_OPTIONAL_LOCKS=0`, so its
 `git status` never refreshes the index it reads that age from.
 
 Once it has visited every worktree touched since the last successful full
-publish, a full publish checkpoints: it pushes the snapshots so far and writes the hub
-file, then carries on. A run cut short by the lid closing has then already
-carried the work just left. The checkpoint is `last.json`'s repos with the
-visited worktrees' new entries laid over them. It drops nothing it has not
-visited yet and adds no removal; removals wait for the end of the run, as does
-`last.json`. There is no checkpoint when no worktree is recent, or when all of
-them are, since the end comes as soon. The cutoff is `last-full` in the state
-dir, which only a full publish writes, not `last-success`: a Stop hook's run
-writes that, and a worktree edited just before it would miss the checkpoint.
+publish began, a full publish checkpoints: it pushes the snapshots so far and
+writes the hub file, then carries on. A run cut short by the lid closing has
+then already carried the work just left. The checkpoint is `last.json`'s repos
+with the visited worktrees' new entries laid over them. It drops nothing it has
+not visited yet and adds no removal; removals wait for the end of the run, as
+does `last.json`. A repo not in `last.json` waits for the end too, so that a
+linked worktree never reaches the other machine without its main one. There is
+no checkpoint when no worktree is recent, or when all of them are, since the
+end of the run writes them all anyway. After a checkpoint the hub is marked
+pending, so a run that dies after it still has the hub rewritten from
+`last.json` next time.
+
+The cutoff is `last-full` in the state dir: the time a successful full publish
+began, taken before it reads any mtime, so a touch during the walk counts next
+time. It is not `last-success`, which a Stop hook's run writes too; a worktree
+edited just before that would miss the checkpoint.
 
 Each machine also keeps its own last publish in
 `~/.local/state/srcsync/last.json`. That copy is what the touched check reads,
@@ -305,7 +312,10 @@ A full apply takes the other machine's worktrees newest `changed_at` first,
 across repos, as publish visits them, then its removals. A repo missing here
 is cloned through its main worktree, so that one goes ahead of any linked
 worktree of the repo. Taken first, a linked one left a hub-only repo's main
-worktree with no commits, which apply then skips as unreadable.
+worktree with no commits, which apply then skips as unreadable. When the
+other machine moved a branch from one worktree to another, the one taking it
+can find it still checked out in the other and fail until the next apply,
+whichever order they come in.
 
 A removal the other side published at or after this machine's `changed_at`
 removes the worktree here too, if it is untouched. A tie goes to the removal;
@@ -446,7 +456,7 @@ trusted. The Stop and SessionEnd hooks publish only the worktree they ran
 in, and in the background, so the next turn does not wait on the push. Their
 entry replaces that one worktree's in `last.json`'s repo entry and touches
 nothing else, removals included, since only a publish of the whole repo can
-tell a worktree is gone. `srcsync.sh publish <path>` still covers the whole
+tell a worktree is gone. A repo not in `last.json` yet is published whole. `srcsync.sh publish <path>` still covers the whole
 repo. `open.sh` stops the
 sessionizer waiting after 10 seconds but never kills the run, which finishes
 in the background. A run killed between a checkout and the lay after it once
@@ -455,11 +465,14 @@ which this package stows.
 
 One run at a time, via a `mkdir` lock (macOS has no `flock`). A run that finds
 the lock held exits and leaves the work to the next one. A Stop or SessionEnd
-hook that finds it held first appends its worktree to
-`~/.local/state/srcsync/wanted`. A publish holding the lock takes that file,
-renaming it so later appends start a new one, and publishes each worktree on
-it before its final hub write. A path that is no longer a synced worktree is
-dropped with one log line.
+hook that finds it held first queues its worktree as one file in
+`~/.local/state/srcsync/wanted.d/`, written through a rename so it is never
+read half written. A publish holding the lock takes those files one by one,
+removing each once read, and publishes each worktree named before its final
+hub write. A run that holds the lock for an apply publishes the queue at its
+end. A worktree the run already published is compared with that entry, not
+`last.json`'s, so it is not snapshotted twice. A path that is no longer a
+synced worktree is dropped with one log line.
 
 ## Failure
 

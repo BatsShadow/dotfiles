@@ -124,4 +124,56 @@ assert_eq "a lib after the full run" "$(tail -1 "$(home b)/src/lib/README")" \
 assert_eq "a app-wt again" "$(tail -1 "$(home b)/src/app-wt/README")" "and the one touched after"
 assert_eq "$b_app" "$(cat "$(home b)/src/app/README")" "but not the one untouched since the full run"
 
+printf 'a run that dies after its checkpoint\n'
+
+# The checkpoint put app's edit on the hub, the run died, and the edit was
+# thrown away. last.json never saw the edit, so the next run finds nothing
+# new, but the hub must not keep what a no longer has.
+on a publish
+on b apply
+for d in src/app src/app-wt src/lib; do
+	stamp a $d index 202001010000
+	stamp a $d logs/HEAD 202001010000
+done
+cp "$(home a)/src/app/README" "$WORK/app-readme"
+echo "a thrown away" >>"$(home a)/src/app/README"
+echo "2021-01-01T00:00:00Z" >"$state_a/last-full"
+touch "$(g a src/app rev-parse --path-format=absolute --git-path index)"
+SRCSYNC_STOP_AFTER_CHECKPOINT=1 on a publish
+assert_eq "a thrown away" "$(git -C "$GH/hub.git" show main:machines/a.json |
+	jq -r '.repos["src/app"].worktrees["src/app"].snapshot' | xargs -I{} git -C "$(home a)/src/app" show {}:README | tail -1)" \
+	"the checkpoint carried the edit"
+cp "$WORK/app-readme" "$(home a)/src/app/README"
+on a publish
+assert_eq "$(jq -c '.repos' "$state_a/last.json")" "$(git -C "$GH/hub.git" show main:machines/a.json | jq -c .repos)" \
+	"the next run puts the hub back to last.json"
+
+printf 'a repo new since the last publish waits for the end\n'
+
+# Only its linked worktree is recent. Laid alone into the checkpoint, a
+# hub-only repo would reach b without its main worktree.
+mkdir -p "$(home a)/src/solo"
+git -C "$(home a)/src/solo" init -q
+echo "solo" >"$(home a)/src/solo/README"
+g a src/solo add README
+g a src/solo commit -q -m first
+g a src/solo worktree add -q -b side "$(home a)/src/solo-wt"
+echo "sync src/solo hub" >>"$(home a)/.config/srcsync/config"
+for d in src/app src/app-wt src/lib src/solo; do
+	stamp a $d index 202001010000
+	stamp a $d logs/HEAD 202001010000
+done
+echo "a app-wt, recent" >>"$(home a)/src/app-wt/README"
+touch "$(g a src/app-wt rev-parse --path-format=absolute --git-path index)"
+touch "$(g a src/solo-wt rev-parse --path-format=absolute --git-path index)"
+SRCSYNC_STOP_AFTER_CHECKPOINT=1 on a publish
+hub_now=$(git -C "$GH/hub.git" show main:machines/a.json)
+assert_eq "a app-wt, recent" "$(git -C "$(home a)/src/app" show \
+	"$(jq -r '.repos["src/app"].worktrees["src/app-wt"].snapshot' <<<"$hub_now"):README" | tail -1)" \
+	"the checkpoint happened"
+assert_eq null "$(jq -c '.repos["src/solo"]' <<<"$hub_now")" "without the new repo"
+on a publish
+assert_eq '["src/solo","src/solo-wt"]' "$(git -C "$GH/hub.git" show main:machines/a.json |
+	jq -c '.repos["src/solo"].worktrees | keys')" "which the end of the run adds whole"
+
 done_testing

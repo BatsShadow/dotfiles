@@ -269,9 +269,10 @@ printf 'a failed push says why\n'
 c_repo git@github.com:me/acme-gone.git src/gone
 echo "wip" >>"$(home c)/src/gone/README"
 rm -rf "$GH/acme-gone.git"
+# no worktree is recent, so no checkpoint tries the push a second time
+echo "2999-01-01T00:00:00Z" >"$(home c)/.local/state/srcsync/last-full"
 on c publish
-# once, or twice when the run checkpoints before the end
-assert_eq yes "$([ "$(grep -c 'src/gone: push failed, will retry: ..*' "$WORK/c.log")" -ge 1 ] && echo yes || echo no)" \
+assert_eq 1 "$(grep -c 'src/gone: push failed, will retry: ..*' "$WORK/c.log")" \
 	"the log names the push failure with git's reason"
 
 done_testing

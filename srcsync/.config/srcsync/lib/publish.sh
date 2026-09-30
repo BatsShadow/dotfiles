@@ -96,9 +96,10 @@ keep_prev() { [ "$1" != null ] && printf '%s\n' "$1"; }
 # One worktree's entry as a line of JSON, or nothing when it cannot be
 # published. Changed worktrees get a snapshot and a local ref, and with
 # transcripts on a claude commit and ref when the transcripts moved; the push
-# is left to push_pending, once per repo.
-publish_worktree() { # repo_dir repo_key target wt
-	local repo=$1 rkey=$2 target=$3 wt=$4 wkey st branch head tracking tree prev now_st snap size
+# is left to push_pending, once per repo. prev, the entry to compare with,
+# defaults to last.json's.
+publish_worktree() { # repo_dir repo_key target wt [prev_json]
+	local repo=$1 rkey=$2 target=$3 wt=$4 wkey st branch head tracking tree prev=${5:-} now_st snap size
 	local ctree= ccommit= pclaude
 	wkey=$(key_of "$wt") || {
 		say "$wt is outside \$HOME, skipped"
@@ -108,7 +109,8 @@ publish_worktree() { # repo_dir repo_key target wt
 		say "$wkey cannot be a ref name, skipped"
 		return
 	}
-	prev=$(jq -c --arg r "$rkey" --arg w "$wkey" '.repos[$r].worktrees[$w] // null' "$LAST")
+	[ -n "$prev" ] ||
+		prev=$(jq -c --arg r "$rkey" --arg w "$wkey" '.repos[$r].worktrees[$w] // null' "$LAST")
 
 	st=$(worktree_state "$wt") || {
 		if [ "$prev" != null ]; then
@@ -235,13 +237,13 @@ publish_repo() { # repo_dir
 
 # When the user last touched a worktree, in epoch seconds: the newest of its
 # index, its HEAD reflog and its Claude transcripts. Missing files count as 0.
-# The slug is claude_dir's, cut without its subshells: a path key_of accepts
-# is already physical, and this runs for every worktree on every full run.
+# The slug is slug_of's rule without its cd: a path key_of accepts is already
+# physical, and this runs for every worktree on every full run.
 touched_at() { # wt
 	local f files=() newest=0 m
 	while IFS= read -r f; do files+=("$f"); done < <(git -C "$1" rev-parse \
 		--path-format=absolute --git-path index --git-path logs/HEAD 2>/dev/null)
-	for f in "$CC_PROJECTS_DIR/${1//[^A-Za-z0-9]/-}"/*.jsonl; do
+	for f in "$CC_PROJECTS_DIR/$(printf '%s' "$1" | tr -c 'A-Za-z0-9' '-')"/*.jsonl; do
 		[ -f "$f" ] && files+=("$f")
 	done
 	# stat with no operand would read stdin's
@@ -252,9 +254,10 @@ touched_at() { # wt
 }
 
 # repos with one worktree's entry laid over its repo's, for a checkpoint or a
-# publish of one worktree. A repo new since the last publish gets an entry of
-# its own. Nothing is dropped and no removal is added: only a publish of the
-# whole repo can tell a worktree is gone.
+# publish of one worktree. The repo must be in repos already: laid alone, a
+# linked worktree reached the other machine without its main one. Nothing is
+# dropped and no removal is added: only a publish of the whole repo can tell a
+# worktree is gone.
 lay_entry() { # repos_json repo_key target origin upstream wt_key entry_json
 	jq -c --arg r "$2" --arg s "$3" --arg o "$4" --arg u "$5" --arg w "$6" --argjson e "$7" '
 		.[$r] = ((.[$r] // {}) as $p | $p + {
@@ -268,25 +271,40 @@ lay_entry() { # repos_json repo_key target origin upstream wt_key entry_json
 
 # Pushes the snapshots made so far and writes the hub file from repos, when
 # that differs from the last publish. last.json waits for the end of the run.
+# The hub is then marked pending: a run that dies after this leaves the hub
+# ahead of last.json, and the next run must rewrite it even if nothing moved.
 checkpoint() { # repos_json
 	local doc=$SRCSYNC_STATE/checkpoint.json
 	cmp -s <(jq -S .repos "$LAST") <(jq -S . <<<"$1") && return 0
 	push_pending
-	jq --arg h "$SRCSYNC_HOST" --arg at "$(now)" --argjson repos "$1" \
+	if jq --arg h "$SRCSYNC_HOST" --arg at "$(now)" --argjson repos "$1" \
 		'{host: $h, published_at: $at, repos: $repos}' "$LAST" >"$doc" &&
-		hub_publish "$doc" || say "checkpoint: hub push failed, the end of the run retries"
+		hub_publish "$doc"; then
+		touch "$HUB_PENDING"
+	else
+		say "checkpoint: hub push failed, the end of the run retries"
+	fi
 	rm -f "$doc"
 }
 
 # repos with one worktree published into it, or a failure when the worktree
-# is no longer one publish would visit.
+# is no longer one publish would visit. It is compared with its entry in
+# repos, so one this run already published is not snapshotted again. A repo
+# not in repos yet is published whole, main worktree included.
 publish_into() { # repos_json repo_dir wt_dir
-	local rkey wkey line
+	local rkey wkey line prev
 	rkey=$(key_of "$2") || return 1
 	wkey=$(key_of "$3") || return 1
 	repo_route "$2" "$rkey" || return 1
 	find_worktrees "$2" | grep -qxF "$3" || return 1
-	line=$(publish_worktree "$2" "$rkey" "$ROUTE_TARGET" "$3")
+	if ! jq -e --arg r "$rkey" 'has($r)' <<<"$1" >/dev/null; then
+		line=$(publish_repo "$2")
+		[ -n "$line" ] || return 1
+		jq -c --argjson add "$line" '. + $add' <<<"$1"
+		return
+	fi
+	prev=$(jq -c --arg r "$rkey" --arg w "$wkey" '.[$r].worktrees[$w] // null' <<<"$1")
+	line=$(publish_worktree "$2" "$rkey" "$ROUTE_TARGET" "$3" "$prev")
 	if [ -n "$line" ]; then
 		lay_entry "$1" "$rkey" "$ROUTE_TARGET" "$ROUTE_ORIGIN" "$ROUTE_UPSTREAM" "$wkey" "$line"
 	else
@@ -295,15 +313,21 @@ publish_into() { # repos_json repo_dir wt_dir
 }
 
 # repos with every worktree a Stop hook queued while this run held the lock.
-# The queue is renamed before it is read, so a hook appending meanwhile starts
-# a new one, taken in the next round.
+# Each hook leaves one file in wanted.d, written whole through a rename, and
+# each is removed only once read, so a hook queueing meanwhile loses nothing:
+# its file is taken in the next round.
 take_wanted() { # repos_json
-	local q=$SRCSYNC_STATE/wanted taking=$SRCSYNC_STATE/wanted.taking repos=$1 p r next round=0
-	# a run that died holding the queue left it here
-	if [ -f "$taking" ]; then
-		cat "$taking" >>"$q" && rm -f "$taking"
-	fi
-	while [ -s "$q" ] && [ "$round" -lt 3 ] && mv "$q" "$taking"; do
+	local d=$SRCSYNC_STATE/wanted.d repos=$1 f p r next paths round=0
+	while [ "$round" -lt 3 ]; do
+		paths=
+		for f in "$d"/*; do
+			[ -f "$f" ] || continue
+			p=$(cat "$f") || continue
+			rm -f "$f"
+			case $'\n'$paths in *$'\n'"$p"$'\n'*) continue ;; esac
+			paths=$paths$p$'\n'
+		done
+		[ -n "$paths" ] || break
 		while IFS= read -r p; do
 			[ -n "$p" ] || continue
 			if r=$(resolve_path "$p") && [ "${r#*$'\t'}" = "$p" ] &&
@@ -312,20 +336,32 @@ take_wanted() { # repos_json
 			else
 				say "$p: no longer a synced worktree; dropped from the queue"
 			fi
-		done <"$taking"
-		rm -f "$taking"
+		done <<<"$paths"
 		round=$((round + 1))
 	done
 	printf '%s\n' "$repos"
 }
 
-# Every repo's entry, as PUBLISHED_REPOS. Routing is decided once per repo,
+# True when a hook has queued a worktree.
+wanted_waiting() {
+	local f
+	for f in "$SRCSYNC_STATE"/wanted.d/*; do
+		[ -f "$f" ] && return 0
+	done
+	return 1
+}
+
+# Every repo's entry, as PUBLISHED_REPOS, and the time the walk began, as
+# PUBLISH_START. Routing is decided once per repo,
 # then the worktrees of all of them are visited newest first, so a run cut
 # short has already done the work the user just left. The entries come out in
 # the order the repos and worktrees were found, whatever the visiting order.
 publish_all() {
 	local repo rkey wt wkey i j k n=0 nr=0 order line wts since recent visited cp_repos
-	local r_dir=() r_key=() r_target=() r_origin=() r_upstream=() w_repo=() w_at=() w_path=() w_key=() w_line=()
+	local r_dir=() r_key=() r_target=() r_origin=() r_upstream=() r_known=() w_repo=() w_at=() w_path=() w_key=() w_line=()
+	local known
+	# before any touched_at: a touch during the walk must count next run
+	PUBLISH_START=$(now)
 	order=$(
 		while IFS= read -r repo; do
 			rkey=$(key_of "$repo") || continue
@@ -348,6 +384,7 @@ publish_all() {
 			r_origin[nr]=${line%%$'\t'*}
 			r_upstream[nr]=${line#*$'\t'}
 			r_dir[nr]=$repo
+			r_known[nr]=
 			nr=$((nr + 1))
 			;;
 		W*)
@@ -360,16 +397,22 @@ publish_all() {
 			;;
 		esac
 	done <<<"$order"
+	known=$(jq -r '.repos | keys[]' "$LAST")
+	j=0
+	while [ "$j" -lt "$nr" ]; do
+		printf '%s\n' "$known" | grep -qxF "${r_key[j]}" && r_known[j]=1
+		j=$((j + 1))
+	done
 
-	# touched since the last good full run; no record of one makes all of
-	# them so. Not last-success: a Stop hook's run writes that, and a
+	# touched since the last good full run began; no record of one makes all
+	# of them so. Not last-success: a Stop hook's run writes that, and a
 	# worktree edited before it would miss the checkpoint unpublished.
 	since=$(cat "$LAST_FULL" 2>/dev/null) &&
 		since=$(date -u -j -f %Y-%m-%dT%H:%M:%SZ "$since" +%s 2>/dev/null) || since=0
 	recent=0
 	i=0
 	while [ "$i" -lt "$n" ]; do
-		[ "${w_at[i]}" -gt "$since" ] && recent=$((recent + 1))
+		[ "${w_at[i]}" -ge "$since" ] && recent=$((recent + 1))
 		i=$((i + 1))
 	done
 
@@ -387,8 +430,9 @@ publish_all() {
 		cp_repos=$(jq -c .repos "$LAST")
 		k=0
 		while [ "$k" -lt "$n" ]; do
-			if [ -n "${w_line[k]:-}" ]; then
-				j=${w_repo[k]}
+			j=${w_repo[k]}
+			# a repo new since last.json waits for the end, whole
+			if [ -n "${w_line[k]:-}" ] && [ -n "${r_known[j]}" ]; then
 				cp_repos=$(lay_entry "$cp_repos" "${r_key[j]}" "${r_target[j]}" \
 					"${r_origin[j]}" "${r_upstream[j]}" "${w_key[k]}" "${w_line[k]}")
 			fi
@@ -442,7 +486,7 @@ push_pending() {
 # With a worktree, publishes only that one, for Claude's hooks. With a repo,
 # that whole repo; with neither, everything.
 cmd_publish() { # [repo_dir [wt_dir]]
-	local repo=${1:-} wt=${2:-} add repos doc ok=0 rkey
+	local repo=${1:-} wt=${2:-} add repos rkey full=
 	ensure_last
 	rm -f "$SRCSYNC_STATE/publish-failed"
 	if [ -n "$wt" ]; then
@@ -461,8 +505,24 @@ cmd_publish() { # [repo_dir [wt_dir]]
 	else
 		publish_all
 		repos=$PUBLISHED_REPOS
+		full=$PUBLISH_START
 	fi
-	repos=$(take_wanted "$repos")
+	finish_publish "$repos" "$full"
+}
+
+# Publishes only what hooks queued, for a run that took the lock to apply.
+cmd_publish_queue() {
+	ensure_last
+	rm -f "$SRCSYNC_STATE/publish-failed"
+	finish_publish "$(jq -c '.repos' "$LAST")" ""
+}
+
+# The queue, the pushes, last.json and the hub, for every kind of publish. A
+# full one passes the time its walk began, which becomes the next run's
+# checkpoint cutoff.
+finish_publish() { # repos_json full_start
+	local repos doc ok=0
+	repos=$(take_wanted "$1")
 	push_pending || ok=1
 
 	doc=$SRCSYNC_STATE/publish.json
@@ -489,7 +549,7 @@ cmd_publish() { # [repo_dir [wt_dir]]
 	[ -f "$SRCSYNC_STATE/publish-failed" ] && ok=1
 	if [ $ok = 0 ]; then
 		now >"$LAST_SUCCESS"
-		[ -n "$repo" ] || now >"$LAST_FULL"
+		[ -z "$2" ] || echo "$2" >"$LAST_FULL"
 	fi
 	rm -f "$SRCSYNC_STATE/publish-failed"
 	return $ok

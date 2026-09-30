@@ -423,7 +423,7 @@ apply_removal() { # host repo_key wt_key removed_at
 }
 
 cmd_apply() { # [wt_dir]
-	local f host rkey rjson wkey at wt=${1:-} resolved wt_key early prev
+	local f host rkey rjson wkey at wt=${1:-} resolved wt_key early i n a_key a_json
 	ensure_last
 	hub_update || {
 		say "cannot reach the hub"
@@ -449,11 +449,17 @@ cmd_apply() { # [wt_dir]
 				apply_one "$host" "$rkey" "$rjson" "$wt_key"
 			continue
 		fi
+		# each repo's entry read once, since the order below interleaves them
+		a_key=() a_json=() n=0
+		while IFS= read -r rkey; do a_key[n]=$rkey n=$((n + 1)); done < <(jq -r '.repos | keys_unsorted[]' "$f")
+		n=0
+		while IFS= read -r rjson; do a_json[n]=$rjson n=$((n + 1)); done < <(jq -c '.repos[]' "$f")
 		# newest changed_at first across repos, ties in the file's order
-		early= prev=
+		early=
 		while IFS=$'\t' read -r rkey wkey; do
-			[ "$rkey" = "$prev" ] || rjson=$(jq -c --arg r "$rkey" '.repos[$r]' "$f")
-			prev=$rkey
+			i=0
+			while [ "${a_key[i]}" != "$rkey" ]; do i=$((i + 1)); done
+			rjson=${a_json[i]}
 			case $early in *$'\n'"$wkey"$'\n'*) continue ;; esac
 			# a linked worktree needs the repo, which a missing one gets
 			# from its main worktree's clone

@@ -19,21 +19,9 @@ trim_auto_log() {
 	fi
 }
 
-# The same split resolve_path gives the plain commands: publish takes the
-# repo half, apply the worktree half.
+# With a path, the worktree that holds it, which is what Claude's hooks
+# pass: they publish only the worktree the turn ran in.
 auto_publish() { # path
-	local scoped
-	if [ -z "$1" ]; then
-		cmd_publish
-	elif scoped=$(resolve_path "$1"); then
-		cmd_publish "${scoped%%$'\t'*}"
-	else
-		say "$1: not a synced repo"
-	fi
-}
-
-# Claude's hooks publish only the worktree the turn ran in.
-auto_publish_worktree() { # path
 	local scoped
 	if [ -z "$1" ]; then
 		cmd_publish
@@ -43,6 +31,8 @@ auto_publish_worktree() { # path
 		say "$1: not a synced repo"
 	fi
 }
+
+# The worktree half of resolve_path, as the plain apply takes it.
 auto_apply() { # path
 	local scoped
 	if [ -z "$1" ]; then
@@ -68,15 +58,22 @@ auto_lock() { # event
 }
 
 # A turn that ended while another run held the lock: the holder publishes
-# its worktree before it writes the hub, rather than the next timer run.
+# its worktree before it writes the hub, rather than the next timer run. One
+# file per hook, renamed into place whole, so the holder can never read half
+# of one or delete one it has not read.
 want() { # event path
-	local scoped wt q=$SRCSYNC_STATE/wanted
+	local scoped wt d=$SRCSYNC_STATE/wanted.d tmp
 	case $1 in stop | end) ;; *) return 0 ;; esac
 	scoped=$(resolve_path "$2") || return 0
 	wt=${scoped#*$'\t'}
-	grep -qxF "$wt" "$q" 2>/dev/null && return 0
-	printf '%s\n' "$wt" >>"$q"
-	say "queued $wt for the run holding the lock"
+	mkdir -p "$d"
+	grep -qxF "$wt" "$d"/* 2>/dev/null && return 0
+	tmp=$(mktemp "$d/.new.XXXXXX") || return 0
+	if printf '%s\n' "$wt" >"$tmp" && mv "$tmp" "$d/$(date +%s).$$"; then
+		say "queued $wt for the run holding the lock"
+	else
+		rm -f "$tmp"
+	fi
 }
 
 # Runs the command an event maps to.
@@ -87,7 +84,7 @@ auto_run() { # event path
 		cmd_apply
 		repack_repos
 		;;
-	stop | end) auto_publish_worktree "$2" ;;
+	stop | end) auto_publish "$2" ;;
 	sleep) auto_publish "" ;;
 	wake) auto_apply "" ;;
 	open) auto_apply "$2" ;;
@@ -121,6 +118,8 @@ cmd_auto() { # event [path]
 			# first, so an apply below that finds typed input says so once
 			restart_pending
 			auto_run "$event" "$path"
+			# a turn that ended while this run applied or repacked
+			wanted_waiting && cmd_publish_queue
 		else
 			say "another run holds the lock"
 			want "$event" "$path"
