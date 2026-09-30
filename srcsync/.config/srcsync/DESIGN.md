@@ -456,12 +456,12 @@ trusted. The Stop and SessionEnd hooks publish only the worktree they ran
 in, and in the background, so the next turn does not wait on the push. Their
 entry replaces that one worktree's in `last.json`'s repo entry and touches
 nothing else, removals included, since only a publish of the whole repo can
-tell a worktree is gone. A repo not in `last.json` yet is published whole. `srcsync.sh publish <path>` still covers the whole
-repo. `open.sh` stops the
+tell a worktree is gone. A repo not in `last.json` yet is published whole.
+`srcsync.sh publish <path>` still covers the whole repo. `open.sh` stops the
 sessionizer waiting after 10 seconds but never kills the run, which finishes
 in the background. A run killed between a checkout and the lay after it once
-left a worktree at the other machine's head without its uncommitted work. sleepwatcher runs `~/.sleep` and `~/.wakeup`,
-which this package stows.
+left a worktree at the other machine's head without its uncommitted work.
+sleepwatcher runs `~/.sleep` and `~/.wakeup`, which this package stows.
 
 One run at a time, via a `mkdir` lock (macOS has no `flock`). A run that finds
 the lock held exits and leaves the work to the next one. A Stop or SessionEnd
