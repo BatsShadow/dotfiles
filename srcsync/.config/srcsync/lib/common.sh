@@ -46,6 +46,8 @@ PENDING=$SRCSYNC_STATE/pending
 HUB_PENDING=$SRCSYNC_STATE/hub-pending
 CONFLICTS=$SRCSYNC_STATE/conflicts.json
 LAST_SUCCESS=$SRCSYNC_STATE/last-success
+# only a full publish writes it: the checkpoint's cutoff
+LAST_FULL=$SRCSYNC_STATE/last-full
 
 say() { printf 'srcsync: %s\n' "$*" >&2; }
 

@@ -47,7 +47,7 @@ for d in src/app src/app-wt src/lib; do
 done
 state_a=$(home a)/.local/state/srcsync
 state_b=$(home b)/.local/state/srcsync
-echo "2021-01-01T00:00:00Z" >"$state_a/last-success"
+echo "2021-01-01T00:00:00Z" >"$state_a/last-full"
 touch "$(g a src/app-wt rev-parse --path-format=absolute --git-path index)"
 hub_before=$(git -C "$GH/hub.git" show main:machines/a.json)
 last_before=$(cat "$state_a/last.json")
@@ -84,14 +84,44 @@ printf 'no checkpoint when every worktree or none is recent\n'
 lib_snapshot() {
 	g a src/lib show "$(jq -r '.repos["src/lib"].worktrees["src/lib"].snapshot' "$state_a/last.json"):README" | tail -1
 }
-rm -f "$state_a/last-success"
+rm -f "$state_a/last-full"
 echo "a again" >>"$(home a)/src/lib/README"
 SRCSYNC_STOP_AFTER_CHECKPOINT=1 on a publish
 assert_eq "a again" "$(lib_snapshot)" \
-	"with no last success, every worktree is recent and the run goes to the end"
-echo "2999-01-01T00:00:00Z" >"$state_a/last-success"
+	"with no last full run, every worktree is recent and the run goes to the end"
+echo "2999-01-01T00:00:00Z" >"$state_a/last-full"
 echo "a once more" >>"$(home a)/src/lib/README"
 SRCSYNC_STOP_AFTER_CHECKPOINT=1 on a publish
 assert_eq "a once more" "$(lib_snapshot)" "and so does a run with nothing recent"
+
+printf 'a hook run does not move the cutoff\n'
+
+# lib is edited after the last full run, then a Stop hook publishes app-wt
+# alone. lib is still unpublished, so the next full run's checkpoint must
+# include it, though the hook's run succeeded after lib was touched.
+on a publish
+on b apply
+for d in src/app src/app-wt src/lib; do
+	stamp a $d index 202001010000
+	stamp a $d logs/HEAD 202001010000
+done
+sleep 1
+echo "a lib after the full run" >>"$(home a)/src/lib/README"
+touch "$(g a src/lib rev-parse --path-format=absolute --git-path index)"
+sleep 1
+echo "auto on" >>"$(home a)/.config/srcsync/config"
+echo "a app-wt by hook" >>"$(home a)/src/app-wt/README"
+on a auto stop "$(home a)/src/app-wt"
+sleep 1
+echo "a app-wt again" >>"$(home a)/src/app-wt/README"
+touch "$(g a src/app-wt rev-parse --path-format=absolute --git-path index)"
+echo "a app, not recent" >>"$(home a)/src/app/README"
+b_app=$(cat "$(home b)/src/app/README")
+SRCSYNC_STOP_AFTER_CHECKPOINT=1 on a publish
+on b apply
+assert_eq "a lib after the full run" "$(tail -1 "$(home b)/src/lib/README")" \
+	"the checkpoint carries a worktree touched before the hook ran"
+assert_eq "a app-wt again" "$(tail -1 "$(home b)/src/app-wt/README")" "and the one touched after"
+assert_eq "$b_app" "$(cat "$(home b)/src/app/README")" "but not the one untouched since the full run"
 
 done_testing

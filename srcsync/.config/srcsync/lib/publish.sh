@@ -361,8 +361,10 @@ publish_all() {
 		esac
 	done <<<"$order"
 
-	# touched since the last good run; no record of one makes all of them so
-	since=$(cat "$LAST_SUCCESS" 2>/dev/null) &&
+	# touched since the last good full run; no record of one makes all of
+	# them so. Not last-success: a Stop hook's run writes that, and a
+	# worktree edited before it would miss the checkpoint unpublished.
+	since=$(cat "$LAST_FULL" 2>/dev/null) &&
 		since=$(date -u -j -f %Y-%m-%dT%H:%M:%SZ "$since" +%s 2>/dev/null) || since=0
 	recent=0
 	i=0
@@ -485,7 +487,10 @@ cmd_publish() { # [repo_dir [wt_dir]]
 		fi
 	fi
 	[ -f "$SRCSYNC_STATE/publish-failed" ] && ok=1
-	[ $ok = 0 ] && now >"$LAST_SUCCESS"
+	if [ $ok = 0 ]; then
+		now >"$LAST_SUCCESS"
+		[ -n "$repo" ] || now >"$LAST_FULL"
+	fi
 	rm -f "$SRCSYNC_STATE/publish-failed"
 	return $ok
 }
