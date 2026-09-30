@@ -423,7 +423,7 @@ apply_removal() { # host repo_key wt_key removed_at
 }
 
 cmd_apply() { # [wt_dir]
-	local f host rkey rjson wkey at wt=${1:-} resolved wt_key
+	local f host rkey rjson wkey at wt=${1:-} resolved wt_key early prev
 	ensure_last
 	hub_update || {
 		say "cannot reach the hub"
@@ -449,11 +449,25 @@ cmd_apply() { # [wt_dir]
 				apply_one "$host" "$rkey" "$rjson" "$wt_key"
 			continue
 		fi
+		# newest changed_at first across repos, ties in the file's order
+		early= prev=
+		while IFS=$'\t' read -r rkey wkey; do
+			[ "$rkey" = "$prev" ] || rjson=$(jq -c --arg r "$rkey" '.repos[$r]' "$f")
+			prev=$rkey
+			case $early in *$'\n'"$wkey"$'\n'*) continue ;; esac
+			# a linked worktree needs the repo, which a missing one gets
+			# from its main worktree's clone
+			if [ "$wkey" != "$rkey" ] && [ ! -d "$HOME_P/$rkey" ] &&
+				jq -e --arg r "$rkey" '.worktrees[$r] != null' <<<"$rjson" >/dev/null; then
+				apply_one "$host" "$rkey" "$rjson" "$rkey"
+				early=$early$'\n'$rkey$'\n'
+			fi
+			apply_one "$host" "$rkey" "$rjson" "$wkey"
+		done < <(jq -r '[.repos | to_entries[] | .key as $r | .value.worktrees // {} | to_entries[]
+			| {r: $r, w: .key, at: (.value.changed_at // "")}]
+			| to_entries | sort_by(.value.at, -.key) | reverse | .[].value | "\(.r)\t\(.w)"' "$f")
 		while IFS= read -r rkey; do
 			rjson=$(jq -c --arg r "$rkey" '.repos[$r]' "$f")
-			while IFS= read -r wkey; do
-				apply_one "$host" "$rkey" "$rjson" "$wkey"
-			done < <(jq -r '.worktrees | keys_unsorted[]' <<<"$rjson")
 			while IFS=$'\t' read -r wkey at; do
 				apply_removal "$host" "$rkey" "$wkey" "$at"
 			done < <(jq -r '.removed // {} | to_entries[] | "\(.key)\t\(.value)"' <<<"$rjson")

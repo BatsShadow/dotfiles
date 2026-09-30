@@ -299,6 +299,12 @@ Applying a worktree:
    counts as untouched. A snapshot is re-pointed under this machine's own ref
    and pushed, so the hub holds it under both hosts.
 
+A full apply takes the other machine's worktrees newest `changed_at` first,
+across repos, as publish visits them, then its removals. A repo missing here
+is cloned through its main worktree, so that one goes ahead of any linked
+worktree of the repo. Taken first, a linked one left a hub-only repo's main
+worktree with no commits, which apply then skips as unreadable.
+
 A removal the other side published at or after this machine's `changed_at`
 removes the worktree here too, if it is untouched. A tie goes to the removal;
 the touched check is what protects work here. Only linked worktrees are ever
