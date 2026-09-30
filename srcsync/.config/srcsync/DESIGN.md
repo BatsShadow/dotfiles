@@ -98,6 +98,14 @@ levels under `~/src`, and every worktree `git worktree list` reports for each.
 A repo the other machine lists but this one lacks, such as a new project, is
 cloned.
 
+A full publish takes about 2 minutes on the main machine, so it visits the
+worktrees of every repo newest first, not repo by repo. A worktree's age is
+the newest mtime of its index, its `logs/HEAD` and the `*.jsonl` transcripts
+in its Claude projects dir. Routing is still decided once per repo, and the
+file lists repos and worktrees in the order they were found, whatever order
+they were visited in. srcsync runs git with `GIT_OPTIONAL_LOCKS=0`, so its
+`git status` never refreshes the index it reads that age from.
+
 Each machine also keeps its own last publish in
 `~/.local/state/srcsync/last.json`. That copy is what the touched check reads,
 so it works offline.

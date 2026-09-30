@@ -32,6 +32,10 @@ SRCSYNC_SRC=${SRCSYNC_SRC:-$HOME/src}
 CC_SESSIONS_DIR=${CC_SESSIONS_DIR:-$HOME/.claude/sessions}
 CC_PROJECTS_DIR=${CC_PROJECTS_DIR:-$HOME/.claude/projects}
 
+# git status refreshes a stale index and writes it back. That write moved the
+# index mtime publish orders worktrees by, and could take the user's lock.
+export GIT_OPTIONAL_LOCKS=0
+
 # git reports physical paths, so keys are cut from the physical $HOME. On a
 # Mac /Users/scott has no symlink in it; the tests' temp dirs under /var do.
 HOME_P=$(cd "$HOME" && pwd -P)

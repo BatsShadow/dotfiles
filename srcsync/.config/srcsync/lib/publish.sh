@@ -179,32 +179,31 @@ publish_worktree() { # repo_dir repo_key target wt
 		'. + {snapshot: $s, changed_at: $at, base: ($prev.base // null)}' <<<"$now_st"
 }
 
-# One repo's entry. Worktrees that were in the last publish and are gone now go
-# into removed; removals older than 30 days drop out.
-publish_repo() { # repo_dir
-	local repo=$1 rkey target origin upstream wt wkey line wts="{}" cutoff
-	rkey=$(key_of "$repo") || return
-	target=$(sync_target "$repo" "$rkey")
-	case $target in
-	ignore) return ;;
+# Sets ROUTE_TARGET, ROUTE_ORIGIN and ROUTE_UPSTREAM for a repo, or fails for
+# one that is not synced, saying why when it is skipped.
+repo_route() { # repo_dir repo_key
+	ROUTE_TARGET=$(sync_target "$1" "$2")
+	case $ROUTE_TARGET in
+	ignore) return 1 ;;
 	skip:*)
-		say "$rkey ${target#skip:}"
-		return
+		say "$2 ${ROUTE_TARGET#skip:}"
+		return 1
 		;;
 	esac
 	# as configured, not as insteadOf rewrites it: the other machine clones
 	# from it, and sync_target routes its clone by the configured URL
-	origin=$(git -C "$repo" config --get remote.origin.url) || origin=""
-	upstream=$(git -C "$repo" config --get remote.upstream.url) || upstream=""
-	while IFS= read -r wt; do
-		wkey=$(key_of "$wt") || continue
-		line=$(publish_worktree "$repo" "$rkey" "$target" "$wt")
-		[ -n "$line" ] || continue
-		wts=$(jq -c --arg w "$wkey" --argjson e "$line" '.[$w] = $e' <<<"$wts")
-	done < <(find_worktrees "$repo")
+	ROUTE_ORIGIN=$(git -C "$1" config --get remote.origin.url) || ROUTE_ORIGIN=""
+	ROUTE_UPSTREAM=$(git -C "$1" config --get remote.upstream.url) || ROUTE_UPSTREAM=""
+}
+
+# One repo's entry, from its worktrees' entries. Worktrees that were in the
+# last publish and are gone now go into removed; removals older than 30 days
+# drop out.
+repo_entry() { # repo_key target origin upstream worktrees_json
+	local cutoff
 	cutoff=$(date -u -v-30d +%Y-%m-%dT%H:%M:%SZ)
-	jq -c --arg r "$rkey" --arg o "$origin" --arg u "$upstream" --arg s "$target" \
-		--argjson wts "$wts" --arg at "$(now)" --arg cutoff "$cutoff" '
+	jq -c --arg r "$1" --arg o "$3" --arg u "$4" --arg s "$2" \
+		--argjson wts "$5" --arg at "$(now)" --arg cutoff "$cutoff" '
 		(.repos[$r] // {}) as $prev
 		| {($r): {
 			origin: (if $o == "" then null else $o end),
@@ -218,6 +217,105 @@ publish_repo() { # repo_dir
 				| with_entries(select($wts[.key] == null))
 			)
 		}}' "$LAST"
+}
+
+# One repo's entry, its worktrees visited in the order git lists them.
+publish_repo() { # repo_dir
+	local repo=$1 rkey wt wkey line wts="{}"
+	rkey=$(key_of "$repo") || return
+	repo_route "$repo" "$rkey" || return
+	while IFS= read -r wt; do
+		wkey=$(key_of "$wt") || continue
+		line=$(publish_worktree "$repo" "$rkey" "$ROUTE_TARGET" "$wt")
+		[ -n "$line" ] || continue
+		wts=$(jq -c --arg w "$wkey" --argjson e "$line" '.[$w] = $e' <<<"$wts")
+	done < <(find_worktrees "$repo")
+	repo_entry "$rkey" "$ROUTE_TARGET" "$ROUTE_ORIGIN" "$ROUTE_UPSTREAM" "$wts"
+}
+
+# When the user last touched a worktree, in epoch seconds: the newest of its
+# index, its HEAD reflog and its Claude transcripts. Missing files count as 0.
+# The slug is claude_dir's, cut without its subshells: a path key_of accepts
+# is already physical, and this runs for every worktree on every full run.
+touched_at() { # wt
+	local f files=() newest=0 m
+	while IFS= read -r f; do files+=("$f"); done < <(git -C "$1" rev-parse \
+		--path-format=absolute --git-path index --git-path logs/HEAD 2>/dev/null)
+	for f in "$CC_PROJECTS_DIR/${1//[^A-Za-z0-9]/-}"/*.jsonl; do
+		[ -f "$f" ] && files+=("$f")
+	done
+	# stat with no operand would read stdin's
+	[ ${#files[@]} -gt 0 ] && while IFS= read -r m; do
+		[ "$m" -gt "$newest" ] && newest=$m
+	done < <(stat -f %m "${files[@]}" 2>/dev/null)
+	echo "$newest"
+}
+
+# Every repo's entry, as PUBLISHED_REPOS. Routing is decided once per repo,
+# then the worktrees of all of them are visited newest first, so a run cut
+# short has already done the work the user just left. The entries come out in
+# the order the repos and worktrees were found, whatever the visiting order.
+publish_all() {
+	local repo rkey wt wkey i j n=0 nr=0 order line wts
+	local r_dir=() r_key=() r_target=() r_origin=() r_upstream=() w_repo=() w_at=() w_path=() w_key=() w_line=()
+	order=$(
+		while IFS= read -r repo; do
+			rkey=$(key_of "$repo") || continue
+			repo_route "$repo" "$rkey" || continue
+			printf 'R\t%s\t%s\t%s\t%s\t%s\n' "$repo" "$rkey" "$ROUTE_TARGET" "$ROUTE_ORIGIN" "$ROUTE_UPSTREAM"
+			while IFS= read -r wt; do
+				wkey=$(key_of "$wt") || continue
+				printf 'W\t%s\t%s\t%s\n' "$(touched_at "$wt")" "$wt" "$wkey"
+			done < <(find_worktrees "$repo")
+		done < <(find_repos)
+	)
+	# read field by field: an empty origin must not shift the rest
+	while IFS= read -r line; do
+		case $line in
+		R*)
+			line=${line#R$'\t'}
+			repo=${line%%$'\t'*} line=${line#*$'\t'}
+			r_key[nr]=${line%%$'\t'*} line=${line#*$'\t'}
+			r_target[nr]=${line%%$'\t'*} line=${line#*$'\t'}
+			r_origin[nr]=${line%%$'\t'*}
+			r_upstream[nr]=${line#*$'\t'}
+			r_dir[nr]=$repo
+			nr=$((nr + 1))
+			;;
+		W*)
+			line=${line#W$'\t'}
+			w_at[n]=${line%%$'\t'*} line=${line#*$'\t'}
+			w_path[n]=${line%%$'\t'*}
+			w_key[n]=${line#*$'\t'}
+			w_repo[n]=$((nr - 1))
+			n=$((n + 1))
+			;;
+		esac
+	done <<<"$order"
+
+	for i in $(i=0; while [ "$i" -lt "$n" ]; do
+		printf '%s\t%s\n' "${w_at[i]}" "$i"
+		i=$((i + 1))
+	done | sort -s -t$'\t' -k1,1nr | cut -f2); do
+		j=${w_repo[i]}
+		w_line[i]=$(publish_worktree "${r_dir[j]}" "${r_key[j]}" "${r_target[j]}" "${w_path[i]}")
+	done
+
+	PUBLISHED_REPOS="{}"
+	j=0
+	while [ "$j" -lt "$nr" ]; do
+		wts="{}"
+		i=0
+		while [ "$i" -lt "$n" ]; do
+			if [ "${w_repo[i]}" = "$j" ] && [ -n "${w_line[i]:-}" ]; then
+				wts=$(jq -c --arg w "${w_key[i]}" --argjson e "${w_line[i]}" '.[$w] = $e' <<<"$wts")
+			fi
+			i=$((i + 1))
+		done
+		line=$(repo_entry "${r_key[j]}" "${r_target[j]}" "${r_origin[j]}" "${r_upstream[j]}" "$wts")
+		PUBLISHED_REPOS=$(jq -c --argjson add "$line" '. + $add' <<<"$PUBLISHED_REPOS")
+		j=$((j + 1))
+	done
 }
 
 # Pushes the snapshot refs of every repo with unpushed ones. A repo that fails
@@ -258,11 +356,8 @@ cmd_publish() { # [repo_dir]
 			repos=$(jq -c --arg r "$rkey" 'del(.[$r])' <<<"$repos")
 		fi
 	else
-		repos="{}"
-		while IFS= read -r repo; do
-			add=$(publish_repo "$repo")
-			[ -n "$add" ] && repos=$(jq -c --argjson add "$add" '. + $add' <<<"$repos")
-		done < <(find_repos)
+		publish_all
+		repos=$PUBLISHED_REPOS
 	fi
 	push_pending || ok=1
 
