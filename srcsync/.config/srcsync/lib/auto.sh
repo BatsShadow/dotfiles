@@ -31,6 +31,18 @@ auto_publish() { # path
 		say "$1: not a synced repo"
 	fi
 }
+
+# Claude's hooks publish only the worktree the turn ran in.
+auto_publish_worktree() { # path
+	local scoped
+	if [ -z "$1" ]; then
+		cmd_publish
+	elif scoped=$(resolve_path "$1"); then
+		cmd_publish "${scoped%%$'\t'*}" "${scoped#*$'\t'}"
+	else
+		say "$1: not a synced repo"
+	fi
+}
 auto_apply() { # path
 	local scoped
 	if [ -z "$1" ]; then
@@ -55,6 +67,18 @@ auto_lock() { # event
 	done
 }
 
+# A turn that ended while another run held the lock: the holder publishes
+# its worktree before it writes the hub, rather than the next timer run.
+want() { # event path
+	local scoped wt q=$SRCSYNC_STATE/wanted
+	case $1 in stop | end) ;; *) return 0 ;; esac
+	scoped=$(resolve_path "$2") || return 0
+	wt=${scoped#*$'\t'}
+	grep -qxF "$wt" "$q" 2>/dev/null && return 0
+	printf '%s\n' "$wt" >>"$q"
+	say "queued $wt for the run holding the lock"
+}
+
 # Runs the command an event maps to.
 auto_run() { # event path
 	case $1 in
@@ -63,7 +87,7 @@ auto_run() { # event path
 		cmd_apply
 		repack_repos
 		;;
-	stop | end) auto_publish "$2" ;;
+	stop | end) auto_publish_worktree "$2" ;;
 	sleep) auto_publish "" ;;
 	wake) auto_apply "" ;;
 	open) auto_apply "$2" ;;
@@ -99,6 +123,7 @@ cmd_auto() { # event [path]
 			auto_run "$event" "$path"
 		else
 			say "another run holds the lock"
+			want "$event" "$path"
 		fi
 	} >>"$AUTO_LOG" 2>&1
 	trim_auto_log

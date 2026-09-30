@@ -90,8 +90,10 @@ the other machine's and rolled its worktrees back on every run. Apply never
 takes a file under this machine's own id. To retire a machine, or an old id,
 delete its file from the hub by hand.
 
-The file is pushed to the hub only when a repo entry changed, or when the last
-push of it failed. A run with nothing new pushes nothing.
+The file is pushed to the hub at the end of a run, only when a repo entry
+changed or the last push of it failed. A run with nothing new pushes nothing.
+A full publish may also push it once partway through, at the checkpoint below,
+when an entry changed.
 
 Repos and worktrees are found, not listed by hand: every git repo up to two
 levels under `~/src`, and every worktree `git worktree list` reports for each.
@@ -432,15 +434,24 @@ Apply:
 Every trigger calls `srcsync.sh auto <event> [path]`. Until the config has the
 line `auto on`, that appends one line to `~/.local/state/srcsync/auto.log` and
 does nothing else, so the triggers can be installed before the sync is
-trusted. The Stop hook publishes only the repo it ran in, and in the
-background, so the next turn does not wait on the push. `open.sh` stops the
+trusted. The Stop and SessionEnd hooks publish only the worktree they ran
+in, and in the background, so the next turn does not wait on the push. Their
+entry replaces that one worktree's in `last.json`'s repo entry and touches
+nothing else, removals included, since only a publish of the whole repo can
+tell a worktree is gone. `srcsync.sh publish <path>` still covers the whole
+repo. `open.sh` stops the
 sessionizer waiting after 10 seconds but never kills the run, which finishes
 in the background. A run killed between a checkout and the lay after it once
 left a worktree at the other machine's head without its uncommitted work. sleepwatcher runs `~/.sleep` and `~/.wakeup`,
 which this package stows.
 
 One run at a time, via a `mkdir` lock (macOS has no `flock`). A run that finds
-the lock held exits and leaves the work to the next one.
+the lock held exits and leaves the work to the next one. A Stop or SessionEnd
+hook that finds it held first appends its worktree to
+`~/.local/state/srcsync/wanted`. A publish holding the lock takes that file,
+renaming it so later appends start a new one, and publishes each worktree on
+it before its final hub write. A path that is no longer a synced worktree is
+dropped with one log line.
 
 ## Failure
 
