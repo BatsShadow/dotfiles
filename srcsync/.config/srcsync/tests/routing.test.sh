@@ -270,7 +270,8 @@ c_repo git@github.com:me/acme-gone.git src/gone
 echo "wip" >>"$(home c)/src/gone/README"
 rm -rf "$GH/acme-gone.git"
 on c publish
-assert_eq 1 "$(grep -c 'src/gone: push failed, will retry: ..*' "$WORK/c.log")" \
+# once, or twice when the run checkpoints before the end
+assert_eq yes "$([ "$(grep -c 'src/gone: push failed, will retry: ..*' "$WORK/c.log")" -ge 1 ] && echo yes || echo no)" \
 	"the log names the push failure with git's reason"
 
 done_testing

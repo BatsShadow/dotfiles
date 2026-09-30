@@ -106,6 +106,15 @@ file lists repos and worktrees in the order they were found, whatever order
 they were visited in. srcsync runs git with `GIT_OPTIONAL_LOCKS=0`, so its
 `git status` never refreshes the index it reads that age from.
 
+Once it has visited every worktree touched since the last successful run, a
+full publish checkpoints: it pushes the snapshots so far and writes the hub
+file, then carries on. A run cut short by the lid closing has then already
+carried the work just left. The checkpoint is `last.json`'s repos with the
+visited worktrees' new entries laid over them. It drops nothing it has not
+visited yet and adds no removal; removals wait for the end of the run, as does
+`last.json`. There is no checkpoint when no worktree is recent, or when all of
+them are, since the end comes as soon.
+
 Each machine also keeps its own last publish in
 `~/.local/state/srcsync/last.json`. That copy is what the touched check reads,
 so it works offline.

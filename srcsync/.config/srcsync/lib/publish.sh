@@ -251,12 +251,38 @@ touched_at() { # wt
 	echo "$newest"
 }
 
+# repos with one visited worktree's entry laid over its repo's. A repo new
+# since the last publish gets an entry of its own. Nothing is dropped and no
+# removal is added: those wait for the end of the run.
+checkpoint_entry() { # repos_json repo_key target origin upstream wt_key entry_json
+	jq -c --arg r "$2" --arg s "$3" --arg o "$4" --arg u "$5" --arg w "$6" --argjson e "$7" '
+		.[$r] = ((.[$r] // {}) as $p | $p + {
+			origin: (if $o == "" then null else $o end),
+			upstream: (if $u == "" then null else $u end),
+			sync: $s,
+			worktrees: (($p.worktrees // {}) + {($w): $e}),
+			removed: (($p.removed // {}) | del(.[$w]))
+		})' <<<"$1"
+}
+
+# Pushes the snapshots made so far and writes the hub file from repos, when
+# that differs from the last publish. last.json waits for the end of the run.
+checkpoint() { # repos_json
+	local doc=$SRCSYNC_STATE/checkpoint.json
+	cmp -s <(jq -S .repos "$LAST") <(jq -S . <<<"$1") && return 0
+	push_pending
+	jq --arg h "$SRCSYNC_HOST" --arg at "$(now)" --argjson repos "$1" \
+		'{host: $h, published_at: $at, repos: $repos}' "$LAST" >"$doc"
+	hub_publish "$doc" || say "checkpoint: hub push failed, the end of the run retries"
+	rm -f "$doc"
+}
+
 # Every repo's entry, as PUBLISHED_REPOS. Routing is decided once per repo,
 # then the worktrees of all of them are visited newest first, so a run cut
 # short has already done the work the user just left. The entries come out in
 # the order the repos and worktrees were found, whatever the visiting order.
 publish_all() {
-	local repo rkey wt wkey i j n=0 nr=0 order line wts
+	local repo rkey wt wkey i j k n=0 nr=0 order line wts since recent visited cp_repos
 	local r_dir=() r_key=() r_target=() r_origin=() r_upstream=() w_repo=() w_at=() w_path=() w_key=() w_line=()
 	order=$(
 		while IFS= read -r repo; do
@@ -293,12 +319,39 @@ publish_all() {
 		esac
 	done <<<"$order"
 
+	# touched since the last good run; no record of one makes all of them so
+	since=$(cat "$LAST_SUCCESS" 2>/dev/null) &&
+		since=$(date -u -j -f %Y-%m-%dT%H:%M:%SZ "$since" +%s 2>/dev/null) || since=0
+	recent=0
+	i=0
+	while [ "$i" -lt "$n" ]; do
+		[ "${w_at[i]}" -gt "$since" ] && recent=$((recent + 1))
+		i=$((i + 1))
+	done
+
+	visited=0
 	for i in $(i=0; while [ "$i" -lt "$n" ]; do
 		printf '%s\t%s\n' "${w_at[i]}" "$i"
 		i=$((i + 1))
 	done | sort -s -t$'\t' -k1,1nr | cut -f2); do
 		j=${w_repo[i]}
 		w_line[i]=$(publish_worktree "${r_dir[j]}" "${r_key[j]}" "${r_target[j]}" "${w_path[i]}")
+		visited=$((visited + 1))
+		# every recent one is done: make them visible before the rest. With
+		# all of them recent, the write at the end is as soon.
+		[ "$visited" = "$recent" ] && [ "$recent" -lt "$n" ] || continue
+		cp_repos=$(jq -c .repos "$LAST")
+		k=0
+		while [ "$k" -lt "$n" ]; do
+			if [ -n "${w_line[k]:-}" ]; then
+				j=${w_repo[k]}
+				cp_repos=$(checkpoint_entry "$cp_repos" "${r_key[j]}" "${r_target[j]}" \
+					"${r_origin[j]}" "${r_upstream[j]}" "${w_key[k]}" "${w_line[k]}")
+			fi
+			k=$((k + 1))
+		done
+		checkpoint "$cp_repos"
+		[ "${SRCSYNC_STOP_AFTER_CHECKPOINT:-}" = 1 ] && exit 0
 	done
 
 	PUBLISHED_REPOS="{}"
