@@ -88,4 +88,19 @@ git init -q "$(home a)/src/empty"
 lib a worktree_state "$(home a)/src/empty" >/dev/null 2>&1
 assert_eq 1 "$?" "a repo with no commits has no state"
 
+printf 'CRLF under safecrlf\n'
+
+# The main machine's gitconfig has core.safecrlf true with autocrlf input,
+# and add then dies on any CRLF file it would convert.
+git config --global core.autocrlf input
+git config --global core.safecrlf true
+git init -q "$(home a)/src/crlf"
+g a src/crlf commit -q --allow-empty -m first
+printf 'line\r\n' >"$(home a)/src/crlf/app.log"
+tree=$(lib a worktree_tree "$(home a)/src/crlf" 2>/dev/null)
+assert_eq 0 "$?" "a CRLF file does not fail the snapshot"
+assert_eq "app.log" "$(g a src/crlf ls-tree --name-only "$tree" 2>/dev/null)" "and it is in the tree"
+git config --global --unset core.autocrlf
+git config --global --unset core.safecrlf
+
 done_testing

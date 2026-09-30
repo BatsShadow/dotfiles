@@ -37,3 +37,5 @@ transcripts off
 sync src/oss/angular skip
 sync src/oss/swagger-editor skip
 sync src/oss/wezterm skip
+# 636M of untracked data/ and dist/, over the cap on every run.
+sync src/oss/hatchet skip

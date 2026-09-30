@@ -30,13 +30,14 @@ worktree_tree() { # dir
 		cd "$dir" || exit 1
 		export GIT_INDEX_FILE=$tmp
 		[ -f "$tmp" ] || git read-tree HEAD || exit 1
-		git add -A -- . ${out[@]+"${out[@]}"} || exit 1
+		# safecrlf guards commits; a snapshot that died on it never published
+		git -c core.safecrlf=false add -A -- . ${out[@]+"${out[@]}"} || exit 1
 		if [ ${#in[@]} -gt 0 ]; then
 			# add -u fails on a pathspec that matches nothing, so it gets
 			# the tracked names instead
 			git ls-files -z -- "${in[@]}" >"$tmp.names" || exit 1
 			if [ -s "$tmp.names" ]; then
-				git --literal-pathspecs add -u --pathspec-from-file="$tmp.names" \
+				git -c core.safecrlf=false --literal-pathspecs add -u --pathspec-from-file="$tmp.names" \
 					--pathspec-file-nul || exit 1
 			fi
 			# An excluded file staged but never committed is still in the
