@@ -31,7 +31,9 @@ mkdir -p ~/.claude
 # the checkout.
 mkdir -m 700 -p ~/.ssh
 
-for d in *(/); stow -v -t ~/ -S $d
+# srcsync runs in the background once stowed, so it has its own installer,
+# install-srcsync.zsh, and is left out here.
+for d in *(/); [[ $d == srcsync ]] || stow -v -t ~/ -S $d
 
 # After stow, so KEEP_ZSHRC finds the stowed .zshrc instead of writing one
 # that the next stow would trip over.
@@ -68,11 +70,6 @@ command -v rustup &>/dev/null && rustup component add rust-analyzer
 # The hook only sees turns that end after it exists, and a session parked on a
 # question produces no more turns. Catch up the ones already stuck.
 ~/.claude/hooks/claude-waiting-backfill.sh
-
-~/.config/srcsync/launchd/install.sh
-# Runs the stowed ~/.sleep and ~/.wakeup, so srcsync publishes before the lid
-# closes and applies on wake.
-brew services start sleepwatcher
 
 # Generate initial aerospace.toml (tile mode as default)
 ~/.config/aerospace/tile-mode/auto-config.aerospace.sh 2>/dev/null || true

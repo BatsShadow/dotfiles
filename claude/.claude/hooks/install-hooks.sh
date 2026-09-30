@@ -15,7 +15,9 @@
 #                      UserPromptSubmit, SessionEnd)
 #
 # srcsync-hook.sh is registered the same way, on Stop and SessionEnd, to
-# trigger srcsync's own auto command.
+# trigger srcsync's own auto command, but only while srcsync is installed.
+# install.zsh leaves srcsync out, and install-srcsync.zsh stows it and runs
+# this, so the hook comes and goes with ~/.config/srcsync/srcsync.sh.
 #
 # It used to register two more, which injected unslop at session start and
 # re-stated its three worst rules every turn. Claude Code loads the rules
@@ -46,6 +48,9 @@ set -eu
 SETTINGS="${1:-${HOME}/.claude/settings.json}"
 CMD="${CC_HOOK_CMD:-~/.claude/hooks/claude-waiting.sh}"
 SRCSYNC="${CC_SRCSYNC_HOOK_CMD:-~/.claude/hooks/srcsync-hook.sh}"
+SRCSYNC_BIN="${SRCSYNC_BIN:-${HOME}/.config/srcsync/srcsync.sh}"
+SRCSYNC_ON=false
+[ -e "$SRCSYNC_BIN" ] && SRCSYNC_ON=true
 THEME="${CC_THEME:-custom:ayu-dark}"
 
 # The three retired commands, oldest first: unslop cat'd into SessionStart by
@@ -68,7 +73,7 @@ trap 'rm -f "$tmp"' EXIT
 
 jq --arg cmd "$CMD" --arg srcsync "$SRCSYNC" --arg legacy "$RETIRED_LEGACY_CMD" \
 	--arg skills_cmd "$RETIRED_SKILLS_CMD" --arg turn_cmd "$RETIRED_TURN_CMD" \
-	--arg theme "$THEME" '
+	--arg theme "$THEME" --argjson srcsync_on "$SRCSYNC_ON" '
 	def entry($cmd; $matcher):
 		{hooks: [{type: "command", command: $cmd}]}
 		| if $matcher == "" then . else {matcher: $matcher} + . end;
@@ -101,8 +106,10 @@ jq --arg cmd "$CMD" --arg srcsync "$SRCSYNC" --arg legacy "$RETIRED_LEGACY_CMD" 
 	| ensure("Notification"; $cmd; "")
 	| ensure("UserPromptSubmit"; $cmd; "")
 	| ensure("SessionEnd"; $cmd; "")
-	| ensure("Stop"; $srcsync; "")
-	| ensure("SessionEnd"; $srcsync; "")
+	| if $srcsync_on
+	  then ensure("Stop"; $srcsync; "") | ensure("SessionEnd"; $srcsync; "")
+	  else retire("Stop"; $srcsync) | retire("SessionEnd"; $srcsync)
+	  end
 	| retire("SessionStart"; $legacy)
 	| retire("SessionStart"; $skills_cmd)
 	# An earlier version of this script put the whole skill on this event too.

@@ -46,7 +46,11 @@ SKILLS="~/.claude/hooks/session-start-skills.sh"
 TURN="~/.claude/hooks/turn-skill-reminder.sh"
 LEGACY="cat ~/.claude/skills/unslop/SKILL.md"
 
-install() { "$INSTALL" "$S" >/dev/null; }
+# srcsync is installed on its own, so its hook follows whether srcsync.sh is
+# there. Most cases run with it installed.
+BIN="${WORK}/srcsync.sh"
+touch "$BIN"
+install() { SRCSYNC_BIN="$BIN" "$INSTALL" "$S" >/dev/null; }
 
 # How many hooks in event $1 run command $2.
 count() { # event command
@@ -70,7 +74,7 @@ assert_eq "null" "$(q '.hooks.SessionStart')" \
 	"invents no SessionStart on a machine that never had one"
 assert_eq "0" "$(count UserPromptSubmit "$TURN")" "registers no per-turn reminder"
 
-assert_eq "1" "$(count Stop "$SRCSYNC")" "and registers the srcsync hook on Stop"
+assert_eq "1" "$(count Stop "$SRCSYNC")" "and, with srcsync installed, its hook on Stop"
 assert_eq "1" "$(count SessionEnd "$SRCSYNC")" "and on SessionEnd"
 
 # install.zsh runs this on every stow, so the second run is the normal case.
@@ -81,6 +85,17 @@ assert_eq "1" "$(count UserPromptSubmit "$WAITING")" \
 	"nor on UserPromptSubmit, where two hooks used to sit"
 assert_eq "1" "$(count Stop "$SRCSYNC")" "nor the srcsync hook on Stop"
 assert_eq "1" "$(count SessionEnd "$SRCSYNC")" "nor on SessionEnd"
+
+# install-srcsync.zsh off unstows srcsync.sh, then runs this to drop the hook.
+rm -f "$BIN"
+install
+assert_eq "0" "$(count Stop "$SRCSYNC")" "drops the srcsync hook from Stop once srcsync is gone"
+assert_eq "0" "$(count SessionEnd "$SRCSYNC")" "and from SessionEnd"
+assert_eq "1" "$(count Stop "$WAITING")" "and keeps the waiting hook"
+rm -f "$S"
+install
+assert_eq "0" "$(count Stop "$SRCSYNC")" "a machine without srcsync never gets its hook"
+touch "$BIN"
 
 # The hand-written predecessor, from before any of this was a script.
 printf '%s\n' '{"hooks":{"SessionStart":[{"matcher":"startup|clear|compact","hooks":[{"type":"command","command":"cat ~/.claude/skills/unslop/SKILL.md","shell":"bash","async":false}]}]}}' >"$S"

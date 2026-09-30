@@ -1,9 +1,13 @@
 # CLAUDE.md
 
 macOS dotfiles under GNU Stow. Each top-level directory is a package mirroring
-`$HOME`, so `zsh/.zshrc` becomes `~/.zshrc`. `./install.zsh` installs the Brewfile,
-stows everything and runs the post-stow steps. `stow -v -t ~/ -S <package>`
-does one. README.md has the steps for a new Mac.
+`$HOME`, so `zsh/.zshrc` becomes `~/.zshrc`. `./install.zsh` installs the
+Brewfile, stows every package but srcsync and runs the post-stow steps.
+`stow -v -t ~/ -S <package>` does one. README.md has the steps for a new Mac.
+
+srcsync runs in the background, so it has its own installer.
+`./install-srcsync.zsh` installs and starts it, and `./install-srcsync.zsh off`
+stops it. Don't add it back to `install.zsh`.
 
 ## Read the header before you edit the script
 

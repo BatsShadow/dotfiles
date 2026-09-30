@@ -6,7 +6,7 @@
 # itself expects (its tests run it the same way). launchctl bootout tears
 # down an agent's StartInterval timer, so a re-bootstrap only happens when the
 # rendered plist actually changed; otherwise this is a silent no-op, safe to
-# call on every install.zsh run. A failed bootstrap removes the plist, so the
+# call on every install-srcsync.zsh run. A failed bootstrap removes the plist, so the
 # next run retries it rather than finding it unchanged.
 #
 #   ./install.sh
