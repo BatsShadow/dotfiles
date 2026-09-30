@@ -25,7 +25,7 @@ exclude .envrc
 max_size 50M
 
 # Every hook and timer calls `auto`; while this says off, it only logs.
-auto off
+auto on
 
 # Carry each worktree's Claude transcripts with its code. Off until DESIGN.md
 # checks 1 and 2 say claude -c resumes a transcript from the other machine.

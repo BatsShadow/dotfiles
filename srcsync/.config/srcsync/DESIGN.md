@@ -1,8 +1,8 @@
 # srcsync: carry work between two machines
 
-Status: built and tested on two fake machines, 2026-09-23. Next: install on
-the main machine with `auto off`, read `auto.log`, then turn it on and hand off
-to the second one.
+Status: running with `auto on` on the main machine since 2026-09-30, with
+`transcripts off`. Next: install on the second machine, run checks 1 and 2,
+then the walk-away test.
 
 ## The goal
 
