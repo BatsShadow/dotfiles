@@ -94,6 +94,7 @@ alias export-creds='~/src/upngo/upngo-web/tools/export-creds.sh'
 alias clean-release-branches="git br | rg '(beta|prod)-release' | xargs git br -d"
 
 alias voyager-flash='zapp flash https://configure.zsa.io/voyager/layouts/MRxjr/latest/0'
+alias local-login='http --verify=no -b POST https://my.local.upngo.com/api/v1/debug/magic-link email=swebber@upngopay.com | jq -r .url | xargs open'
 
 # Recover when Finder shows "application is not open anymore" and apps won't launch.
 # Escalates: restart Finder/Dock → rebuild LaunchServices DB → nuke launchservicesd.
