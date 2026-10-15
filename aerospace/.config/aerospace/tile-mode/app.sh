@@ -2,8 +2,8 @@
 # Tile-mode app key handler. Two intents, selected by --stage:
 #
 #   Look (default) — pure attention; NEVER mutates the layout.
-#     1. No matching window            -> launch the app (or open the URL), or
-#        under --no-launch do nothing at all.
+#     1. No matching window            -> launch the app (or open a window for
+#        the role), or under --no-launch do nothing at all.
 #     2. Already focused on a match     -> run --on-focus action (e.g. cycle tabs).
 #     3. A match only on Aux (built-in) -> focus it there, in place.
 #     4. Otherwise                      -> focus the nearest match. Focusing a
@@ -17,12 +17,9 @@
 # Options:
 #   --app-id <bundle-id>   (required)  match windows by app bundle id
 #   --app-name <name>                  used only for launching
-#   --find-title <substr>              additionally require this (case-insensitive) in the title
-#   --exclude <regex>                  exclude windows whose title matches this (case-insensitive)
 #   --on-focus <cmd>                   Look only: run when already focused on a match
-#   --url <url>                        open this Arc URL instead of `open -b` when launching
-#   --find-url <regex>                 additionally require the active tab URL to match (Arc)
-#   --exclude-url <regex>              exclude windows whose active tab URL matches (Arc)
+#   --role <role>                      match only this role's remembered window
+#                                      (window-roles.sh); with none, open one
 #   --stage                            promote the match to the Stage instead of just focusing
 #   --no-launch                        never start the app; with no match the key
 #                                      is inert. For apps that should only ever be
@@ -30,78 +27,44 @@
 #                                      meeting link).
 set -uo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+source "$AERO_DIR/window-roles.sh"
 trace_begin "app.sh $*"
 
-APP_ID=""; APP_NAME=""; FIND_TITLE=""; EXCLUDE=""; ON_FOCUS=""; URL=""; STAGE=0
-FIND_URL=""; EXCLUDE_URL=""; ANY=0; NO_LAUNCH=0
+APP_ID=""; APP_NAME=""; ON_FOCUS=""; STAGE=0; NO_LAUNCH=0; ROLE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --app-id) APP_ID="$2"; shift 2 ;;
     --app-name) APP_NAME="$2"; shift 2 ;;
-    --find-title) FIND_TITLE="$2"; shift 2 ;;
-    --exclude) EXCLUDE="$2"; shift 2 ;;
     --on-focus) ON_FOCUS="$2"; shift 2 ;;
-    --url) URL="$2"; shift 2 ;;
-    --find-url) FIND_URL="$2"; shift 2 ;;
-    --exclude-url) EXCLUDE_URL="$2"; shift 2 ;;
-    --any) ANY=1; shift ;;
+    --role) ROLE="$2"; shift 2 ;;
     --stage) STAGE=1; shift ;;
     --no-launch) NO_LAUNCH=1; shift ;;
     *) shift ;;
   esac
 done
 
-# Candidate windows for this app: window-id<TAB>title<TAB>workspace (tree order).
+# Every window of this app: window-id<TAB>workspace.
 app_windows() {
-  aerospace list-windows --all --json \
-    --format '%{window-id} %{app-bundle-id} %{window-title} %{workspace}' 2>/dev/null \
-  | jq -r --arg bid "$APP_ID" '.[]
-      | select(.["app-bundle-id"] == $bid)
-      | "\(.["window-id"])\t\(.["window-title"])\t\(.workspace)"'
+  aerospace list-windows --all --format '%{window-id}%{tab}%{app-bundle-id}%{tab}%{workspace}' 2>/dev/null \
+  | awk -F'\t' -v bid="$APP_ID" '$2==bid { print $1 "\t" $3 }'
 }
 
-# Surviving windows -> "window-id<TAB>workspace" after the title/url filters.
-# URL filters (Arc) classify a window by its active tab URL. Titles alone are
-# unreliable (they follow the page/video name), but the URL alone is too: the
-# pinned "topApp" YouTube tab reports an EMPTY url, so a YouTube window sitting on
-# its home tab has no youtube.com to match. --any bridges that: a window is a
-# match if its title matches FIND_TITLE OR its url matches FIND_URL (default is
-# AND). Excludes (title + url) always subtract, regardless of --any. If Arc can't
-# be queried (empty map), url predicates are treated as non-matching, so --any
-# degrades gracefully to title-only.
-matches() {
-  local urlmap="" id title ws url
-  if [ -n "$FIND_URL" ] || [ -n "$EXCLUDE_URL" ]; then
-    urlmap="$("$AERO_DIR/arc-window-urls.sh" 2>/dev/null)"
+# A role names one window, so it is the only match. With none remembered or
+# adoptable, open one: born in the Rail, the same as a launch below. Adoption
+# looks on the role's workspace, which tile mode has emptied into Tiles, so a
+# relaunched app gets a new window here rather than a restored one.
+if [ -n "$ROLE" ]; then
+  ROLE_WINDOW="$(role_find "$ROLE" "$APP_ID")"
+  if [ -z "$ROLE_WINDOW" ]; then
+    [ "$NO_LAUNCH" -eq 1 ] && exit 0
+    park_focus_in_rail
+    role_launch "$APP_ID" && ROLE_WINDOW="$(role_find "$ROLE" "$APP_ID")"
+    [ -z "$ROLE_WINDOW" ] && { role_create "$ROLE" "$APP_ID" >/dev/null; exit 0; }
   fi
-  while IFS=$'\t' read -r id title ws; do
-    [ -z "$id" ] && continue
-    url=""
-    if [ -n "$urlmap" ]; then
-      url="$(awk -F'\t' -v t="$title" '$1==t{print $2; exit}' <<< "$urlmap")"
-    fi
-
-    # Excludes always win.
-    if [ -n "$EXCLUDE" ]     &&   grep -qiE "$EXCLUDE"     <<< "$title"; then continue; fi
-    if [ -n "$EXCLUDE_URL" ] &&   grep -qiE "$EXCLUDE_URL" <<< "$url";   then continue; fi
-
-    # Find predicates: AND by default, OR under --any (only differs when both set).
-    local t_set=0 u_set=0 t_hit=0 u_hit=0
-    [ -n "$FIND_TITLE" ] && { t_set=1; grep -qiE "$FIND_TITLE" <<< "$title" && t_hit=1; }
-    [ -n "$FIND_URL" ]   && { u_set=1; grep -qiE "$FIND_URL"   <<< "$url"   && u_hit=1; }
-    if [ $((t_set + u_set)) -gt 0 ]; then
-      if [ "$ANY" = 1 ]; then
-        [ "$t_hit" = 1 ] || [ "$u_hit" = 1 ] || continue
-      else
-        { [ "$t_set" = 0 ] || [ "$t_hit" = 1 ]; } && { [ "$u_set" = 0 ] || [ "$u_hit" = 1 ]; } || continue
-      fi
-    fi
-
-    printf '%s\t%s\n' "$id" "$ws"
-  done < <(app_windows)
-}
-
-MATCHES="$(matches)"
+  MATCHES="$(printf '%s\t%s' "$ROLE_WINDOW" "$(window_workspace "$ROLE_WINDOW")")"
+else
+  MATCHES="$(app_windows)"
+fi
 
 # 1. Nothing running -> launch.
 # Park focus in the Rail FIRST: the new window is born as a sibling of whatever
@@ -114,11 +77,7 @@ if [ -z "$MATCHES" ]; then
   # before park_focus_in_rail moves focus for a launch that will never happen.
   [ "$NO_LAUNCH" -eq 1 ] && exit 0
   park_focus_in_rail
-  if [ -n "$URL" ]; then
-    "$AERO_DIR/open-arc-url.sh" "$URL"
-  else
-    open -b "$APP_ID"
-  fi
+  open -b "$APP_ID"
   exit 0
 fi
 

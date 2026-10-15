@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Restore all windows from tile mode back to their correct workspaces
 # using the resolver rules. Floating windows are moved too but stay floating.
+# A window with a role (window-roles.sh) goes to its role's workspace instead:
+# its title follows the page it shows, so the resolver can misplace it.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RESOLVER="$SCRIPT_DIR/resolve-workspace.sh"
+source "$SCRIPT_DIR/window-roles.sh"
 
 # Get all windows with needed fields
 WINDOWS=$(aerospace list-windows --all --json \
@@ -22,7 +25,8 @@ echo "$WINDOWS" | jq -c '.[]' | while read -r win; do
   # Skip windows on secondary (non-XDR, non-built-in) monitors
   # Actually, just process all windows — the resolver handles everything
 
-  TARGET=$("$RESOLVER" "$APP_ID" "$TITLE")
+  TARGET=$(role_of "$WINDOW_ID" "$APP_ID")
+  [ -n "$TARGET" ] || TARGET=$("$RESOLVER" "$APP_ID" "$TITLE")
   echo "Moving window $WINDOW_ID ($APP_ID: $TITLE) -> $TARGET"
   aerospace move-node-to-workspace --window-id "$WINDOW_ID" "$TARGET"
 
@@ -41,7 +45,8 @@ if [ -n "$MASTER" ]; then
     | jq -r --arg id "$MASTER" '.[] | select((.["window-id"]|tostring) == $id) | "\(.["app-bundle-id"])\t\(.["window-title"])"')
   APP=$(printf '%s' "$INFO" | cut -f1)
   TITLE=$(printf '%s' "$INFO" | cut -f2-)
-  [ -n "$APP" ] && TARGET=$("$RESOLVER" "$APP" "$TITLE")
+  [ -n "$APP" ] && TARGET=$(role_of "$MASTER" "$APP")
+  [ -n "$APP" ] && [ -z "$TARGET" ] && TARGET=$("$RESOLVER" "$APP" "$TITLE")
 fi
 
 if [ -n "$TARGET" ]; then

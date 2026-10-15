@@ -174,19 +174,11 @@ alt-shift-u = [
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]
 
-alt-o = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --workspace Browser'
-alt-shift-o = [
-  'move-node-to-workspace Browser',
-  'workspace Browser',
-  'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
-]
+alt-o = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --role Browser --workspace Browser'
+alt-shift-o = 'exec-and-forget /Users/scott/.config/aerospace/role-claim.sh Browser'
 
-alt-l = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --workspace Email --on-focus /Users/scott/.config/aerospace/toggle-email-pin.sh'
-alt-shift-l = [
-  'move-node-to-workspace Email',
-  'workspace Email',
-  'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
-]
+alt-l = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --role Email --workspace Email --on-focus /Users/scott/.config/aerospace/toggle-email-pin.sh'
+alt-shift-l = 'exec-and-forget /Users/scott/.config/aerospace/role-claim.sh Email'
 
 alt-h = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.tinyspeck.slackmacgap --app-name Slack --workspace Slack'
 alt-shift-h = [
@@ -252,21 +244,9 @@ alt-shift-quote = [
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]
 
-alt-p = [
-  'workspace Browser',
-  'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh W',
-  '''exec-and-forget osascript -e '
-  tell application "Arc"
-    tell front window
-      tell space "Work"
-        tell first tab whose name is "PRs" to select
-      end tell
-    end tell
-    activate
-  end tell
-  '
-  ''',
-]
+# Arc's PRs tab in the Work space. One shell, so the tab is picked only after
+# the Browser window is in front: Arc's front window was often Email instead.
+alt-p = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --role Browser --workspace Browser; osascript /Users/scott/.config/aerospace/arc-select-named-tab.scpt Work PRs'
 
 # # monkeytype (commented out — was alt-t)
 # alt-t = [
@@ -285,12 +265,8 @@ alt-p = [
 #   ''',
 # ]
 
-alt-y = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --workspace YouTube --on-focus "osascript /Users/scott/.config/aerospace/arc-select-tab.scpt 3 1"'
-alt-shift-y = [
-  'move-node-to-workspace YouTube',
-  'workspace YouTube',
-  'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
-]
+alt-y = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --role YouTube --workspace YouTube --on-focus "osascript /Users/scott/.config/aerospace/arc-select-tab.scpt 3 1"'
+alt-shift-y = 'exec-and-forget /Users/scott/.config/aerospace/role-claim.sh YouTube'
 
 # Toggle to tile mode
 alt-shift-q = 'exec-and-forget /Users/scott/.config/aerospace/toggle-mode.sh'

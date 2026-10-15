@@ -18,7 +18,7 @@ if [ "$CURRENT_MODE" = "tile" ]; then
   osascript -e 'display notification "Workspace Mode" with title "AeroSpace"' &
 else
   echo "Switching to tile mode..."
-  # Swap in tile-mode config (this also runs split-focus to arrange)
+  # Swap in tile-mode config (this also runs enter.sh to arrange)
   "$SCRIPT_DIR/tile-mode/auto-config.aerospace.sh"
   echo "tile" > "$MODE_FILE"
   osascript -e 'display notification "Tile Mode" with title "AeroSpace"' &

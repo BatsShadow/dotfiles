@@ -7,3 +7,4 @@ aerospace.toml
 tile-mode/tools/.frames-bin
 .tile-secondary
 .tile-accordion-padding
+.window-roles

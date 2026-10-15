@@ -163,9 +163,10 @@ it over. A second press while already focused runs the app's `--on-focus` action
 | alt-; | Discord | — |
 | alt-Z | Zoom | — |
 
-Arc has one window per role; app keys match by window title
-(`--find-title` / `--exclude`). "Email" = Gmail **or** Messages, mirroring the
-workspace-mode `resolve-workspace.sh` mapping.
+Arc has one window per role (Browser, Email, YouTube), and app keys find it by
+remembered window id (`--role`, see `../window-roles.sh`), not by title. A
+title follows the page it shows, so title matching mistook a Work window playing
+a video for the YouTube window. With no window for the role, the key opens one.
 
 Left hand — **A R S T** (physical left-to-right):
 
@@ -286,7 +287,8 @@ this way, never via a `focus` probe (focusing changes which window is on top).
 - `tools/frames.swift`, `tools/snapshot.sh` — debug z-order/geometry snapshot.
 
 ## Known pre-existing quirks (not introduced here)
-- YouTube matching/restore relies on the Arc window title containing "YouTube";
-  while a video plays the title is the video name, so it can resolve to Browser.
+- A non-role window's restore still relies on its title. Arc's three role
+  windows restore by role, but a fourth Arc window playing a video resolves by
+  the video's title.
 - `workspace-mode/auto-config.aerospace.sh` prints a harmless `--monitor is
   mandatory` error on a single monitor (empty `XDR_ID`); it recovers.
