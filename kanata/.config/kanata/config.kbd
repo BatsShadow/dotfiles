@@ -101,7 +101,6 @@
   t (t! lhrm-nopi   $tapping-term   t  lsft  )
   g (t! lhrm        $tapping-term   g (layer-while-held num) )
   z (t! lhrm-nopi   $tapping-term   z  lsft  )
-  c (t! lhrm        $tapping-term   c (layer-while-held cmdnum) )
 
   n (t! rhrm-nopi   $tapping-term   n  rsft  )
   e (t! rhrm        $tapping-term   e  rmet  )
@@ -126,6 +125,11 @@
   ;; the hold (spc down, h down, h up, spc up) so it holds.
   spc (tap-hold-release $quick-tap-ms $tapping-term spc (layer-while-held nav))
 
+  ;; Left cmd stays a real cmd, so cmd+tab cycles and cmd+click works, and the
+  ;; layer only swaps the right hand for digits that come out as cmd+digit.
+  ;; Nothing is tapped, so it switches on press with no tapping term to wait out.
+  cmd (multi lmet (layer-while-held cmdnum))
+
   fn (layer-while-held function)
 )
 
@@ -134,15 +138,15 @@
   tab  q    w    e    r    t    y    u    i    o    p
   caps a    s    d    f    g    h    j    k    l    ;     '
   lsft z    x    c    v    b    n    m    ,    .    /
-  fn        lalt      spc
+  fn        lalt lmet spc
 )
 
 (deflayer mac_base
   brdn brup mctl sls  _    _    prev pp   next mute vold  volu
   _    @q   @w   @f   @p   b    j    l    u    y    ;
   esc  @a   @r   @s   @t   @g   m    @n   @e   @i   @o    '
-  @z   x    @c   d    v    z    k    h    ,    .    /
-  @fn       _         @spc
+  @z   x    c    d    v    z    k    h    ,    .    /
+  @fn       _    @cmd @spc
 )
 
 (deflayer function
@@ -150,7 +154,7 @@
   _    _    _    _    lrld _    _    _    _    _    _   ;; fn+R reloads this config
   _    _    _    _    _    _    _    _    _    _    _     _
   _    _    _    _    _    _    _    _    _    _    _
-  fn        _         _
+  fn        _    _    _
 )
 
 ;; macOS screenshots: the rightmost column is full screen / selection / capture
@@ -160,7 +164,7 @@
   _    S-2  S-,  /    S-.  S-\  M-C-S-4 _    _    _     M-S-3
   _    S-1  S-9  S-0  -    S--  left    down up   right M-S-4 _
   S-[  [    ]    S-]  _    _    _       S-;  _    _     M-S-5
-  fn        _         _
+  fn        _    _    _
 )
 
 (deflayer num
@@ -168,16 +172,18 @@
   _    _    _    _    _    _    _    7    8    9    S-8
   _    _    _    _    _    _    =    4    5    6    -     S-=
   _    _    _    _    _    _    S-1  1    2    3    .
-  fn        _         0
+  fn        _    _    0
 )
 
-;; Cmd plus a digit, for tab and window switching, held from c.
+;; Held from left cmd, which supplies the cmd, so nothing here names it. The
+;; right hand is num's digits; physical c is cmd+shift+c, as on the Voyager.
+;; The rest of the left hand falls through to plain cmd+letter.
 (deflayer cmdnum
   _    _    _    _    _    _    _    _    _    _    _     _
-  _    _    _    _    _    _    _    M-7  M-8  M-9  M-S-8
-  _    _    _    _    _    _    M-=  M-4  M-5  M-6  M--   M-S-=
-  _    _    _    _    _    _    S-1  M-1  M-2  M-3  M-.
-  fn        _         M-0
+  _    _    _    _    _    _    _    7    8    9    S-8
+  _    _    _    _    _    _    =    4    5    6    -     S-=
+  _    _    _    S-c  _    _    _    1    2    3    .
+  fn        _    _    spc  ;; plain space, so cmd+space fires on press
 )
 
 ;; Arrow cluster sits where nav's does. The modifier comes from whichever key
@@ -188,5 +194,5 @@
   _    lctrl lalt lmet lsft _   _    pgup home _    _
   _    _    _    _    _    _    left down up   right _    _
   _    _    _    _    _    _    _    pgdn end  _    _
-  fn        _         _
+  fn        _    _    _
 )
