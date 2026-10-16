@@ -17,8 +17,8 @@ case "$APP_ID" in
   com.hnc.Discord)
     echo "Discord"
     ;;
-  company.thebrowser.Browser)
-    # Arc — order matters: specific title matches before generic
+  com.pauldavis.crest)
+    # Crest — order matters: specific title matches before generic
     if echo "$TITLE" | grep -qi "Gmail"; then
       echo "Email"
     elif echo "$TITLE" | grep -qi "Messages for web"; then

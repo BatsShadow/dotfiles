@@ -1,20 +1,13 @@
 #!/usr/bin/env bash
-# Toggle between Gmail and Messages in Arc.
-# If current window title contains "Messages", switch to Gmail, otherwise Messages.
+# Toggle the Email window between Gmail and Messages, tabs 1 and 2 of Crest's
+# Work Space. The window title is the shown tab's title, so it says which one
+# is up. The window is already on Work, so only the tab key is sent.
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TITLE=$(aerospace list-windows --focused --format '%{window-title}' 2>/dev/null)
 
 if echo "$TITLE" | grep -qi "Messages"; then
-  TAB_NAME="Gmail"
+  "$SCRIPT_DIR/crest-show-tab.sh" - 1
 else
-  TAB_NAME="Messages"
+  "$SCRIPT_DIR/crest-show-tab.sh" - 2
 fi
-
-osascript -e "
-tell application \"Arc\"
-  tell front window
-    tell first tab whose name contains \"$TAB_NAME\" and location is \"topApp\" to select
-  end tell
-  activate
-end tell
-"

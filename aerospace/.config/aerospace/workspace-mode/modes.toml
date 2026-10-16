@@ -13,23 +13,23 @@ run = "move-node-to-workspace Calendar"
 if = 'test %{app-bundle-id} = com.hnc.Discord'
 run = "move-node-to-workspace Discord"
 
-[[on-window-detected]] # Arc / Gmail
-if = 'test %{app-bundle-id} = company.thebrowser.Browser && test %{window-title} ~= Gmail'
+[[on-window-detected]] # Crest / Gmail
+if = 'test %{app-bundle-id} = com.pauldavis.crest && test %{window-title} ~= Gmail'
 run = "move-node-to-workspace Email"
 
-[[on-window-detected]] # Arc / Messages for web
-if = 'test %{app-bundle-id} = company.thebrowser.Browser && test %{window-title} ~= Messages'
+[[on-window-detected]] # Crest / Messages for web
+if = 'test %{app-bundle-id} = com.pauldavis.crest && test %{window-title} ~= Messages'
 run = "move-node-to-workspace Email"
 
-[[on-window-detected]] # Arc / YouTube
-if = 'test %{app-bundle-id} = company.thebrowser.Browser && test %{window-title} ~= YouTube'
+[[on-window-detected]] # Crest / YouTube
+if = 'test %{app-bundle-id} = com.pauldavis.crest && test %{window-title} ~= YouTube'
 run = "move-node-to-workspace YouTube"
 
-[[on-window-detected]] # Arc (generic)
-if = 'test %{app-bundle-id} = company.thebrowser.Browser'
+[[on-window-detected]] # Crest (generic)
+if = 'test %{app-bundle-id} = com.pauldavis.crest'
 run = "move-node-to-workspace Browser"
 
-[[on-window-detected]] # Safari — its own workspace (alt-comma), not grouped with Arc
+[[on-window-detected]] # Safari — its own workspace (alt-comma), not grouped with Crest
 if = 'test %{app-bundle-id} = com.apple.Safari'
 run = "move-node-to-workspace Safari"
 
@@ -174,10 +174,10 @@ alt-shift-u = [
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]
 
-alt-o = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --role Browser --workspace Browser'
+alt-o = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.pauldavis.crest --app-name Crest --role Browser --workspace Browser'
 alt-shift-o = 'exec-and-forget /Users/scott/.config/aerospace/role-claim.sh Browser'
 
-alt-l = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --role Email --workspace Email --on-focus /Users/scott/.config/aerospace/toggle-email-pin.sh'
+alt-l = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.pauldavis.crest --app-name Crest --role Email --workspace Email --on-focus /Users/scott/.config/aerospace/toggle-email-pin.sh'
 alt-shift-l = 'exec-and-forget /Users/scott/.config/aerospace/role-claim.sh Email'
 
 alt-h = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.tinyspeck.slackmacgap --app-name Slack --workspace Slack'
@@ -244,28 +244,11 @@ alt-shift-quote = [
   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh',
 ]
 
-# Arc's PRs tab in the Work space. One shell, so the tab is picked only after
-# the Browser window is in front: Arc's front window was often Email instead.
-alt-p = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --role Browser --workspace Browser; osascript /Users/scott/.config/aerospace/arc-select-named-tab.scpt Work PRs'
+# The PRs tab, tab 4 of Crest's Work Space. One shell, so the keys go only after
+# the Browser window is in front.
+alt-p = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.pauldavis.crest --app-name Crest --role Browser --workspace Browser; /Users/scott/.config/aerospace/crest-show-tab.sh 1 4'
 
-# # monkeytype (commented out — was alt-t)
-# alt-t = [
-#   'workspace Browser',
-#   'exec-and-forget /Users/scott/.config/aerospace/workspace-mode/auto-config.aerospace.sh W',
-#   '''exec-and-forget osascript -e '
-#   tell application "Arc"
-#     tell front window
-#       tell space "Work"
-#         tell first tab whose name is "monkeytype" to select
-#       end tell
-#     end tell
-#     activate
-#   end tell
-#   '
-#   ''',
-# ]
-
-alt-y = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id company.thebrowser.Browser --app-name Arc --role YouTube --workspace YouTube --on-focus "osascript /Users/scott/.config/aerospace/arc-select-tab.scpt 3 1"'
+alt-y = 'exec-and-forget /Users/scott/.config/aerospace/dispatch.sh --app-id com.pauldavis.crest --app-name Crest --role YouTube --workspace YouTube --on-focus "/Users/scott/.config/aerospace/crest-show-tab.sh 3 1"'
 alt-shift-y = 'exec-and-forget /Users/scott/.config/aerospace/role-claim.sh YouTube'
 
 # Toggle to tile mode

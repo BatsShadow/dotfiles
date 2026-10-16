@@ -2,7 +2,7 @@
 # Remembered browser windows: one window per role, keyed by AeroSpace window id.
 # Sourced by dispatch.sh, tile-mode/app.sh, restore-workspaces.sh, role-claim.sh.
 #
-# Arc's keys used to work out which window was which on every press, from the
+# The browser keys used to work out which window was which on every press, from the
 # window title and the active tab's URL. Both follow whatever page is showing,
 # so a Work window playing a video looked like the YouTube window, and tile mode
 # and restore-workspaces.sh sent it to the wrong place. A window id does not
@@ -14,7 +14,7 @@
 # Finding a role's window, in order:
 #   1. The remembered id, if that window still exists and is still this app's.
 #   2. Adopt: a window of this app already on the role's workspace that no role
-#      has claimed. Arc restores its windows with new ids when it relaunches,
+#      has claimed. The browser restores its windows with new ids when it relaunches,
 #      and on-window-detected sorts them onto workspaces by title, so adoption
 #      is what stops every relaunch from opening a second window per role. It
 #      finds nothing in tile mode, where every window sits in Tiles.
@@ -32,7 +32,7 @@ ROLE_WAIT_TRIES="${ROLE_WAIT_TRIES:-30}"   # x 0.1s for a created window to appe
 # opener has no roles. The opener takes the role name as its only argument.
 role_opener() {
   case "$1" in
-    company.thebrowser.Browser) echo "$ROLES_DIR/arc-new-window.sh" ;;
+    com.pauldavis.crest) echo "$ROLES_DIR/crest-new-window.sh" ;;
   esac
 }
 

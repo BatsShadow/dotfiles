@@ -3,7 +3,7 @@
 # that workspace's role window. Workspace mode's alt-shift-o/l/y.
 # Usage: role-claim.sh Browser|Email|YouTube
 #
-# Moving an Arc window to Email is already a statement that it is the Email
+# Moving a browser window to Email is already a statement that it is the Email
 # window, so the move key is the fix when adoption or a relaunch picked wrong.
 # The focused id is read before the move, because a separate exec-and-forget
 # would race the binding's own move and could claim whatever got focus after.

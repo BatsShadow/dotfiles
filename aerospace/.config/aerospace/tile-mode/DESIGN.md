@@ -155,15 +155,15 @@ it over. A second press while already focused runs the app's `--on-focus` action
 | Key | App | Second press |
 |-----|-----|--------------|
 | alt-U | WezTerm | — |
-| alt-O | Arc (regular browser) | — |
-| alt-L | Arc / Gmail or Messages | toggle Gmail ↔ Messages |
+| alt-O | Crest (regular browser) | — |
+| alt-L | Crest / Gmail or Messages | toggle Gmail ↔ Messages |
 | alt-H | Slack | — |
-| alt-Y | Arc / YouTube | re-select the YouTube tab |
+| alt-Y | Crest / YouTube | re-select the YouTube tab |
 | alt-C | Calendar | open calendar |
 | alt-; | Discord | — |
 | alt-Z | Zoom | — |
 
-Arc has one window per role (Browser, Email, YouTube), and app keys find it by
+Crest has one window per role (Browser, Email, YouTube), and app keys find it by
 remembered window id (`--role`, see `../window-roles.sh`), not by title. A
 title follows the page it shows, so title matching mistook a Work window playing
 a video for the YouTube window. With no window for the role, the key opens one.
@@ -287,8 +287,8 @@ this way, never via a `focus` probe (focusing changes which window is on top).
 - `tools/frames.swift`, `tools/snapshot.sh` — debug z-order/geometry snapshot.
 
 ## Known pre-existing quirks (not introduced here)
-- A non-role window's restore still relies on its title. Arc's three role
-  windows restore by role, but a fourth Arc window playing a video resolves by
+- A non-role window's restore still relies on its title. Crest's three role
+  windows restore by role, but a fourth Crest window playing a video resolves by
   the video's title.
 - `workspace-mode/auto-config.aerospace.sh` prints a harmless `--monitor is
   mandatory` error on a single monitor (empty `XDR_ID`); it recovers.

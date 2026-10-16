@@ -293,7 +293,7 @@ run: `k` Calendar, `h` Slack, `,` Safari, `.` Zoom.
 *(2026-08-20: `,` and `.` swapped — Safari took comma, Zoom took period. Safari
 is reached far more often, and comma is the easier of the two.)*
 
-Known remaining exception: **`alt-p`** (Arc's PRs tab) is left-hand (`p` is
+Known remaining exception: **`alt-p`** (the browser's PRs tab) is left-hand (`p` is
 left-ring, top row). It is an app *action* rather than an app key, so the reach
 matters less. There is no longer a spare key to move it to — see below.
 
