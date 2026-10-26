@@ -21,7 +21,7 @@
 #   3. Create: the caller opens a new window with role_create.
 #
 # File format, one line per role: role<TAB>window-id<TAB>bundle-id. Roles are
-# per app, so Arc and Crest can each have an Email window during a trial.
+# per app, so two browsers can each have an Email window.
 # Bash 3.2 safe and `set -u` safe, since tile-mode/app.sh sources this.
 
 ROLES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

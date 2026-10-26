@@ -274,9 +274,6 @@ f = [
 # Eject every external drive so the dock can be unplugged without opening Finder
 q = ['exec-and-forget /Users/scott/.config/aerospace/eject-drives.sh', 'mode main']
 
-# Swap the browser keys between Arc and Crest (switches the dotfiles branch)
-b = ['exec-and-forget /Users/scott/.config/aerospace/switch-browser.sh', 'mode main']
-
 forwardDelete = ['close-all-windows-but-current', 'mode main']
 
 # sticky is not yet supported https://github.com/nikitabobko/AeroSpace/issues/2
