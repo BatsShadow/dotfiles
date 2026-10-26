@@ -87,6 +87,13 @@ alt-shift-n = 'move down'
 alt-shift-e = 'move up'
 alt-shift-i = 'move right'
 
+# Join windows. Ctrl-alt is a+r on the home row, the move chord with ctrl in
+# place of shift; it lived in service mode until that left alt-shift-'.
+ctrl-alt-m = 'join-with left'
+ctrl-alt-n = 'join-with down'
+ctrl-alt-e = 'join-with up'
+ctrl-alt-i = 'join-with right'
+
 # Resize
 alt-shift-minus = 'resize smart -50'
 alt-shift-equal = 'resize smart +50'
@@ -278,8 +285,3 @@ forwardDelete = ['close-all-windows-but-current', 'mode main']
 
 # sticky is not yet supported https://github.com/nikitabobko/AeroSpace/issues/2
 #s = ['layout sticky tiling', 'mode main']
-
-alt-shift-m = ['join-with left', 'mode main']
-alt-shift-n = ['join-with down', 'mode main']
-alt-shift-e = ['join-with up', 'mode main']
-alt-shift-i = ['join-with right', 'mode main']
