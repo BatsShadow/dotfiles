@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
-CWD=$(pwd)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TOML_FILE="$SCRIPT_DIR/.workspace-window-modes.toml"
+source "$SCRIPT_DIR/gaps.sh"
 
 CURRENT_MONITOR=$(aerospace list-monitors --focused --format %{monitor-id})
 XDR_ID=$(aerospace list-monitors --format '%{monitor-id} %{monitor-name}' | grep -i XDR | awk '{print $1}' | head -n1)
@@ -13,86 +12,58 @@ MONITOR_COUNT=$(aerospace list-monitors --count)
 # XDR_ID empty, which breaks every `--monitor $XDR_ID` query below.
 TARGET_MONITOR="${XDR_ID:-$CURRENT_MONITOR}"
 
-# With multiple monitors, workspace mode only manages the XDR — so ignore
-# auto/no-arg invocations fired while focused on a different monitor. On a
-# single monitor there is nothing to bail out of, so this guard is skipped.
-if [ "$MONITOR_COUNT" -ge 2 ] && [ -n "$XDR_ID" ] && [ "$CURRENT_MONITOR" != "$XDR_ID" ]; then
-  # Allow the script to run on laptop monitor when 0 is pressed
-  if [[ "$1" == "" ]]; then
-    echo Current monitor is not XDR. Exiting
-    exit 0
-  fi
+# With multiple monitors, workspace mode only manages the XDR, so a switch
+# or move that lands focus on another monitor has nothing to re-gap. That
+# includes W from dispatch.sh: it used to get through, reload the config for
+# nothing, and save the XDR's mode under the other monitor's workspace. An
+# explicit mode (alt-1/2/3) still applies from any monitor, and reload.sh sets
+# AUTO_CONFIG_FORCE so a config edit reloads wherever focus is.
+if [ "$MONITOR_COUNT" -ge 2 ] && [ -n "$XDR_ID" ] && [ "$CURRENT_MONITOR" != "$XDR_ID" ] &&
+  [ -z "${AUTO_CONFIG_FORCE:-}" ] && { [ "$1" = "" ] || [ "$1" = "W" ]; }; then
+  echo Current monitor is not XDR. Exiting
+  exit 0
 fi
 
 CURRENT_WORKSPACE=$(aerospace list-workspaces --visible --monitor "$TARGET_MONITOR")
-SAVED_MODE=$(cat "$TOML_FILE" | grep "^$CURRENT_WORKSPACE = " | sed -e"s/^$CURRENT_WORKSPACE = //")
+SAVED_MODE=$(gaps_saved_mode "$CURRENT_WORKSPACE")
 
 # Tiled windows only: a floating one sits over the tiles, not in a column.
 TILED=$(aerospace list-windows --monitor "$TARGET_MONITOR" --workspace visible \
   --format '%{window-id}|%{window-parent-container-layout}' | awk -F'|' '$2 != "floating" { print $1 }')
 WINDOW_COUNT=$(echo "$TILED" | grep -c .)
-
-# The mode follows columns on screen, so a stacked group counts once. The gap
-# adjustment below still takes WINDOW_COUNT: it makes room for accordion
-# padding, which grows with every window.
-# shellcheck disable=SC2086
-COLUMN_COUNT=$("$SCRIPT_DIR/column-count.sh" $TILED)
-
 if [ "$WINDOW_COUNT" -eq 0 ]; then
   WINDOW_COUNT=1
 fi
-if [ "${COLUMN_COUNT:-0}" -eq 0 ]; then
-  COLUMN_COUNT=1
-fi
-echo WINDOW_COUNT: $WINDOW_COUNT COLUMN_COUNT: $COLUMN_COUNT
-WINDOW_CHOICE_DESIRED=${1:-$COLUMN_COUNT}
 
-if [ "$WINDOW_CHOICE_DESIRED" == "W" ]; then
-  # Use saved mode if it exists
-  if [ "$SAVED_MODE" != "" ]; then
-    echo Restoring mode $SAVED_MODE
-    WINDOW_CHOICE_DESIRED=$SAVED_MODE
-  else
-    echo Defaulting to $COLUMN_COUNT columns
-    WINDOW_CHOICE_DESIRED=$COLUMN_COUNT
-  fi
+WINDOW_CHOICE_DESIRED=$1
+if [ "$WINDOW_CHOICE_DESIRED" == "W" ] && [ "$SAVED_MODE" != "" ]; then
+  echo Restoring mode $SAVED_MODE
+  WINDOW_CHOICE_DESIRED=$SAVED_MODE
 fi
 
-GAP_ADJUSTMENT=$((30 / 2 * (WINDOW_COUNT - 1)))
-
-GAPS="n-windows.gaps.toml"
-LAYOUT=tiles
-
-if [ "$WINDOW_CHOICE_DESIRED" -eq 1 ]; then
-  echo Desired mode 1
-  GAPS="one-window.gaps.toml"
-  LAYOUT=accordion
-elif [ "$WINDOW_CHOICE_DESIRED" -eq 2 ]; then
-  echo Desired mode 2
-  GAPS="two-windows.gaps.toml"
-else
-  echo Desired mode 3
+# The mode follows columns on screen, so a stacked group counts once. Counted
+# only when no mode is given or saved: reading frames costs ~100ms, and
+# almost every workspace has a saved mode. The gap adjustment below still
+# takes WINDOW_COUNT: it makes room for accordion padding, which grows with
+# every window.
+if [ "$WINDOW_CHOICE_DESIRED" = "" ] || [ "$WINDOW_CHOICE_DESIRED" = "W" ]; then
+  # shellcheck disable=SC2086
+  COLUMN_COUNT=$("$SCRIPT_DIR/column-count.sh" $TILED)
+  [ "${COLUMN_COUNT:-0}" -gt 0 ] || COLUMN_COUNT=1
+  echo Defaulting to $COLUMN_COUNT columns
+  WINDOW_CHOICE_DESIRED=$COLUMN_COUNT
 fi
 
-cd "$SCRIPT_DIR" || false
+echo Desired mode $WINDOW_CHOICE_DESIRED
 
-# write config file, then reload it
-
-# write to a temp file, then move it to avoid issues
-# with aerospace reading a partial file
-TEMP_CONFIG=$(mktemp -t aerospace-config)
-cat globals.toml >"${TEMP_CONFIG}"
-# // offset gaps for tiled windows
-cat "$GAPS" | perl -pe"s/850/$((850 - $GAP_ADJUSTMENT))/" >>"${TEMP_CONFIG}"
-cat modes.toml >>"${TEMP_CONFIG}"
-cp $TEMP_CONFIG ../aerospace.toml
-
-aerospace reload-config
+# Most switches land on the mode already loaded. A reload re-lays out every
+# window on both screens, so skip it when nothing would change.
+if gaps_install "$WINDOW_CHOICE_DESIRED" "$WINDOW_COUNT" || [ -n "${AUTO_CONFIG_FORCE:-}" ]; then
+  aerospace reload-config
+fi
 
 # save mode for later
 . "$SCRIPT_DIR/save-window-mode.sh"
 
 # Persist current mode
 echo "workspace" > "$SCRIPT_DIR/../.current-mode"
-
-cd "$CWD" || false

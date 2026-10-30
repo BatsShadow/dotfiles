@@ -6,7 +6,8 @@
 #   3. If no windows on the target workspace → launch app, then switch
 #      (unless --no-launch: switch to the empty workspace without launching, or
 #      the app already has a window on some other workspace: switch and say so)
-#   4. Otherwise → switch to workspace and auto-config gaps
+#   4. Otherwise → switch to workspace, its saved gaps loaded in the same
+#      step (workspace-mode/gaps.sh), or auto-config after if it has none
 #
 # With --role (browser windows, see window-roles.sh):
 #   1. Find the role's window: remembered, else adopted from the workspace
@@ -35,6 +36,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/window-roles.sh"
 source "$SCRIPT_DIR/focus-guard.sh"
+source "$SCRIPT_DIR/workspace-mode/gaps.sh"
 
 APP_ID=""
 APP_NAME=""
@@ -144,7 +146,16 @@ if [ -z "$ROLE" ] && [ "${WS_WINDOW_COUNT:-0}" -eq 0 ] && [ "$NO_LAUNCH" -eq 0 ]
 fi
 
 focus_guard_claim
-aerospace workspace "$TARGET_WS"
+
+# Gaps first, then the switch, so the workspace is drawn once at its own
+# gaps rather than at the old ones and then resized (see gaps.sh).
+gaps_prepare "$TARGET_WS"
+PREPARED=$?
+if [ "$PREPARED" -eq 0 ] && [ "$GAPS_RELOAD" = 1 ]; then
+  aerospace eval "reload-config; workspace $TARGET_WS"
+else
+  aerospace workspace "$TARGET_WS"
+fi
 
 # The window AeroSpace brought back. Read it now: Crest's theft lands about
 # 450ms later, and in 6 runs of 6 this read came first. If it already landed,
@@ -154,5 +165,6 @@ WANT=$(aerospace list-windows --focused --format '%{window-id}|%{workspace}' 2>/
 [ -n "$CREATED" ] && WANT=$CREATED
 [ -n "$WANT" ] || WANT=$ROLE_WINDOW
 
-"$SCRIPT_DIR/workspace-mode/auto-config.aerospace.sh" W
+# No saved mode to apply ahead: count its columns now that it shows.
+[ "$PREPARED" -eq 1 ] && "$SCRIPT_DIR/workspace-mode/auto-config.aerospace.sh" W
 focus_guard "$WANT"
