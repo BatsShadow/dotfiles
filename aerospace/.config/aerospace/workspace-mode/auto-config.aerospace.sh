@@ -27,15 +27,25 @@ fi
 CURRENT_WORKSPACE=$(aerospace list-workspaces --visible --monitor "$TARGET_MONITOR")
 SAVED_MODE=$(cat "$TOML_FILE" | grep "^$CURRENT_WORKSPACE = " | sed -e"s/^$CURRENT_WORKSPACE = //")
 
-# Exclude floating windows from the count
-WINDOW_COUNT=$(aerospace list-windows --monitor "$TARGET_MONITOR" --workspace visible \
-  --format '%{window-parent-container-layout}' | grep -cv '^floating$')
+# Tiled windows only: a floating one sits over the tiles, not in a column.
+TILED=$(aerospace list-windows --monitor "$TARGET_MONITOR" --workspace visible \
+  --format '%{window-id}|%{window-parent-container-layout}' | awk -F'|' '$2 != "floating" { print $1 }')
+WINDOW_COUNT=$(echo "$TILED" | grep -c .)
+
+# The mode follows columns on screen, so a stacked group counts once. The gap
+# adjustment below still takes WINDOW_COUNT: it makes room for accordion
+# padding, which grows with every window.
+# shellcheck disable=SC2086
+COLUMN_COUNT=$("$SCRIPT_DIR/column-count.sh" $TILED)
 
 if [ "$WINDOW_COUNT" -eq 0 ]; then
   WINDOW_COUNT=1
 fi
-echo WINDOW_COUNT: $WINDOW_COUNT
-WINDOW_CHOICE_DESIRED=${1:-$WINDOW_COUNT}
+if [ "${COLUMN_COUNT:-0}" -eq 0 ]; then
+  COLUMN_COUNT=1
+fi
+echo WINDOW_COUNT: $WINDOW_COUNT COLUMN_COUNT: $COLUMN_COUNT
+WINDOW_CHOICE_DESIRED=${1:-$COLUMN_COUNT}
 
 if [ "$WINDOW_CHOICE_DESIRED" == "W" ]; then
   # Use saved mode if it exists
@@ -43,8 +53,8 @@ if [ "$WINDOW_CHOICE_DESIRED" == "W" ]; then
     echo Restoring mode $SAVED_MODE
     WINDOW_CHOICE_DESIRED=$SAVED_MODE
   else
-    echo Defaulting to $WINDOW_COUNT windows
-    WINDOW_CHOICE_DESIRED=$WINDOW_COUNT
+    echo Defaulting to $COLUMN_COUNT columns
+    WINDOW_CHOICE_DESIRED=$COLUMN_COUNT
   fi
 fi
 
