@@ -1,4 +1,3 @@
-
 # User configuration
 
 # export MANPATH="/usr/local/man:$MANPATH"
@@ -93,7 +92,7 @@ alias dev-order-snapshot="cdupngo && cd tools/pull-json-api-order && DB_ENV=dev 
 alias export-creds='~/src/upngo/upngo-web/tools/export-creds.sh'
 alias clean-release-branches="git br | rg '(beta|prod)-release' | xargs git br -d"
 
-alias voyager-flash='zapp flash https://configure.zsa.io/voyager/layouts/MRxjr/latest/0'
+alias voyager-flash='zapp flash https://configure.zsa.io/voyager/layouts/nvNOx/latest/0'
 alias local-login='http --verify=no -b POST https://my.local.upngo.com/api/v1/debug/magic-link email=swebber@upngopay.com | jq -r .url | xargs open'
 
 # Recover when Finder shows "application is not open anymore" and apps won't launch.
