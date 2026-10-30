@@ -14,7 +14,13 @@
 #      new window, remember it and move it to the workspace
 #   3. Already focused on it → run --on-focus action
 #   4. It was moved to another workspace → say where, switch anyway
-#   5. Otherwise → switch to the workspace and focus that window
+#   5. Already on the workspace → focus the role's window
+#   6. Otherwise → switch to the workspace, like a key without a role
+#
+# A switch is sticky: it lands on the window last focused there, which
+# AeroSpace remembers per workspace. Only a window created just now is
+# focused instead. focus-guard.sh holds that window against Crest raising
+# its own last window on activation.
 #
 # Options:
 #   --app-id <id>         Bundle ID to match (required)
@@ -28,6 +34,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/window-roles.sh"
+source "$SCRIPT_DIR/focus-guard.sh"
 
 APP_ID=""
 APP_NAME=""
@@ -56,6 +63,7 @@ CURRENT_WS=$(aerospace list-workspaces --focused 2>/dev/null)
 WS_WINDOW_COUNT=$(aerospace list-windows --workspace "$TARGET_WS" --format '%{window-id}' 2>/dev/null | grep -c .)
 
 ROLE_WINDOW=""
+CREATED=""
 if [ -n "$ROLE" ]; then
   ROLE_WINDOW=$(role_find "$ROLE" "$APP_ID")
   if [ -z "$ROLE_WINDOW" ] && role_launch "$APP_ID"; then
@@ -65,6 +73,7 @@ if [ -n "$ROLE" ]; then
     echo "No $ROLE window for $APP_NAME, opening one..."
     ROLE_WINDOW=$(role_create "$ROLE" "$APP_ID")
     [ -n "$ROLE_WINDOW" ] && aerospace move-node-to-workspace --window-id "$ROLE_WINDOW" "$TARGET_WS"
+    CREATED=$ROLE_WINDOW
   elif [ "$ROLE_WINDOW" = "$(aerospace list-windows --focused --format '%{window-id}' 2>/dev/null)" ]; then
     if [ -n "$ON_FOCUS" ]; then
       echo "Already on the $ROLE window, running on-focus action..."
@@ -82,6 +91,13 @@ if [ -n "$ROLE" ]; then
     MSG="$APP_NAME's $ROLE window is on the $ROLE_WS space"
     osascript -e "display notification \"${MSG//\"/\\\"}\" with title \"AeroSpace\"" &
     ROLE_WINDOW=""
+  fi
+
+  # A second press, once the workspace is up: go to the role's window.
+  if [ "$CURRENT_WS" = "$TARGET_WS" ]; then
+    focus_guard_claim
+    focus_guard "$ROLE_WINDOW"
+    exit 0
   fi
 fi
 
@@ -127,54 +143,16 @@ if [ -z "$ROLE" ] && [ "${WS_WINDOW_COUNT:-0}" -eq 0 ] && [ "$NO_LAUNCH" -eq 0 ]
   fi
 fi
 
-# Cross-monitor displacement protection: when switching to a workspace
-# on another monitor, Arc activation can raise its last-focused window
-# (e.g. Gmail) on the original monitor. Save/restore only when the
-# target workspace is on a different monitor than we're currently on.
-FOCUSED_MONITOR=$(aerospace list-monitors --focused --format '%{monitor-id}' 2>/dev/null)
-XDR_ID=$(aerospace list-monitors | grep XDR | awk '{print $1}')
-SAVED_XDR_WS=""
-CROSS_MONITOR=false
-
-# Determine if this is a cross-monitor switch
-if [ -n "$XDR_ID" ]; then
-  TARGET_MONITOR=$(aerospace list-windows --workspace "$TARGET_WS" --format '%{monitor-id}' 2>/dev/null | head -n 1)
-  if [ -n "$TARGET_MONITOR" ] && [ "$TARGET_MONITOR" != "$FOCUSED_MONITOR" ]; then
-    CROSS_MONITOR=true
-    SAVED_XDR_WS=$(aerospace list-workspaces --visible --monitor "$XDR_ID" 2>/dev/null)
-  fi
-fi
-
-# Check if target workspace is already visible on a monitor
-TARGET_WAS_VISIBLE=$(aerospace list-workspaces --visible --all 2>/dev/null | grep -c "^${TARGET_WS}$")
-
+focus_guard_claim
 aerospace workspace "$TARGET_WS"
 
-# Only explicitly focus a window when the workspace wasn't already visible.
-# Needed to prevent Arc from focusing the wrong window when bringing a
-# workspace from invisible to visible. A role names its window, so focus it.
-if [ -n "$ROLE_WINDOW" ]; then
-  aerospace focus --window-id "$ROLE_WINDOW"
-elif [ "${TARGET_WAS_VISIBLE:-0}" -eq 0 ]; then
-  TARGET_WINDOW=$(aerospace list-windows --workspace "$TARGET_WS" --format '%{window-id}' 2>/dev/null | head -n 1)
-  if [ -n "$TARGET_WINDOW" ]; then
-    aerospace focus --window-id "$TARGET_WINDOW"
-  fi
-fi
-
-# Restore XDR workspace if displaced by Arc activation during cross-monitor switch.
-# After the switch, Arc's last-focused is now the target (not Gmail),
-# so the re-focus back to target won't displace XDR again.
-if [ "$CROSS_MONITOR" = true ] && [ -n "$SAVED_XDR_WS" ] && [ "$SAVED_XDR_WS" != "$TARGET_WS" ]; then
-  sleep 0.1
-  CURRENT_XDR_WS=$(aerospace list-workspaces --visible --monitor "$XDR_ID" 2>/dev/null)
-  if [ "$CURRENT_XDR_WS" != "$SAVED_XDR_WS" ]; then
-    XDR_WINDOW=$(aerospace list-windows --workspace "$SAVED_XDR_WS" --format '%{window-id}' 2>/dev/null | head -n 1)
-    if [ -n "$XDR_WINDOW" ]; then
-      aerospace focus --window-id "$XDR_WINDOW"
-      aerospace workspace "$TARGET_WS"
-    fi
-  fi
-fi
+# The window AeroSpace brought back. Read it now: Crest's theft lands about
+# 450ms later, and in 6 runs of 6 this read came first. If it already landed,
+# the focus is off this workspace and the role's window stands in.
+WANT=$(aerospace list-windows --focused --format '%{window-id}|%{workspace}' 2>/dev/null |
+  awk -F'|' -v ws="$TARGET_WS" '$2 == ws { print $1 }')
+[ -n "$CREATED" ] && WANT=$CREATED
+[ -n "$WANT" ] || WANT=$ROLE_WINDOW
 
 "$SCRIPT_DIR/workspace-mode/auto-config.aerospace.sh" W
+focus_guard "$WANT"
