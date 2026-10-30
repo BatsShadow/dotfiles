@@ -92,7 +92,8 @@ alias dev-order-snapshot="cdupngo && cd tools/pull-json-api-order && DB_ENV=dev 
 alias export-creds='~/src/upngo/upngo-web/tools/export-creds.sh'
 alias clean-release-branches="git br | rg '(beta|prod)-release' | xargs git br -d"
 
-alias voyager-flash='zapp flash https://configure.zsa.io/voyager/layouts/nvNOx/latest/0'
+# Layout id is read on each run, so switching layouts needs no reload.
+alias voyager-flash='zapp flash "https://configure.zsa.io/voyager/layouts/$(cat ~/dotfiles/zsh/voyager-layout)/latest/0"'
 alias local-login='http --verify=no -b POST https://my.local.upngo.com/api/v1/debug/magic-link email=swebber@upngopay.com | jq -r .url | xargs open'
 
 # Recover when Finder shows "application is not open anymore" and apps won't launch.
