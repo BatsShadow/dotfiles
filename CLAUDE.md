@@ -46,8 +46,8 @@ checked. Don't copy those explanations into this file.
 
 ## Tests
 
-`tmux/.config/tmux/tests/`, `claude/.claude/hooks/tests/` and
-`aerospace/.config/aerospace/tests/`. Each file is a standalone executable you
+`tmux/.config/tmux/tests/`, `claude/.claude/hooks/tests/`,
+`aerospace/.config/aerospace/tests/` and `launchwatch/.config/launchwatch/tests/`. Each file is a standalone executable you
 run directly. The tmux tests drive a real tmux server on a throwaway socket,
 because the design rests on facts about tmux that a stub would assert into
 existence. Any shell script with a real decision in it gets a

@@ -282,7 +282,9 @@ if [ -z "$TMUX_POWERLINE_RIGHT_STATUS_SEGMENTS" ]; then
     "claude_sessions $claude_slug_bg $claude_slug_fg"
     "srcsync $srcsync_slug_bg $srcsync_slug_fg"
     "tmux_session_info $flamingo $thm_bg"
-    "now_playing $spotify_green $spotify_black"
+    # Off: its osascript per client per second wrapped LaunchServices' app
+    # serial counter in about a week, and new apps stopped registering.
+    #"now_playing $spotify_green $spotify_black"
     #"cpu 240 136"
     #"load 237 167"
     #"tmux_mem_cpu_load 234 136"

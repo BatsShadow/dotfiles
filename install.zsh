@@ -71,5 +71,8 @@ command -v rustup &>/dev/null && rustup component add rust-analyzer
 # question produces no more turns. Catch up the ones already stuck.
 ~/.claude/hooks/claude-waiting-backfill.sh
 
+# Hourly check for macOS running out of app serial numbers; see launchwatch.sh.
+~/.config/launchwatch/launchd/install.sh
+
 # Generate initial aerospace.toml (tile mode as default)
 ~/.config/aerospace/tile-mode/auto-config.aerospace.sh 2>/dev/null || true
