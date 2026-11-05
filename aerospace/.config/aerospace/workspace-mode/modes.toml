@@ -55,6 +55,10 @@ run = "move-node-to-workspace Poker"
 if = 'test %{app-bundle-id} = com.mongodb.compass'
 run = "move-node-to-workspace Compass"
 
+[[on-window-detected]] # Fusion stalls on resizes and moves while it computes
+if = 'test %{app-bundle-id} = com.autodesk.fusion360'
+run = "layout floating"
+
 [[on-window-detected]]
 if = 'test %{app-bundle-id} = com.brnbw.Tuna'
 run = "layout floating"

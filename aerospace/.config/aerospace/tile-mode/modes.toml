@@ -1,4 +1,8 @@
 # v2 syntax: `if = 'test %{...}'` (dot-notation `if.app-id` is soft-deprecated).
+[[on-window-detected]] # Fusion stalls on resizes and moves while it computes
+if = 'test %{app-bundle-id} = com.autodesk.fusion360'
+run = "layout floating"
+
 [[on-window-detected]]
 if = 'test %{app-bundle-id} = com.brnbw.Tuna'
 run = "layout floating"
