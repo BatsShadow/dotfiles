@@ -58,7 +58,7 @@ alt-o = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-i
 alt-l = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.pauldavis.crest --app-name Crest --role Email --on-focus /Users/scott/.config/aerospace/toggle-email-pin.sh'
 alt-h = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.tinyspeck.slackmacgap --app-name Slack'
 alt-semicolon = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.hnc.Discord --app-name Discord'
-alt-y = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.pauldavis.crest --app-name Crest --role YouTube --on-focus "/Users/scott/.config/aerospace/crest-show-tab.sh 3 1"'
+alt-y = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.pauldavis.crest --app-name Crest --role YouTube --on-focus "/Users/scott/.config/aerospace/crest-show-tab.sh 3 4"'
 alt-k = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.apple.iCal --app-name Calendar --on-focus /Users/scott/.config/aerospace/open-calendar.sh'
 alt-comma = 'exec-and-forget /Users/scott/.config/aerospace/tile-mode/app.sh --app-id com.apple.Safari --app-name Safari'
 # --no-launch: the Zoom key never starts Zoom. With no Zoom window there is
