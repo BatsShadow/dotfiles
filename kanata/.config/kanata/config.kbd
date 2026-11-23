@@ -130,7 +130,11 @@
   ;; Nothing is tapped, so it switches on press with no tapping term to wait out.
   cmd (multi lmet (layer-while-held cmdnum))
 
-  fn (layer-while-held function)
+  ;; Tapped alone, fn types `. Pressing any other key while fn is down switches
+  ;; to the function layer on that press, so every fn+key combo fires the way it
+  ;; did when fn was a plain layer key. Prior idle is off so fn pressed straight
+  ;; after typing still reaches the layer instead of resolving to `.
+  fn (tap-hold-press 0 $tapping-term grv (layer-while-held function) (require-prior-idle 0))
 )
 
 (defsrc
